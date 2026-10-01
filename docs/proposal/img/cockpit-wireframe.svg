@@ -1,0 +1,257 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" font-family="Georgia, 'Times New Roman', serif">
+  <defs>
+    <style>
+      .panel { fill:#1b1f24; stroke:#b08d57; stroke-width:3; }
+      .screen { fill:#0c1a14; stroke:#3c5a4a; stroke-width:2; }
+      .screen-amber { fill:#1a120a; stroke:#6b4a24; stroke-width:2; }
+      .screen-blue { fill:#0b1424; stroke:#2f4a73; stroke-width:2; }
+      .paper { fill:#d9cfb6; stroke:#7a6a4a; stroke-width:2; }
+      .iron { fill:#2a2a2e; stroke:#5a5a62; stroke-width:2; }
+      .title { fill:#e8d7a8; font-size:22px; font-weight:bold; letter-spacing:1px; }
+      .label { fill:#cdbf98; font-size:16px; }
+      .small { fill:#9fb3a6; font-size:13px; }
+      .num { fill:#ffb347; font-size:18px; font-family:'Courier New', monospace; }
+      .phos { fill:none; stroke:#5cff9d; stroke-width:2; }
+      .phos-dim { fill:none; stroke:#2f8a55; stroke-width:1.5; }
+      .tag { fill:#7a2a1a; stroke:#d9a066; stroke-width:1.5; }
+      .tagtext { fill:#f3e0c0; font-size:14px; font-weight:bold; }
+      .knob { fill:#3b2f22; stroke:#d4b27a; stroke-width:2; }
+      .lamp-g { fill:#4cff7a; } .lamp-r { fill:#ff4b3a; } .lamp-a { fill:#ffb03a; } .lamp-w { fill:#f4f1e6; } .lamp-off { fill:#3a3a3a; }
+      .chart { fill:#20323a; stroke:#b08d57; stroke-width:4; }
+      .chartline { fill:none; stroke:#7fa3a6; stroke-width:1; opacity:.5; }
+      .current { fill:none; stroke:#6fd0ff; stroke-width:2.5; marker-end:url(#arr); }
+      .deepcur { fill:none; stroke:#7a6cff; stroke-width:2.5; stroke-dasharray:6 4; marker-end:url(#arr2); }
+    </style>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6fd0ff"/></marker>
+    <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7a6cff"/></marker>
+  </defs>
+
+  <!-- background room -->
+  <rect x="0" y="0" width="1920" height="1080" fill="#0d0f12"/>
+
+  <!-- TOP STRIP: viewport, clock, ticker -->
+  <rect class="iron" x="0" y="0" width="1920" height="64"/>
+  <rect class="screen-blue" x="12" y="8" width="420" height="48"/>
+  <text class="label" x="22" y="38">FROSTED VIEWPORT · wipers · shutters</text>
+  <rect class="screen-amber" x="448" y="8" width="230" height="48"/>
+  <text class="num" x="460" y="39">WATCH 07:14 · BELL 3</text>
+  <rect class="screen-amber" x="694" y="8" width="1010" height="48"/>
+  <text class="num" x="706" y="39">IMP'S WIT ▸ WHY DID THE IMP QUIT THE PERCOLATOR? IT COULDN'T HANDLE THE PRESSURE ▸</text>
+  <rect class="panel" x="1720" y="8" width="190" height="48"/>
+  <text class="label" x="1730" y="38">MAIN · ENG · GALLEY</text>
+
+  <!-- LEFT COLUMN -->
+  <!-- Watch Post camera -->
+  <rect class="panel" x="12" y="76" width="420" height="356"/>
+  <text class="title" x="26" y="104">① WATCH POSTS</text>
+  <rect class="screen" x="26" y="114" width="300" height="220"/>
+  <text class="small" x="36" y="134">SALTGRAVE · grain · snow</text>
+  <path d="M60,280 L120,230 L190,240 L250,215 L300,262 L300,300 L60,300 Z" fill="#2c3f38" stroke="#8fd6b0" stroke-width="1.5"/>
+  <text class="small" x="36" y="324">[pan] [tilt] [zoom] [focus]</text>
+  <g>
+    <rect class="tag" x="338" y="114" width="84" height="26"/><text class="tagtext" x="346" y="132">SALTGRV</text>
+    <rect class="iron" x="338" y="146" width="84" height="26"/><text class="small" x="346" y="164">GALLOWMR</text>
+    <rect class="iron" x="338" y="178" width="84" height="26"/><text class="small" x="346" y="196">BRINE</text>
+    <rect class="iron" x="338" y="210" width="84" height="26"/><text class="small" x="346" y="228">HOOKSPUR</text>
+  </g>
+  <text class="label" x="338" y="262">HEAT</text>
+  <rect x="340" y="268" width="22" height="70" fill="#222" stroke="#888"/>
+  <rect x="340" y="298" width="22" height="40" fill="#ff8a3a"/>
+  <rect x="372" y="268" width="50" height="22" class="iron"/><text class="small" x="376" y="284">VENT</text>
+  <rect x="372" y="296" width="50" height="22" class="iron"/><text class="small" x="376" y="312">WIPE</text>
+  <rect x="372" y="322" width="50" height="22" class="iron"/><text class="small" x="376" y="338">FILTR</text>
+  <!-- rangefinder drum -->
+  <rect class="paper" x="26" y="346" width="300" height="76"/>
+  <text x="34" y="366" style="fill:#3a2a10;font-size:16px">RANGEFINDER DRUM (Expert A)</text>
+  <rect x="40" y="374" width="56" height="40" fill="#5a4a30"/><text x="54" y="402" font-size="24" fill="#f3e0c0">ᛃ</text>
+  <rect x="104" y="374" width="56" height="40" fill="#5a4a30"/><text x="118" y="402" font-size="24" fill="#f3e0c0">⍋</text>
+  <rect x="168" y="374" width="56" height="40" fill="#5a4a30"/><text x="182" y="402" font-size="24" fill="#f3e0c0">@</text>
+  <circle class="lamp-a" cx="248" cy="394" r="10"/>
+  <rect class="tag" x="268" y="378" width="52" height="30"/><text class="tagtext" x="274" y="398">MARK</text>
+  <circle class="knob" cx="390" cy="384" r="26"/><text class="small" x="372" y="424">bearing</text>
+
+  <!-- Weather Orrery -->
+  <rect class="panel" x="12" y="444" width="420" height="262"/>
+  <text class="title" x="26" y="472">② WEATHER ORRERY</text>
+  <circle cx="140" cy="584" r="96" fill="#101820" stroke="#b08d57" stroke-width="2"/>
+  <circle cx="110" cy="560" r="34" fill="#5a6b8a" opacity=".6"/>
+  <circle cx="170" cy="620" r="22" fill="#5a6b8a" opacity=".45"/>
+  <path d="M140,584 L200,540" stroke="#e8d7a8" stroke-width="4"/>
+  <text class="small" x="70" y="698">storm cells · wind vane · front clock</text>
+  <rect class="screen-amber" x="256" y="490" width="164" height="60"/>
+  <text class="num" x="266" y="516">WIND 248°</text><text class="num" x="266" y="540">  42 lg/h</text>
+  <text class="label" x="256" y="576">FROST</text>
+  <rect x="256" y="584" width="164" height="16" fill="#222" stroke="#888"/><rect x="256" y="584" width="70" height="16" fill="#9ad0ff"/>
+  <text class="label" x="256" y="626">VISIBILITY</text>
+  <rect x="256" y="634" width="164" height="16" fill="#222" stroke="#888"/><rect x="256" y="634" width="52" height="16" fill="#e8d7a8"/>
+  <text class="small" x="256" y="676">sampled 06:58 · age 0:16</text>
+
+  <!-- Tide Loom -->
+  <rect class="panel" x="12" y="718" width="420" height="214"/>
+  <text class="title" x="26" y="746">③ TIDE LOOM</text>
+  <rect class="screen-blue" x="26" y="756" width="270" height="164"/>
+  <path class="current" d="M50,800 L95,790"/><path class="current" d="M120,820 L165,805"/><path class="current" d="M200,790 L245,770"/>
+  <path class="deepcur" d="M60,870 L90,880"/><path class="deepcur" d="M140,880 L172,892"/><path class="deepcur" d="M220,870 L255,878"/>
+  <text class="small" x="36" y="912">surface ▲ cyan · deep ▼ indigo</text>
+  <text class="label" x="306" y="776">BUOY LINES</text>
+  <rect class="iron" x="306" y="786" width="116" height="30"/><text class="small" x="314" y="806">NE ▼ deep 15s</text>
+  <rect class="iron" x="306" y="822" width="116" height="30"/><text class="small" x="314" y="842">W  ▲ surface</text>
+  <rect class="iron" x="306" y="858" width="116" height="30"/><text class="small" x="314" y="878">SE ✕ lost</text>
+  <circle class="knob" cx="364" cy="910" r="14"/>
+
+  <!-- CENTER: Great Chart Table -->
+  <rect class="chart" x="444" y="76" width="888" height="620"/>
+  <text class="title" x="460" y="104">④ GREAT CHART TABLE (pan · zoom · pins · pencil)</text>
+  <g>
+    <path class="chartline" d="M444,200 H1332 M444,320 H1332 M444,440 H1332 M444,560 H1332 M600,76 V696 M760,76 V696 M920,76 V696 M1080,76 V696 M1240,76 V696"/>
+    <!-- coastline / observatory -->
+    <path d="M444,660 C560,640 700,680 820,650 C920,630 1060,672 1332,640 L1332,696 L444,696 Z" fill="#3a3326" stroke="#b08d57"/>
+    <polygon points="880,646 892,624 904,646" fill="#ffb347"/><text class="small" x="840" y="678">THE LAST WATCH</text>
+    <!-- Tomb -->
+    <circle cx="520" cy="560" r="12" fill="#bfe8ff" stroke="#fff"/><text class="label" x="538" y="566">TOMB OF LEVISTUS</text>
+    <circle cx="520" cy="560" r="300" fill="none" stroke="#bfe8ff" stroke-dasharray="3 8" opacity=".35"/>
+    <!-- sweep overlay -->
+    <path d="M892,640 L1250,180 A580,580 0 0,1 1320,330 Z" fill="#4cff9a" opacity=".07"/>
+    <!-- fading sonar marks / trail -->
+    <circle cx="1120" cy="250" r="9" fill="#5cff9d" opacity=".25"/>
+    <circle cx="1105" cy="262" r="9" fill="#5cff9d" opacity=".45"/>
+    <circle cx="1090" cy="276" r="11" fill="#5cff9d" opacity=".85"/>
+    <text class="small" x="1104" y="300">S 07:14 · D 07:23</text>
+    <!-- camera fan -->
+    <path d="M700,520 L1110,250 L1080,232 Z" fill="#ffb347" opacity=".18" stroke="#ffb347"/>
+    <!-- reckoner ghost -->
+    <circle cx="1060" cy="300" r="34" fill="none" stroke="#f4f1e6" stroke-dasharray="5 4"/>
+    <circle cx="1060" cy="300" r="6" fill="#f4f1e6"/>
+    <text class="small" x="1000" y="352">RECKONED NOW ±34</text>
+    <!-- pins -->
+    <circle cx="1090" cy="276" r="5" fill="#d4b27a"/><text class="tagtext" x="1074" y="270">7</text>
+    <circle cx="640" cy="300" r="5" fill="#d4b27a"/><text class="tagtext" x="650" y="296">4 · CONVOY (H M)</text>
+    <circle cx="760" cy="410" r="5" fill="#d4b27a"/><text class="tagtext" x="770" y="406">2 · BEACON ◆</text>
+    <!-- snapshot slip -->
+    <rect class="paper" x="1180" y="420" width="130" height="90" transform="rotate(4 1245 465)"/>
+    <text x="1192" y="446" font-size="12" fill="#3a2a10" transform="rotate(4 1245 465)">SNAP · GALLOWMR 08:44</text>
+    <!-- buoys -->
+    <rect x="1000" y="380" width="12" height="12" fill="#ff4b3a"/><text class="small" x="1016" y="392">BUOY NE</text>
+    <rect x="600" y="460" width="12" height="12" fill="#4cff7a"/><text class="small" x="616" y="472">BUOY W</text>
+    <!-- leviathan smear -->
+    <path d="M940,420 q30,-10 60,0" stroke="#ff7a7a" stroke-width="5" fill="none" opacity=".5"/>
+    <text class="small" x="900" y="440">hearkener bearing (no range)</text>
+  </g>
+
+  <!-- Reckoner -->
+  <rect class="panel" x="444" y="708" width="430" height="224"/>
+  <text class="title" x="458" y="736">⑤ RECKONER</text>
+  <rect class="paper" x="458" y="748" width="120" height="74"/><text x="466" y="768" font-size="13" fill="#3a2a10">TRACK 7</text><text x="466" y="786" font-size="12" fill="#3a2a10">fix 07:14 sonar</text><text x="466" y="802" font-size="12" fill="#3a2a10">fix 08:44 cam</text>
+  <rect class="paper" x="586" y="748" width="120" height="74" opacity=".6"/><text x="594" y="768" font-size="13" fill="#3a2a10">TRACK 4</text>
+  <rect class="screen-amber" x="458" y="832" width="250" height="88"/>
+  <text class="num" x="468" y="858">VEL 0.61 mi/s 104°</text><text class="num" x="468" y="882">RING ±34 mi</text><text class="num" x="468" y="906">ENV AGE 0:48</text>
+  <text class="label" x="722" y="770">DRAFT CLASS</text>
+  <circle class="knob" cx="790" cy="820" r="40"/><text class="small" x="742" y="882">floe·berg·glacier·colossus</text>
+  <circle class="lamp-a" cx="736" cy="906" r="9"/><text class="small" x="752" y="911">DEEP?</text>
+  <circle class="lamp-g" cx="816" cy="906" r="9"/><text class="small" x="832" y="911">SLAVE</text>
+
+  <!-- Lodestar Lens -->
+  <rect class="panel" x="886" y="708" width="446" height="224"/>
+  <text class="title" x="900" y="736">⑥ LODESTAR LENS (deep imager)</text>
+  <circle cx="972" cy="830" r="64" fill="#101010" stroke="#d4b27a" stroke-width="3"/>
+  <path d="M922,830 A50,50 0 0,1 1022,830" stroke="#4cff7a" stroke-width="6" fill="none"/>
+  <line x1="972" y1="830" x2="1004" y2="790" stroke="#f4f1e6" stroke-width="4"/>
+  <text class="small" x="932" y="910">ALIGN 0.86</text>
+  <g>
+    <rect x="1060" y="752" width="40" height="150" fill="#222" stroke="#888"/><rect x="1060" y="822" width="40" height="80" fill="#6fd0ff"/><text class="small" x="1064" y="920">H</text>
+    <rect x="1112" y="752" width="40" height="150" fill="#222" stroke="#888"/><rect x="1112" y="852" width="40" height="50" fill="#d4b27a"/><text class="small" x="1116" y="920">M</text>
+    <rect x="1164" y="752" width="40" height="150" fill="#222" stroke="#888"/><rect x="1164" y="872" width="40" height="30" fill="#e070ff"/><text class="small" x="1166" y="920">C</text>
+  </g>
+  <circle class="knob" cx="1250" cy="780" r="26"/><text class="small" x="1226" y="822">trim az</text>
+  <circle class="knob" cx="1250" cy="860" r="26"/><text class="small" x="1226" y="902">trim rng</text>
+  <rect class="tag" x="1296" y="752" width="28" height="150"/><text class="tagtext" x="1302" y="830" transform="rotate(-90 1310 830)">CRANK</text>
+
+  <!-- RIGHT COLUMN -->
+  <!-- Sounder PPI -->
+  <rect class="panel" x="1344" y="76" width="290" height="300"/>
+  <text class="title" x="1358" y="104">⑦ SOUNDER</text>
+  <circle cx="1460" cy="236" r="110" fill="#06120b" stroke="#3c5a4a" stroke-width="2"/>
+  <circle class="phos-dim" cx="1460" cy="236" r="55"/><circle class="phos-dim" cx="1460" cy="236" r="85"/>
+  <circle cx="1500" cy="200" r="7" fill="#5cff9d"/><circle cx="1490" cy="210" r="5" fill="#5cff9d" opacity=".5"/>
+  <circle cx="1420" cy="270" r="4" fill="#5cff9d" opacity=".7"/>
+  <rect class="tag" x="1580" y="120" width="46" height="40"/><text class="tagtext" x="1586" y="146">PING</text>
+  <rect class="iron" x="1580" y="168" width="46" height="30"/><text class="small" x="1584" y="188">BUOY</text>
+  <text class="small" x="1358" y="364">PROCESSING ▮▮▮▯ 0:06</text>
+  <!-- Hearkener -->
+  <rect class="panel" x="1646" y="76" width="264" height="300"/>
+  <text class="title" x="1660" y="104">⑧ HEARKENER</text>
+  <rect class="screen" x="1660" y="114" width="236" height="210"/>
+  <path d="M1700,120 L1712,180 L1730,240 L1748,318" stroke="#ff7a7a" stroke-width="6" opacity=".6" fill="none"/>
+  <path d="M1820,120 L1818,320" stroke="#5cff9d" stroke-width="3" opacity=".5" fill="none"/>
+  <text class="small" x="1662" y="342">bearing 000 ─── 359 · time ↓</text>
+  <text class="small" x="1662" y="364">SATURATED (ping) 0:03</text>
+
+  <!-- Echo strip printer -->
+  <rect class="panel" x="1344" y="388" width="290" height="196"/>
+  <text class="title" x="1358" y="416">⑨ ECHO STRIP (B)</text>
+  <rect class="paper" x="1358" y="428" width="262" height="140"/>
+  <path d="M1366,520 L1400,520 L1410,470 L1420,520 L1432,460 L1442,520 L1460,505 L1475,525 L1490,512 L1505,520 L1540,520 L1546,545 L1552,520 L1610,520" stroke="#2a1a0a" stroke-width="2" fill="none"/>
+  <text x="1366" y="448" font-size="12" fill="#3a2a10">BUOY NE · S 07:14 · D 07:23 · CONTACT 7</text>
+
+  <!-- Choir receiver -->
+  <rect class="panel" x="1646" y="388" width="264" height="316"/>
+  <text class="title" x="1660" y="416">⑩ CHOIR RECEIVER</text>
+  <rect class="screen" x="1660" y="428" width="236" height="96"/>
+  <path class="phos" d="M1664,476 C1680,450 1696,502 1712,476 C1728,450 1744,502 1760,476 C1776,450 1792,502 1808,476 C1824,450 1840,502 1856,476 C1872,450 1888,502 1892,476"/>
+  <path class="phos-dim" d="M1664,476 C1672,466 1680,486 1688,476 C1696,466 1704,486 1712,476 C1720,466 1728,486 1736,476 C1744,466 1752,486 1760,476"/>
+  <circle class="lamp-r" cx="1680" cy="540" r="9"/><circle class="lamp-r" cx="1704" cy="540" r="9"/><circle class="lamp-w" cx="1728" cy="540" r="9"/><circle class="lamp-off" cx="1752" cy="540" r="9"/>
+  <circle class="knob" cx="1720" cy="612" r="44"/><text class="small" x="1694" y="676">frequency</text>
+  <circle class="knob" cx="1830" cy="590" r="22"/><text class="small" x="1812" y="628">gain</text>
+  <rect class="screen-amber" x="1790" y="640" width="110" height="40"/><text class="num" x="1798" y="666">STR 71%</text>
+
+  <!-- Frostfire Sweep -->
+  <rect class="panel" x="1344" y="596" width="290" height="160"/>
+  <text class="title" x="1358" y="624">⑪ FROSTFIRE SWEEP</text>
+  <path d="M1400,740 A90,90 0 0,1 1580,740" fill="#06120b" stroke="#3c5a4a"/>
+  <path d="M1490,740 L1550,676" stroke="#5cff9d" stroke-width="3"/>
+  <rect x="1520" y="690" width="16" height="12" fill="#5cff9d" opacity=".6"/>
+  <text class="small" x="1358" y="752">range ◂▸ · gain · sector lock</text>
+
+  <!-- Moorage lectern & rune keypad -->
+  <rect class="panel" x="1344" y="768" width="566" height="164"/>
+  <text class="title" x="1358" y="796">⑫ MOORAGE LECTERN · RUNE KEYPAD</text>
+  <g>
+    <rect class="iron" x="1360" y="808" width="54" height="54"/><text x="1374" y="846" font-size="28" fill="#e8d7a8">ᚦ</text>
+    <rect class="iron" x="1420" y="808" width="54" height="54"/><text x="1434" y="846" font-size="28" fill="#e8d7a8">ᛉ</text>
+    <rect class="iron" x="1360" y="868" width="54" height="54"/><text x="1374" y="906" font-size="28" fill="#e8d7a8">ᛟ</text>
+    <rect class="iron" x="1420" y="868" width="54" height="54"/><text x="1434" y="906" font-size="28" fill="#e8d7a8">ᚹ</text>
+  </g>
+  <rect class="screen-amber" x="1490" y="808" width="260" height="114"/>
+  <text class="num" x="1500" y="834">FIX  X 3142  Y 1218</text>
+  <text class="num" x="1500" y="860">AT   07:14</text>
+  <text class="num" x="1500" y="886">VEL  0.61 @ 104°</text>
+  <text class="num" x="1500" y="912">SEAL ▢▢▢</text>
+  <rect class="tag" x="1764" y="808" width="134" height="54"/><text class="tagtext" x="1780" y="842">SUBMIT</text>
+  <rect class="screen" x="1764" y="868" width="134" height="54"/><text class="small" x="1776" y="900">FAINT…BOUND</text>
+
+  <!-- BOTTOM STRIP: breaker summary, launchers, whimsy -->
+  <rect class="iron" x="0" y="944" width="1920" height="136"/>
+  <rect class="panel" x="12" y="952" width="520" height="120"/>
+  <text class="title" x="26" y="978">⑬ BREAKER WALL (summary)</text>
+  <g>
+    <text class="num" x="26" y="1010">COAL 11 / 12</text>
+    <rect x="200" y="994" width="300" height="20" fill="#222" stroke="#888"/><rect x="200" y="994" width="275" height="20" fill="#ff8a3a"/>
+    <text class="small" x="26" y="1044">SWP·CAM·SND·HRK·CHR·ORR·LOOM·RCK·LENS·BRND·PERC</text>
+    <text class="small" x="26" y="1062">(full board on Engineering view)</text>
+  </g>
+  <rect class="panel" x="544" y="952" width="420" height="120"/>
+  <text class="title" x="558" y="978">⑭ LAUNCH RACK</text>
+  <text class="small" x="558" y="1004">BUOY LAUNCHER · rack ■■■□ · forge-imp 0:42</text>
+  <text class="small" x="558" y="1026">BRAND HARPOON · brands ◆◆◆□ · charge ▮▮▯</text>
+  <rect class="tag" x="840" y="990" width="110" height="34"/><text class="tagtext" x="852" y="1012">FIRE BRAND</text>
+  <rect class="panel" x="976" y="952" width="560" height="120"/>
+  <text class="title" x="990" y="978">⑮ SNAPSHOT PRINTER · PNEUMATIC TUBE</text>
+  <rect class="paper" x="990" y="990" width="110" height="70"/><rect class="paper" x="1110" y="996" width="110" height="64" opacity=".8"/>
+  <text class="small" x="1236" y="1012">[PRINT FRAME] [PRINT CHART]</text>
+  <text class="small" x="1236" y="1036">tube: messages from the sentries</text>
+  <rect class="panel" x="1548" y="952" width="362" height="120"/>
+  <text class="title" x="1562" y="978">⑯ CREATURE COMFORTS</text>
+  <text class="small" x="1562" y="1004">percolator (mild·strong·brimstone) · gramophone</text>
+  <text class="small" x="1562" y="1026">radio band · chair lever · bell · cabin lamps</text>
+  <text class="small" x="1562" y="1048">memorial lamp of the unrelieved</text>
+</svg>
