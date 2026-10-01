@@ -35,15 +35,41 @@ export function octantName(windFrom) {
   return ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(((windFrom % 360) + 360) % 360 / 45) % 8];
 }
 
-// Correct press order (indices into the plate's four runes).
-export function runeOrder(plate, windFrom) {
-  const lead = HOUSES.indexOf(leadingHouse(windFrom));
-  const rank = i => {
-    const r = RUNES[plate[i]];
-    const h = (HOUSES.indexOf(r.house) - lead + 4) % 4;
-    return h * 10 + r.weight;
-  };
-  return [0, 1, 2, 3].sort((a, b) => rank(a) - rank(b));
+export function shuffle(a, rng) {
+  a = [...a];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+// Calibration keypad. A plate holds 9 runes: at least two from every house.
+export function makePlate(rng) {
+  const ids = [];
+  for (const h of HOUSES) {
+    const pool = RUNES.map((_, i) => i).filter(i => RUNES[i].house === h);
+    while (ids.filter(i => RUNES[i].house === h).length < 2) {
+      const k = pool[Math.floor(rng() * pool.length)]; if (!ids.includes(k)) ids.push(k);
+    }
+  }
+  while (ids.length < 9) { const k = Math.floor(rng() * RUNES.length); if (!ids.includes(k)) ids.push(k); }
+  return shuffle(ids, rng);
+}
+
+export function tempBandName(temp) { return temp < -40 ? 'BITTER' : temp <= -25 ? 'COLD' : 'RIME'; }
+
+// The manual's procedure. `cond` is what the Currents panel shows:
+// { windFrom (deg), deepKn, surfKn, temp } with the numbers exactly as displayed.
+// Returns the four runes (RUNES indices) in the order they must be pressed.
+export function keypadCode(plate, cond) {
+  const lead = HOUSES.indexOf(leadingHouse(cond.windFrom));
+  const step = cond.deepKn > cond.surfKn ? 1 : -1;          // deep faster: clockwise round the wheel
+  const band = tempBandName(cond.temp);
+  const out = [];
+  for (let k = 0; k < 4; k++) {
+    const house = HOUSES[(lead + step * k + 8) % 4];
+    const mine = plate.filter(i => RUNES[i].house === house).sort((a, b) => RUNES[a].weight - RUNES[b].weight);
+    out.push(band === 'BITTER' ? mine[mine.length - 1] : band === 'COLD' ? mine[0] : mine[1]);
+  }
+  return out;
 }
 
 export function glyphSVG(i, size = 40, stroke = 'currentColor', width = 1.1) {

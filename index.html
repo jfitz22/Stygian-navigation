@@ -22,6 +22,7 @@
     </div>
     <div class="clockwrap">
       <div class="nixie" id="clock">00:00</div>
+      <div id="watchno" class="lbl"></div>
       <button id="mute" class="small-btn" title="Mute all sound (M)">SOUND ON</button>
     </div>
   </header>
@@ -51,16 +52,18 @@
     <h2>FURNACE &amp; POWER <small id="powcount"></small></h2>
     <div id="furnace">
       <div id="furnacedoor"><div id="flames"></div></div>
-      <button id="ignite">LIGHT<br>FURNACE</button>
+      <div id="furnacebtns"><button id="ignite">LIGHT</button><button id="stoke">STOKE</button></div>
     </div>
+    <div id="heatgauge"><div id="heatzone"></div><div id="heatfill"></div></div><div id="heatlbl">HEAT</div>
+    <div id="furnacestat"></div>
     <div id="switches"></div>
   </section>
 
   <!-- map -->
-  <section class="panel" id="p-map" style="left:572px;top:68px;width:776px;height:640px">
-    <h2>CHART OF THE FIFTH <small>500 mi grid</small></h2>
+  <section class="panel" id="p-map" style="left:572px;top:68px;width:776px;height:772px">
+    <h2>CHART OF THE FIFTH <small>300 mi squares</small></h2>
     <div class="screen chart">
-      <canvas id="mapcanvas" width="744" height="560"></canvas>
+      <canvas id="mapcanvas" width="744" height="708"></canvas>
       <div id="maptools">
         <button id="btn-buoy" class="tool">DROP BUOY</button>
         <button id="btn-zin" class="tool sq">+</button>
@@ -73,7 +76,7 @@
   </section>
 
   <!-- lock & beacon -->
-  <section class="panel" id="p-beacon" style="left:572px;top:718px;width:776px;height:346px">
+  <section class="panel" id="p-beacon" style="left:572px;top:850px;width:776px;height:214px">
     <h2>TARGET LOCK &amp; BEACON LAUNCHER</h2>
     <div id="lockbox">
       <div class="lbl">LOCKED TARGET</div>
@@ -111,16 +114,18 @@
 
   <!-- radio -->
   <section class="panel" id="p-radio" style="left:1364px;top:498px;width:540px;height:270px">
-    <h2>RADIO <small>tuned to the locked target</small></h2>
+    <h2>RADIO <small id="radiosrc">tuned to the locked target</small></h2>
     <div class="screen"><canvas id="radiocanvas" width="300" height="110"></canvas></div>
     <div id="songlamps"><span></span><span></span><span></span></div>
-    <div id="dialwrap"><div id="dial"><div id="dialmark"></div></div><div class="lbl">drag to tune</div></div>
+    <div id="cliplamp"><div class="lamp off"></div>CLIP</div>
     <div id="radioreadout">
       <div class="nixie" id="freq">300.0</div>
-      <div class="fine"><button data-d="-1">◀◀</button><button data-d="-0.1">◀</button><button data-d="0.1">▶</button><button data-d="1">▶▶</button></div>
+      <div class="fine"><button data-d="-5">◀◀</button><button data-d="-0.5">◀</button><button data-d="0.5">▶</button><button data-d="5">▶▶</button></div>
       <div class="meter"><div id="strength"></div></div>
-      <div class="lbl">SIGNAL</div>
+      <div class="lbl sig">SIGNAL</div>
+      <div id="gainrow"><span class="lbl">GAIN</span><input type="range" id="gain" min="0" max="10" step="0.1" value="5"><span id="gainval">5.0</span></div>
     </div>
+    <div id="freqrow"><input type="range" id="freqslider" min="100" max="999.9" step="0.1" value="300"><div id="bandticks"><span>100</span><span>· LOW ·</span><span>400</span><span>· MID ·</span><span>700</span><span>· HIGH ·</span><span>999</span></div></div>
     <div class="offline hidden" id="radiooff">NO POWER</div>
   </section>
 
@@ -144,7 +149,7 @@
     <div class="wincard">
       <div class="small">THE BEACON HAS STRUCK</div>
       <h1>ELGARZ IS MARKED</h1>
-      <p>A thread of green fire now burns between the Last Watch and the wandering glacier. Wherever Elgarz drifts, you can follow.</p>
+      <p>Blue light poured out of the ice where the green beacon struck. Coldsteel answered. A thread of green fire now burns between the Last Watch and Elgarz. Wherever it drifts, you can follow.</p>
       <p class="small" id="wintime"></p>
       <button id="wincontinue">KEEP WATCHING</button>
     </div>
@@ -156,6 +161,7 @@
       <p>Find it. Prove it. Mark it with a beacon.</p>
       <button id="begin">TAKE THE WATCH</button>
       <p class="small">Sound recommended · M to mute · Manual holders: open the Operations Manual</p>
+      <p class="small" id="introseed"></p>
     </div>
   </div>
 </div>

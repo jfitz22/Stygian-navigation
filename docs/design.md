@@ -1,79 +1,75 @@
 # The Last Watch: design
 
-A 20-minute browser minigame for *To Hell and Back*. One player runs the observatory on a shared stream. The other four hold the **Operations Manual** and tell the operator what the machine is saying. When a beacon hits Elgarz, the game ends and the party follows the beacon at the table.
+A 20-minute browser minigame for *To Hell and Back*. One player runs the observatory on a shared stream. The other four hold the **Operations Manual** and tell the operator what the machine is saying. When a green beacon hits Elgarz, the ice blazes blue, the game ends, and the party follows the beacon at the table.
 
 ## The goal
 
-Find Elgarz among ~65 drifting icebergs and hit it with a beacon.
+Find Elgarz among about 60 drifting icebergs and hit it with a **green "this is Elgarz" beacon**. There are only 6 of those, so every green shot is an accusation.
 
 Elgarz is the only iceberg with all four signs:
 
 | Sign | Checked with |
 |---|---|
 | Hollow inside | Sonar echo printout |
-| Worked metal | Metal scanner (after rune calibration) |
-| The Triad on the radio | Radio tuning plus the lamp code |
-| Never within 1,000 miles of the Tomb of Levistus | The dashed ring on the chart |
+| Worked metal | Metal scanner (after keypad calibration) |
+| The Triad on the radio | Radio tuning, gain and decoding |
+| Shuns the Tomb of Levistus | It swerves away from the Tomb's 300 mi ring; anything seen inside the ring is ruled out |
 
-About 25 icebergs drift into the Tomb's ring at some point, so the crew can rule them out and tag them. Eight more icebergs show one or two signs to mislead them.
+Thirteen named decoys show one to three signs. Several are hollow and metal and differ only on the radio, where the lamps can look like the Triad until the manual's procedure is applied (wrong band, stepped carrier read backwards, a smooth herald that looks like a jagged Triad).
+
+## The sea
+
+- The map is a square drawn around the observatory's reach circle. The Last Watch stands on an island in the middle, so only the corners are out of reach. The chart grid is 12 by 12 squares (A–L, 1–12), 300 mi each.
+- Two pairs of gyres drive the water. The deep pair (east and west) push a jet south past the island. The surface pair (north and south) push a jet east. Their centres wander, so ice does not ride the same ring forever. A rim current holds ice inside reach.
+- Large ice rides the deep water. Small ice rides the surface and the wind. A typical iceberg crosses about four squares in a session.
+- The Tomb drifts at a little under half the ice's pace.
+
+## Seeds and spawning
+
+Every watch has a seed (`?seed=`), shown on the intro card and top bar. With no seed a fresh sea is rolled. The seed decides the currents, the wind, the cold side of the sea, the Tomb, the ice, the radio frequencies, the storms and the keypad plate. The GM can see and set it.
+
+At 3:00 **Elgarz slips quietly into the sea** at the rim of reach, somewhere the buoy and cameras are not looking. The game traces where each candidate rim spot would carry it (the same movement code as the live game, so the plan comes true) and only picks spots that pass through camera view at least twice before the watch ends. Two more named decoys slip in later, so a newcomer is not automatically suspicious.
 
 ## The screen
 
-One 16:9 screen with eight panels:
-
 | Panel | What it does |
 |---|---|
-| **Cameras** | Five fixed posts on the map. Each shows a live view of the ice drifting past. Click an iceberg to lock onto it. Watching a camera heats it, and a hot camera draws a remorhaz that you can see crawling toward the lens. |
-| **Chart** | The shared map: Tomb ring, cameras, buoy, sonar contacts that fade, the shark, the predicted position of your lock, tagged icebergs in colour. |
-| **Sonar** | Drop a buoy, ping, and get contacts 6 seconds later at the position they had when you pinged. Three pings in one area within two minutes bring the shark, which eats the buoy. |
-| **Currents & wind** | Measured at the buoy. Feeds the prediction. |
-| **Lock & beacon** | Shows the lock, the SURFACE/DEEP drift switch, beacon colours and the fire button. |
-| **Radio** | Tune to the locked target until the signal peaks, then read three lamps. |
-| **Metal scanner** | Calibrate with the rune keypad, then hold alignment to finish a scan. |
-| **Furnace & power** | Five systems, three can run at once. |
+| **Cameras** | Seven fixed posts placed by `tools/tune-cameras.mjs`. Click an iceberg to lock onto it. Watching a camera heats it fast; a hot camera draws a remorhaz. Cameras cool quickly when you look away. |
+| **Chart** | The whole sea with the grid, the Tomb ring, cameras, buoy, fading sonar contacts, the shark and its course, the lock's predicted position, tagged ice. |
+| **Sonar** | Drop a buoy, ping, get contacts 5 s later at where they were at the ping. |
+| **Currents & wind** | Wind, surface and deep current, and water temperature at the buoy. Feeds the prediction and the scanner code. |
+| **Lock & beacon** | The lock, the SURFACE/DEEP drift switch, beacon colours (red/amber/blue rebuild; green has 6) and the fire button. |
+| **Radio** | A long frequency slider, fine buttons and a gain slider. Lamps flash only when tuned and gained correctly; too much gain clips. |
+| **Metal scanner** | A 3×3 keypad of runes. Once set, hold the alignment needle in the green on a locked target. |
+| **Furnace & power** | Heat burns down; stoke it. Low heat cuts power slots; overfeeding blows it out. |
 
-Across the top: coffee, wipers, music, lamps and bell. The buttons swap places after you press them. The wipers also clear snow off a camera during storms.
+Across the top: coffee, wipers, music, lamps and bell. They swap places after you press them. The wipers clear snow during storms. The music puts three false wireless stations on the radio band.
 
 ## Why the currents matter
 
-Large icebergs ride the deep current. Small ones ride the surface current and the wind. The machine predicts where a locked iceberg has drifted using the latest current reading and the drift switch. The scanner, the radio and the beacon all aim at that prediction.
-
-- A stale fix, a reading taken far from the target, or the wrong drift setting makes the prediction wander off. The scanner needle drops, the radio fades and the beacon misses.
-- A fresh ping, a buoy near the target and the right setting give a hit.
-
-The prediction is never secretly wrong. It uses exactly what the players measured.
+The machine predicts where a locked iceberg has drifted using the latest buoy reading and the drift switch. The scanner, the radio and the beacon all aim at that prediction. The deep and surface water run in different directions, so the wrong switch misses. A reading taken far from the target is wrong for the target. The prediction is never secretly wrong; it uses exactly what the players measured.
 
 ## The manual's jobs
 
 | Page | The crew decodes |
 |---|---|
+| Furnace | Where the heat needle is; two shovels, never three |
+| Sonar & Grindmaw | Every ping calls the shark to that spot; ping, then move the buoy |
 | Echo printout | Bumps and tail shape: solid, hollow, or alive |
-| Size | Over 8 miles long means DEEP |
-| Radio | Lamp colours plus frequency band give a meaning; only Elgarz gives "The Triad" |
-| Runes | Wind direction picks the leading house, then go round the wheel by weight |
-| Repair board | Five conduit rules for a camera a remorhaz destroyed |
-| Hazards | The shark's three-ping rule; camera heat and "ground shaking" |
-
-## Pacing (tested automatically)
-
-| Watch time | What happens |
-|---|---|
-| 0:00 to 3:30 | Learn the machine on nearby ice. Elgarz is out of reach. |
-| ~3:35 | Elgarz drifts into sonar reach in the north-east. |
-| ~7:00 to 11:30 | Elgarz passes through the Gallows Reach camera. |
-| 8:00 to 20:00 | Identify and mark it. |
+| Currents & beacon | Size picks DEEP or SURFACE; fresh fix, nearby reading |
+| Radio | Music off test; carrier shape transforms the lamps (smooth as shown, stepped reversed, jagged swaps red and blue); band + lamps give a meaning |
+| Scanner | Wind picks the first house; deep vs surface speed picks the direction round the wheel; temperature picks heaviest / lightest / second lightest from each house |
+| Cameras | Heat, remorhazes, the five-rule repair board, storms |
 
 ## Hazards
 
-- **Remorhaz:** a camera watched for about 70 seconds gets hot enough to draw one. It takes about 90 seconds to crawl in, visible on that camera. Switch away and it gives up once the camera cools. If it arrives, the repair board brings the camera back.
-- **The Grindmaw:** always visible on the chart and on sonar when close. Three pings in one area within two minutes and it hunts the buoy. Move the buoy to save it; a lost buoy is rebuilt in 30 seconds.
+- **The Grindmaw:** always on the chart. After every ping it swims slowly and relentlessly to the spot of the latest ping and eats a buoy it finds there (30 s to rebuild).
+- **Remorhaz:** a camera watched for about 45 s draws one. Switch away and it gives up once the camera cools.
+- **Furnace:** blowouts and brownouts switch systems off; relight and carry on.
+- **Storms:** three per watch, each aimed over a camera post.
 
 Nothing can end the game early. Every loss is recoverable.
 
 ## GM tools
 
-`gm.html`, opened in a second tab on the GM's own screen, shows the truth: every iceberg's identity, the shark and remorhazes, camera heat. Its buttons pause, repair everything, refill beacons, send the shark away, calibrate the scanner, force a win, reset, and send hint notes that appear on the operator's screen.
-
-## Tuning
-
-All numbers live in `src/scenario.js` (`TUNING`). `node tools/check.mjs` verifies the pacing, the Tomb distance, the shark rule and that a good shot hits while a sloppy one misses.
+`gm.html`, in a separate window on the GM's screen, shows the truth: every iceberg's identity and radio, where Elgarz is (or when it will arrive) and its planned sightings, the current scanner code, the music stations, the shark and remorhazes. Its buttons pause, refuel the furnace, repair everything, refill beacons, send the shark away, calibrate the scanner, bring Elgarz in early, force a win, reset with a chosen or new seed, and send hint notes to the operator's screen.
