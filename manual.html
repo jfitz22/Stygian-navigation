@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operations Manual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #2a1d0c; --paper: #efe6cf; --red: #8a1e10; --rule: #b8a77f; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #3a342b; color: var(--ink); font: 15px/1.55 'IBM Plex Serif', Georgia, serif; }
+  .page { width: 210mm; min-height: 297mm; margin: 16px auto; padding: 18mm 18mm 16mm; background: var(--paper); box-shadow: 0 6px 20px rgba(0,0,0,.5); position: relative; }
+  .page::after { content: attr(data-n); position: absolute; bottom: 9mm; left: 0; right: 0; text-align: center; font: 12px 'IBM Plex Mono', monospace; opacity: .6; }
+  h1, h2, h3 { font-family: 'Cinzel', serif; letter-spacing: 2px; margin: 0 0 8px; }
+  h1 { font-size: 34px; } h2 { font-size: 22px; border-bottom: 2px solid var(--ink); padding-bottom: 4px; margin-bottom: 12px; } h3 { font-size: 16px; margin-top: 16px; }
+  .ask { border: 2px solid var(--ink); padding: 8px 12px; margin: 10px 0 14px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; background: rgba(255,255,255,.35); }
+  .ask b { letter-spacing: 1px; }
+  .warn { border-left: 5px solid var(--red); padding: 6px 12px; color: var(--red); background: rgba(138,30,16,.06); margin: 10px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 14px; }
+  th, td { border: 1px solid var(--rule); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: rgba(42,29,12,.08); font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 1px; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  .lamp { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid #000; vertical-align: -2px; margin-right: 2px; }
+  .R { background: #e33b2a; } .W { background: #fff; } .B { background: #3b7bff; }
+  .runes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .rune { border: 1px solid var(--rule); padding: 6px; text-align: center; font-size: 12px; }
+  .rune svg { display: block; margin: 0 auto 4px; }
+  .rune b { font-size: 13px; }
+  .wheel { display: flex; align-items: center; gap: 18px; margin: 8px 0; }
+  .cover { display: flex; flex-direction: column; justify-content: center; text-align: center; }
+  .cover h1 { font-size: 46px; margin-bottom: 4px; }
+  .seal { width: 120px; height: 120px; margin: 24px auto; border: 3px double var(--ink); border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 800 40px Cinzel; }
+  svg.trace { width: 100%; height: 70px; background: #e8dfc6; border: 1px solid var(--rule); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .noprint { text-align: center; margin: 12px; }
+  .noprint button { font: 16px 'Cinzel'; padding: 10px 20px; }
+  @media print {
+    body { background: none; }
+    .page { margin: 0; box-shadow: none; page-break-after: always; width: auto; min-height: 0; }
+    .noprint { display: none; }
+    @page { size: A4; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="noprint"><button onclick="print()">Print or save as PDF</button></div>
+
+<section class="page cover" data-n="">
+  <div class="mono" style="letter-spacing:3px">THE LAST WATCH · OBSERVATORY OF THE FIFTH</div>
+  <h1>OPERATIONS MANUAL</h1>
+  <div class="mono">for the officers of the watch</div>
+  <div class="seal">LW</div>
+  <p style="max-width:120mm;margin:0 auto">This book is for the crew who stand behind the operator. <b>The operator must not read it.</b> The operator works the machine. You tell them what it means.</p>
+  <p style="max-width:120mm;margin:16px auto 0;font-style:italic">"The ice does not lie. The officer who reads it might."</p>
+</section>
+
+<section class="page" data-n="1">
+  <h2>Your mission</h2>
+  <p>Somewhere in this sea drifts <b>Elgarz</b>, the glacier that swallowed Citadel Coldsteel. Find it, prove it, and hit it with a beacon. When a beacon strikes Elgarz, the watch is done.</p>
+  <h3>Elgarz shows all of these signs</h3>
+  <table>
+    <tr><th>SIGN</th><th>HOW YOU CHECK IT</th><th>PAGE</th></tr>
+    <tr><td><b>Hollow inside</b></td><td>Sonar echo printout</td><td>3</td></tr>
+    <tr><td><b>Worked metal</b></td><td>Metal scanner (calibrate it first)</td><td>6</td></tr>
+    <tr><td><b>The Triad</b> on the radio</td><td>Radio tuning and the lamp code</td><td>5</td></tr>
+    <tr><td><b>Never within 1,000 miles of the Tomb of Levistus</b></td><td>The dashed ring on the chart. Anything inside it is <b>not</b> Elgarz.</td><td>-</td></tr>
+  </table>
+  <p>Other icebergs show one or two of these signs. Some of them are very convincing. Only Elgarz has everything.</p>
+  <h3>The machine in one minute</h3>
+  <ol>
+    <li><b>Light the furnace</b> (bottom left). Nothing works until it burns.</li>
+    <li>The furnace can run <b>only three systems at once</b>: Cameras, Sonar, Radio, Scanner, Currents. Switch them on and off as you need them.</li>
+    <li>Find ice with the <b>cameras</b> or the <b>sonar</b>. Click a sonar contact or an iceberg on camera to <b>lock</b> onto it.</li>
+    <li>Test the locked iceberg with the echo printout, radio and scanner.</li>
+    <li>Fire a <b>beacon</b> to tag it with a colour. Tagged ice stays marked on the chart forever.</li>
+  </ol>
+  <h3>Suggested beacon colours</h3>
+  <table>
+    <tr><td style="background:#ff4b3a;width:80px"><b>RED</b></td><td>Ruled out</td></tr>
+    <tr><td style="background:#ffb347"><b>AMBER</b></td><td>Suspicious, check again</td></tr>
+    <tr><td style="background:#6fa8ff"><b>BLUE</b></td><td>Your choice</td></tr>
+    <tr><td style="background:#5cff9d"><b>GREEN</b></td><td>We think this is Elgarz</td></tr>
+  </table>
+  <p class="mono" style="font-size:12px">Beacons rebuild slowly: about one a minute. Do not waste them.</p>
+</section>
+
+<section class="page" data-n="2">
+  <h2>Sonar, buoys and the Grindmaw</h2>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> where the buoy is · how many contacts came back · the ping time</div>
+  <ol>
+    <li>Sonar needs a <b>buoy in the water</b>. Press <span class="mono">DROP BUOY</span>, then click inside the dashed launcher line on the chart.</li>
+    <li>Press <span class="mono">PING</span>. The echo takes <b>6 seconds</b> to come back.</li>
+    <li>Contacts appear on the sonar and on the chart as green dots. They fade after about a minute.</li>
+  </ol>
+  <div class="warn"><b>A contact shows where the ice WAS when you pinged, not where it is now.</b> The ice keeps drifting. Lock onto fresh contacts.</div>
+  <h3>The Grindmaw</h3>
+  <p>A colossal Styx shark, marked in red on the chart at all times. It hunts <b>noise</b>.</p>
+  <ul>
+    <li><b>Three pings in the same area within about two minutes</b> and it comes for the buoy.</li>
+    <li>When it is hunting, the chart shows a dashed red line to your buoy.</li>
+    <li>If it reaches the buoy, the buoy is lost. A new one takes 30 seconds to build.</li>
+    <li><b>Save the buoy:</b> drop it somewhere else before the Grindmaw arrives. A new area is quiet.</li>
+  </ul>
+  <h3>Big ice or small ice?</h3>
+  <p>The echo printout gives the contact's <b>length</b>.</p>
+  <table>
+    <tr><th>LENGTH</th><th>SIZE</th><th>IT DRIFTS WITH</th></tr>
+    <tr><td>Over 8 miles</td><td>LARGE</td><td><b>DEEP</b> current</td></tr>
+    <tr><td>8 miles or less</td><td>SMALL</td><td><b>SURFACE</b> current and wind</td></tr>
+  </table>
+  <p>Tell the operator which one to choose on the <span class="mono">PREDICT DRIFT WITH</span> switch. It matters for the scanner, the radio and the beacon (page 4).</p>
+</section>
+
+<section class="page" data-n="3">
+  <h2>Reading the echo printout</h2>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> how many bumps after the first tall spike · what the line does at the end (wavy and fading, scratchy, or flat)</div>
+  <p>Every printout starts with one <b>tall spike</b>. That is the surface of the ice. <b>Ignore it.</b> Count the rounded <b>bumps</b> after it, then look at the <b>tail</b>.</p>
+  <svg class="trace" viewBox="0 0 400 70"><polyline fill="none" stroke="#2a1d0c" stroke-width="2" points="0,60 30,60 40,8 50,60 400,60"/><text x="120" y="40" font-size="13" font-family="IBM Plex Mono">no bumps · flat</text></svg>
+  <p><b>No bumps</b>: <b>SOLID</b> ice. Not hollow.</p>
+  <svg class="trace" viewBox="0 0 400 70"><polyline fill="none" stroke="#2a1d0c" stroke-width="2" points="0,60 30,60 40,8 50,60 90,60 100,40 110,30 120,40 130,60 140,60 160,40 170,30 180,40 190,60 200,60 205,52 210,66 215,55 220,64 225,57 230,62 240,59 260,61 400,60"/><text x="270" y="40" font-size="13" font-family="IBM Plex Mono">bumps · ringing tail</text></svg>
+  <p><b>Bumps with a wavy tail that fades away</b> (it rings): <b>HOLLOW</b>. Each bump is a chamber inside. More bumps, more rooms.</p>
+  <svg class="trace" viewBox="0 0 400 70"><polyline fill="none" stroke="#2a1d0c" stroke-width="2" points="0,60 30,60 40,8 50,60 90,60 100,40 110,30 120,40 130,60 140,60 160,40 170,30 180,40 190,60 200,60 204,52 207,66 211,50 214,68 218,55 221,63 225,49 229,67 233,56 237,64 241,51 245,66 400,60"/><text x="270" y="40" font-size="13" font-family="IBM Plex Mono">bumps · scratchy tail</text></svg>
+  <p><b>Bumps with a scratchy, ragged tail</b>: <b>SOFT WALLS</b>. Something alive. This is <b>not</b> a hollow building. Leave it alone.</p>
+  <p><b>No bumps but a scratchy tail</b>: rotten, slushy ice. Not hollow.</p>
+</section>
+
+<section class="page" data-n="4">
+  <h2>Currents, the lock and the beacon</h2>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> how old the fix is · how old the current reading is · where the buoy is compared to the target</div>
+  <p>When the operator locks onto an iceberg, the chart shows a white dashed circle marked <b>PREDICTED</b>. That is where the machine <i>thinks</i> the ice has drifted since the fix.</p>
+  <p>The prediction uses the <b>Currents</b> panel and the <b>drift switch</b>:</p>
+  <ul>
+    <li>Currents are measured <b>at the buoy</b>. The Currents system must be switched on to take a reading, and it needs a buoy in the water.</li>
+    <li>Currents swirl. A reading taken far from your target is wrong for your target. <b>Put the buoy close to the ice you care about.</b></li>
+    <li>Choose <b>DEEP</b> for large ice and <b>SURFACE</b> for small ice (page 2).</li>
+    <li>With no reading at all, the prediction does not move.</li>
+  </ul>
+  <p>The <b>scanner needle</b> and the <b>radio signal</b> both get weaker as the prediction drifts away from the real ice. If they fade, take a fresh fix: ping again and lock again.</p>
+  <h3>Firing a beacon</h3>
+  <p>The beacon flies from the observatory and lands where the prediction says the ice will be. It takes a while to arrive (about 80 miles per second).</p>
+  <div class="warn">For a hit you need: a <b>fresh</b> lock (ping, lock, fire quickly), a <b>recent current reading taken near the target</b>, and the <b>right drift setting</b>. A miss falls into the sea.</div>
+</section>
+
+<section class="page" data-n="5">
+  <h2>The radio</h2>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> the frequency on the display · the three lamp colours, in order</div>
+  <ol>
+    <li>Lock onto a target. The radio listens to the locked target only.</li>
+    <li>Turn the big dial slowly. Watch the <b>SIGNAL</b> bar. If it never moves anywhere on the dial, this iceberg is silent.</li>
+    <li>When the bar is nearly full, three lamps flash in order: <span class="lamp R"></span>RED, <span class="lamp W"></span>WHITE, <span class="lamp B"></span>BLUE.</li>
+    <li>Find the <b>band</b> from the frequency, then look up the colours below.</li>
+  </ol>
+  <table><tr><th>BAND</th><th>FREQUENCY</th></tr><tr><td>LOW</td><td>below 400</td></tr><tr><td>MID</td><td>400 to 699</td></tr><tr><td>HIGH</td><td>700 and above</td></tr></table>
+  <table id="radiotable"></table>
+  <p><b>Elgarz sings THE TRIAD.</b> Nothing else does.</p>
+</section>
+
+<section class="page" data-n="6">
+  <h2>Calibrating the metal scanner</h2>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> the wind direction on the Currents panel (FROM ...) · a description of each of the four runes</div>
+  <p>The scanner will not find metal until it is calibrated. The operator must press the four runes on the scanner in the right order. A wrong press shifts the runes and locks the plate for a few seconds.</p>
+  <h3>Step 1. Which house leads?</h3>
+  <table>
+    <tr><th>WIND FROM</th><th>LEADING HOUSE</th></tr>
+    <tr><td>N or NE</td><td>ICE</td></tr><tr><td>E or SE</td><td>EMBER</td></tr><tr><td>S or SW</td><td>BONE</td></tr><tr><td>W or NW</td><td>IRON</td></tr>
+  </table>
+  <h3>Step 2. Go round the wheel</h3>
+  <div class="wheel"><div class="mono" style="font-size:18px">ICE → IRON → EMBER → BONE → ICE ...</div></div>
+  <p>Press the runes of the leading house first, then the next house round the wheel, and so on. Skip houses with no runes on the plate.</p>
+  <h3>Step 3. Inside a house</h3>
+  <p>Press the <b>lightest</b> rune first (lowest weight).</p>
+  <h3>Rune catalogue</h3>
+  <div class="runes" id="runes"></div>
+  <p>Once calibrated, keep the scanner on a locked target. When the bar fills, the lamp shows <b>WORKED METAL FOUND</b> or <b>NO METAL</b>.</p>
+</section>
+
+<section class="page" data-n="7">
+  <h2>Cameras, burrowers and repairs</h2>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> which camera buttons say GROUND SHAKING · the heat bars</div>
+  <p>Cameras are fixed: each one always looks the same way. Ice drifts through their view. Click an iceberg in the view to lock onto it.</p>
+  <h3>Burrowers (remorhazes)</h3>
+  <ul>
+    <li>A camera <b>heats up while you watch it</b>. Its heat bar is on its button.</li>
+    <li>A hot camera draws a remorhaz across the ice. The button says <b>GROUND SHAKING</b>. Switch to that camera and you will see it coming.</li>
+    <li><b>Switch to another camera</b> and let it cool. A cold camera is not worth the trip, and the beast burrows away.</li>
+    <li>If it arrives, the camera is destroyed.</li>
+  </ul>
+  <h3>The repair board</h3>
+  <p>A destroyed camera shows five conduits. For each conduit, use the <b>first rule that fits</b>:</p>
+  <table>
+    <tr><th>#</th><th>IF THE CONDUIT IS</th><th>SET IT TO</th></tr>
+    <tr><td>1</td><td>its lamp is <b>dark</b> and it is <b>white porcelain</b></td><td><b>CUT</b></td></tr>
+    <tr><td>2</td><td>it has <b>frost</b> and a <b>star</b></td><td><b>SHUT</b></td></tr>
+    <tr><td>3</td><td>it is <b>grey iron</b> with <b>no frost</b></td><td><b>OPEN</b></td></tr>
+    <tr><td>4</td><td>it is <b>brass</b></td><td><b>OPEN</b> if its lamp is lit, otherwise <b>SHUT</b></td></tr>
+    <tr><td>5</td><td>anything else</td><td><b>SHUT</b></td></tr>
+  </table>
+  <p>Then press <span class="mono">DISPATCH REPAIR SLED</span>. Wrong conduits spark and reset. The sled takes 15 seconds.</p>
+  <h3>Cabin controls</h3>
+  <p>The coffee, wipers, music, lamps and bell are along the top. <b>They move around.</b> Nobody knows why. The wipers clear snow off the camera during storms.</p>
+</section>
+
+<script type="module">
+import { RUNES, glyphSVG, HOUSES } from './src/glyphs.js';
+import { RADIO_TABLE } from './src/scenario.js';
+const lamps = s => [...s].map(c => `<span class="lamp ${c}"></span>`).join('');
+document.getElementById('radiotable').innerHTML = '<tr><th>LAMPS</th><th>LOW</th><th>MID</th><th>HIGH</th></tr>' +
+  Object.entries(RADIO_TABLE).map(([k, v]) => `<tr><td>${lamps(k)}<br><span class="mono" style="font-size:11px">${[...k].map(c => ({ R: 'red', W: 'white', B: 'blue' })[c]).join(', ')}</span></td><td>${v.LOW}</td><td>${v.MID}</td><td>${v.HIGH}</td></tr>`).join('') +
+  '<tr><td colspan="4">Any other pattern: noise. No meaning.</td></tr>';
+const order = [...RUNES.keys()].sort((a, b) => HOUSES.indexOf(RUNES[a].house) - HOUSES.indexOf(RUNES[b].house) || RUNES[a].weight - RUNES[b].weight);
+document.getElementById('runes').innerHTML = order.map(i => `<div class="rune">${glyphSVG(i, 46, '#2a1d0c', 1)}<b>${RUNES[i].name}</b><br>${RUNES[i].house.toUpperCase()} · weight ${RUNES[i].weight}<br><i>${RUNES[i].looks}</i></div>`).join('');
+</script>
+</body>
+</html>
