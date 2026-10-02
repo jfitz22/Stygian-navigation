@@ -2,10 +2,10 @@ import {
   createWorld, newSeed, step, light, stoke, slotsAvailable, setPower, isUp, selectCam, deployBuoy, ping, lockContact, lockFromCamera,
   setDrift, ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
-  pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
+  pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
 } from './sim.js';
 import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES } from './scenario.js';
-import { glyphSVG, gaugeSVG } from './glyphs.js';
+import { glyphSVG, gaugeSVG, repairAction } from './glyphs.js';
 import * as audio from './audio.js';
 
 const $ = id => document.getElementById(id);
@@ -28,7 +28,9 @@ const ui = {
 };
 const fmt = s => { s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
 const ago = s => fmt(s) + ' ago';
-const COLORS = { red: '#ff4b3a', amber: '#ffb347', blue: '#6fa8ff', green: '#5cff9d' };
+const COLORS = { red: '#ff4b3a', orange: '#ffb347', blue: '#6fa8ff', green: '#5cff9d' };
+const COLOR_LABEL = { red: 'RED<br><small>PLAIN</small>', orange: 'ORANGE<br><small>SOUNDING</small>', blue: 'BLUE<br><small>DRIFT LOG</small>', green: 'THIS IS<br>ELGARZ' };
+const STOCK = { red: 'stock', orange: 'orange', blue: 'blue', green: 'green' };
 const REVEAL = '#7fd8ff';
 const COLS = 'ABCDEFGHIJKL';
 const gridRef = (x, y) => COLS[Math.max(0, Math.min(GRID - 1, Math.floor(x / CELL)))] + (Math.max(0, Math.min(GRID - 1, Math.floor(y / CELL))) + 1);
@@ -122,14 +124,7 @@ function makeBoard() {
   return { rows, lockUntil: 0 };
 }
 // The manual's repair rules: first rule that fits; if none fits, leave it OPEN.
-function correctAction(row) {
-  if (row.gauge === 'RED') return 'CUT';
-  if (row.lamp === 'D') return 'CLOSE';
-  if (row.lamp === 'R' && row.gauge === 'HIGH') return 'CUT';
-  if (row.lamp === 'B' && row.gauge !== 'LOW') return 'CLOSE';
-  if (row.lamp === 'W' && row.gauge === 'HIGH') return 'CLOSE';
-  return 'OPEN';
-}
+const correctAction = repairAction;
 let repairKey = '';
 function drawRepairBay() {
   const list = brokenList(world);
@@ -339,6 +334,14 @@ function drawMap() {
     ctx.fillStyle = 'rgba(232,226,208,.55)'; ctx.font = '9px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText('#' + b.num, p.x + 7, p.y + 3);
     ctx.globalAlpha = 1;
   }
+  // drift log of the selected ice (blue beacons): very light, only while it is the locked case
+  { const lb = lockedBerg(world);
+    if (lb && lb.driftLog && lb.driftLog.length) {
+      ctx.strokeStyle = 'rgba(111,168,255,.4)'; ctx.setLineDash([2, 6]); ctx.lineWidth = 1.2; ctx.beginPath();
+      lb.driftLog.forEach((p, i) => { const q = W2S(p.x, p.y); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
+      const q = W2S(lb.x, lb.y); ctx.lineTo(q.x, q.y); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
+      const s0 = W2S(lb.driftLog[0].x, lb.driftLog[0].y); ctx.fillStyle = 'rgba(111,168,255,.6)'; ctx.font = '9px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText('DRIFT LOG FROM ' + fmt(lb.driftLog[0].t), s0.x + 5, s0.y - 4);
+    } }
   // the blue light of Coldsteel
   if (world.reveal) {
     const b = world.bergs.find(b => b.id === world.reveal.bergId), p = W2S(b.x, b.y), k = t - world.reveal.t;
@@ -671,7 +674,7 @@ function drawRadio() {
   if (document.activeElement !== $('freqslider')) $('freqslider').value = world.radio.freq;
   if (document.activeElement !== $('gain')) $('gain').value = world.radio.gain;
   $('gainval').textContent = world.radio.gain.toFixed(1);
-  $('radiosrc').textContent = world.music ? 'cabin wireless is ON' : 'tuned to the locked target';
+  $('radiosrc').textContent = world.music ? 'cabin wireless is ON' : 'hears beaconed ice only';
   const fuse = world.radio.clipTime / T.fuseClip;
   $('p-radio').classList.toggle('fusehot', fuse > 0.5);
   $('fusefill').style.width = Math.min(100, fuse * 100) + '%';
@@ -694,7 +697,7 @@ function drawRadio() {
     }
     ctx.stroke(); ctx.lineWidth = 1;
     ctx.fillStyle = 'rgba(232,207,152,.7)'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left';
-    ctx.fillText(sig.clip ? (world.radio.clipTime > T.fuseClip * 0.5 ? 'FUSE HOT · LOWER THE GAIN NOW' : 'CLIPPING · LOWER THE GAIN') : sig.strength > 0.75 && !sig.lamps ? 'MATCH THE GAIN TO THE BRASS LINES' : !lockedBerg(world) && !world.music ? 'NO TARGET LOCKED' : '', 6, 12);
+    ctx.fillText(sig.clip ? (world.radio.clipTime > T.fuseClip * 0.5 ? 'FUSE HOT · LOWER THE GAIN NOW' : 'CLIPPING · LOWER THE GAIN') : sig.strength > 0.75 && !sig.lamps ? 'MATCH THE GAIN TO THE BRASS LINES' : !lockedBerg(world) && !world.music ? 'NO TARGET LOCKED' : lockedBerg(world) && !lockedBerg(world).tag && sig.strength < 0.3 ? 'NO BEACON IN THIS ICE · NOTHING TO HEAR' : '', 6, 12);
     ctx.textAlign = 'right'; ctx.fillText(sig.band, 294, 106);
   }
   const lamps = document.querySelectorAll('#songlamps span');
@@ -710,23 +713,23 @@ let padKey = '';
 function drawScanner() {
   const up = isUp(world, 'scanner');
   $('scanoff').classList.toggle('hidden', up); $('scanoff').textContent = world.power.scanner.on ? 'WARMING UP' : 'NO POWER';
-  const a = world.lock ? alignment(world) : 0, ctx = actx;
+  const a = scannerReach(world, lockedBerg(world)), ctx = actx;
   ctx.clearRect(0, 0, 200, 130);
   ctx.lineWidth = 10;
-  [['#5a1a12', -Math.PI, -Math.PI * (1.2 - T.alignNeeded)], ['#5a4a12', -Math.PI * (1.2 - T.alignNeeded), -Math.PI * (1 - T.alignNeeded)], ['#1f6b45', -Math.PI * (1 - T.alignNeeded), 0]].forEach(([c, s, e]) => { ctx.strokeStyle = c; ctx.beginPath(); ctx.arc(100, 110, 80, s, e); ctx.stroke(); });
+  [['#5a1a12', -Math.PI, -Math.PI * 0.98], ['#1f6b45', -Math.PI * 0.98, 0]].forEach(([c, s, e]) => { ctx.strokeStyle = c; ctx.beginPath(); ctx.arc(100, 110, 80, s, e); ctx.stroke(); });
   ctx.lineWidth = 1;
   const ang = -Math.PI + a * Math.PI + Math.sin(world.t * 13) * 0.01 + Math.sin(world.t * 1.7) * world.fatigue * 0.18;
   ctx.strokeStyle = '#f4f1e6'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(100, 110); ctx.lineTo(100 + Math.cos(ang) * 74, 110 + Math.sin(ang) * 74); ctx.stroke(); ctx.lineWidth = 1;
   ctx.fillStyle = '#b08d57'; ctx.beginPath(); ctx.arc(100, 110, 7, 0, 7); ctx.fill();
-  ctx.fillStyle = '#cfc6ab'; ctx.font = '11px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText('ALIGNMENT', 100, 128);
+  ctx.fillStyle = '#cfc6ab'; ctx.font = '11px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText('BUOY RANGE', 100, 128);
   const b = lockedBerg(world);
   $('scanbar').style.width = ((b ? b.scan : 0) * 100) + '%';
   const lamp = $('metallamp'), txt = $('metaltext');
   if (!b) { lamp.className = 'lamp off'; txt.textContent = 'NO TARGET LOCKED'; }
   else if (b.scanned) { lamp.className = 'lamp ' + (b.metal ? 'on' : 'no'); txt.textContent = b.metal ? 'WORKED METAL FOUND' : 'NO METAL'; }
   else if (!world.scanner.calibrated) { lamp.className = 'lamp off'; txt.textContent = 'NEEDS CALIBRATION'; }
-  else if (a > T.alignNeeded) { lamp.className = 'lamp off'; txt.textContent = 'SCANNING...'; }
-  else { lamp.className = 'lamp off'; txt.textContent = 'HOLD ALIGNMENT'; }
+  else if (a > 0) { lamp.className = 'lamp off'; txt.textContent = 'SCANNING...'; }
+  else { lamp.className = 'lamp off'; txt.textContent = world.buoy ? 'OUT OF BUOY RANGE' : 'NEEDS A BUOY'; }
   const s = world.scanner, r = world.readings, locked = world.t < s.lockoutUntil;
   const key = [s.calibrated, s.plate.join(','), s.pressed.join(','), locked, !!r].join('|');
   if (key !== padKey) {
@@ -750,7 +753,7 @@ function drawScanner() {
 document.querySelectorAll('#drift button').forEach(b => b.onclick = () => setDrift(world, b.dataset.v));
 for (const [k, v] of Object.entries(COLORS)) {
   const b = document.createElement('button'); b.className = 'col'; b.dataset.c = k; b.style.background = v;
-  b.innerHTML = k === 'green' ? 'THIS IS<br>ELGARZ' : k.toUpperCase();
+  b.innerHTML = COLOR_LABEL[k];
   b.onclick = () => { setColor(world, k); audio.sfx.click(); };
   $('colors').appendChild(b);
 }
@@ -792,17 +795,17 @@ function drawLock() {
         factorRow('READING TAKEN FROM TARGET', aq.readDist == null ? 'none' : Math.round(aq.readDist) + ' mi', aq.fDist) +
         `<div class="note2">Drift switch: <b>${aq.drift.toUpperCase()}</b>. Flight time about ${Math.round(aq.flight)} s. Aim quality cannot tell if the drift switch is wrong for this ice. Tip: track the ice in a scrying orb to measure its drift directly.</div>`);
   document.querySelectorAll('.col').forEach(x => x.classList.toggle('sel', x.dataset.c === world.color));
-  const green = world.color === 'green', bc = world.beacons;
+  const green = world.color === 'green', bc = world.beacons, left = bc[STOCK[world.color]];
   $('fire').classList.toggle('green', green);
-  $('fire').disabled = !l || world.broken.launcher || (green ? bc.green <= 0 : bc.stock <= 0);
-  $('fire').innerHTML = green ? `FIRE GREEN · ${bc.green} LEFT` : 'FIRE BEACON';
+  $('fire').disabled = !l || world.broken.launcher || left <= 0;
+  $('fire').innerHTML = `FIRE ${world.color.toUpperCase()} · ${left} LEFT`;
   $('jammed').classList.toggle('hidden', !world.broken.launcher);
   $('launchstat').textContent = world.broken.launcher ? 'JAMMED' : bc.flying.length ? 'beacon in flight' : 'ready';
-  const rack = $('rack'), key = bc.stock + '/' + bc.green;
+  const rack = $('rack'), key = [bc.stock, bc.orange, bc.blue, bc.green].join('/');
   if (rack.dataset.n !== key) {
     rack.dataset.n = key;
-    rack.innerHTML = Array.from({ length: T.beaconStock }, (_, i) => `<i class="${i < bc.stock ? '' : 'empty'}"></i>`).join('') + '<b></b>' +
-      Array.from({ length: T.greenStock }, (_, i) => `<i class="g ${i < bc.green ? '' : 'empty'}"></i>`).join('');
+    const pips = (n, max, cls) => Array.from({ length: max }, (_, i) => `<i class="${cls} ${i < n ? '' : 'empty'}"></i>`).join('');
+    rack.innerHTML = pips(bc.stock, T.beaconStock, 'r') + '<b></b>' + pips(bc.orange, T.orangeStock, 'o') + '<b></b>' + pips(bc.blue, T.blueStock, 'bl') + '<b></b>' + pips(bc.green, T.greenStock, 'g');
   }
   const last = bc.last, rep = $('shotreport'), rkey = last ? last.t : 0;
   if (rep.dataset.t !== String(rkey) && last) {
@@ -920,8 +923,8 @@ const JERRY = [
   ['orbctl', 'Orb gears freeze solid. Set the levers to the weather ON THE ORB before you turn it.'],
   ['sonar', "Every ping rings the Grindmaw's dinner bell. Ping, then MOVE the buoy."],
   ['furnace', 'Two shovels. NEVER three. Fill the chute from the rune board first.'],
-  ['scanner', 'The scanner drifts when the weather turns. It ALWAYS turns.'],
-  ['radio', "JERRY. Turn the GAIN DOWN. You've blown the fuse twice this week."],
+  ['scanner', 'Scanner rides on the buoy. Ice has to be near the buoy. Re-set it when the weather turns.'],
+  ['radio', "Radio only hears ice with a beacon in it. And JERRY: gain DOWN. Two fuses this week."],
   ['runes', 'Runes change every page. CHECK THE BOOK, Jerry.'],
   ['case', 'Put a beacon in anything you want to keep on the case board.'],
 ];
@@ -1102,6 +1105,7 @@ function handleEvents() {
       case 'broke': audio.sfx.camdead(); if (e.sys === 'launcher') toast('THE BEACON LAUNCHER JAMMED · REPAIR BAY ▲'); if (e.sys === 'fuse') toast('THE RADIO FUSE BLEW · REPAIR BAY ▲'); if (e.sys === 'winch') toast('THE GRINDMAW TORE THE WINCH CABLE · REPAIR BAY ▲'); if (e.sys === 'furnace') toast('THE GRATE CRACKED · REPAIR BAY ▲'); break;
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
+      case 'driftlog': toast(`DRIFT LOG RUNNING ON #${e.num} · SELECT IT ON THE CASE BOARD TO SEE ITS PATH`, 'info'); break;
       case 'casepinned': audio.sfx.flip(); toast(`#${e.num} IS PINNED TO THE CASE BOARD`, 'info'); break;
       case 'observed': audio.sfx.flip(); break;
       case 'verdict': if (e.v === 'EXCLUDED') audio.sfx.stamp(); else audio.sfx.click(); break;

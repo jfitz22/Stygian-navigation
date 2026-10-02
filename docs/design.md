@@ -4,7 +4,11 @@ A 20-minute browser minigame for *To Hell and Back*. One player runs the observa
 
 ## The goal
 
-Find Elgarz among about 60 drifting icebergs and hit it with a **green "this is Elgarz" beacon**. There are only 6, so every green shot is an accusation.
+Find Elgarz among about 60 drifting icebergs and hit it with a **green "this is Elgarz" beacon**. There are only 4, so every green shot is an accusation.
+
+**Beacons:** red (plain, a rebuilding rack of 12), orange sounding charge (prints an echo on impact: HOLLOW without a ping; 6), blue drift log (records the ice's path, shown faintly while that ice is selected; 6), green accusation (4). Every hit pins the ice to the case board.
+
+**Instrument roles:** sonar echo needs the buoy (or an orange charge); the **radio only hears ice carrying a beacon**; the **metal scanner rides on the buoy** and only scans ice inside the buoy's range; aiming uses buoy currents or an orb track.
 
 Elgarz is the only iceberg with all four signs, and **no single sign is proof**:
 

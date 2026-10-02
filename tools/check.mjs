@@ -6,7 +6,7 @@ import {
   relockCase, setVerdict, isUp,
 } from '../src/sim.js';
 import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RADIO_TABLE, BOARD_GRID } from '../src/scenario.js';
-import { keypadCode, RUNES } from '../src/glyphs.js';
+import { keypadCode, RUNES, REPAIR_RULES, repairAction } from '../src/glyphs.js';
 
 const SEEDS = Array.from({ length: Number(process.argv[2]) || 40 }, (_, i) => 1000 + i * 37);
 let failures = 0;
@@ -173,6 +173,9 @@ function sharkSetup(seed) {
   const b = w.bergs.find(b => b.radio && b.notable);
   lockOn(w, b.id, b.x, b.y, w.t, 'camera');
   setFreq(w, b.radio.freq); setGain(w, gainFor(dist(b, OBSERVATORY)));
+  check(!radioSignal(w).lamps, 'The radio hears nothing from ice without a beacon');
+  b.tag = 'red';
+  setFreq(w, b.radio.freq); setGain(w, gainFor(dist(b, OBSERVATORY)));
   let sig = radioSignal(w);
   check(sig.lamps === b.radio.shown, 'Tuned and gained correctly, the lamps show the signal');
   setFreq(w, b.radio.freq + 12); sig = radioSignal(w);
@@ -250,7 +253,7 @@ function sharkSetup(seed) {
 // ---------- breakdowns ----------
 {
   const w = createWorld(8); light(w); setPower(w, 'radio', true); for (let i = 0; i < 30; i++) step(w, DT);
-  const b = w.bergs.find(b => b.radio); lockOn(w, b.id, b.x, b.y, w.t, 'camera');
+  const b = w.bergs.find(b => b.radio); b.tag = 'red'; lockOn(w, b.id, b.x, b.y, w.t, 'camera');
   setFreq(w, b.radio.freq); setGain(w, 10);
   for (let i = 0; i < (T.fuseClip + 1) * 10; i++) { lockOn(w, b.id, b.x, b.y, w.t, 'camera'); step(w, DT); }
   check(w.broken.fuse, 'Clipping too long blows the radio fuse');
@@ -300,6 +303,35 @@ function sharkSetup(seed) {
   setPower(w2, 'sonar', true); for (let i = 0; i < 20; i++) step(w2, DT); deployBuoy(w2, CENTER.x + 300, CENTER.y); for (let i = 0; i < 50; i++) step(w2, DT); ping(w2);
   setPower(w2, 'cameras', true);
   check(w2.checklist.sonar && w2.checklist.buoy && w2.checklist.orbs, 'The checklist ticks itself off');
+}
+
+// ---------- payloads, scanner range, repair rules ----------
+{
+  const w = createWorld(51); light(w);
+  check(w.beacons.orange === 6 && w.beacons.blue === 6 && w.beacons.green === 4, 'Six orange, six blue and four green beacons');
+  for (let i = 0; i < 20; i++) step(w, DT);
+  const b = w.bergs.find(b => b.large);
+  lockOn(w, b.id, b.x, b.y, w.t, 'camera'); w.lock.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'c1' };
+  fireBeacon(w, 'orange'); for (let i = 0; i < 150; i++) step(w, DT);
+  check(w.obs[b.id] && w.obs[b.id].hollow === b.hollow && w.beacons.orange === 5, 'An orange sounding charge records HOLLOW without a ping');
+  const c = w.bergs.find(x => x.large && x.id !== b.id);
+  lockOn(w, c.id, c.x, c.y, w.t, 'camera'); w.lock.track = { vx: c.vx || 0, vy: c.vy || 0, t: w.t, cam: 'c1' };
+  fireBeacon(w, 'blue'); for (let i = 0; i < 300; i++) step(w, DT);
+  check(c.driftLog && c.driftLog.length >= 4, 'A blue beacon starts a drift log');
+  const w2 = createWorld(52); light(w2); ['sonar', 'scanner', 'currents'].forEach(s => setPower(w2, s, true)); for (let i = 0; i < 50; i++) step(w2, DT);
+  w2.scanner.calibrated = true; const d = w2.bergs.find(x => dist(x, CENTER) < 1200);
+  lockOn(w2, d.id, d.x, d.y, w2.t, 'camera'); for (let i = 0; i < 100; i++) step(w2, DT);
+  check(d.scan === 0, 'The metal scanner needs a buoy');
+  deployBuoy(w2, d.x + 900 > 3400 ? d.x - 900 : d.x + 900, d.y); for (let i = 0; i < 100; i++) step(w2, DT);
+  check(d.scan === 0, 'The metal scanner does nothing out of buoy range');
+  w2.buoy = { x: d.x + 20, y: d.y, landAt: w2.t }; for (let i = 0; i < (T.scanTime + 3) * 10; i++) { keepFurnace(w2); w2.buoy.x = d.x + 20; w2.buoy.y = d.y; step(w2, DT); }
+  check(d.scanned, 'In buoy range the metal scanner finishes its scan');
+  // every repair combination: the flowchart order equals the game's rules, and every board has a CUT and a CLOSE
+  const combos = []; for (const gauge of ['LOW', 'MIDDLE', 'HIGH', 'RED']) for (const lamp of ['R', 'W', 'B', 'D']) combos.push({ gauge, lamp });
+  const viaChart = r => { for (const rule of REPAIR_RULES) if (rule.test(r)) return rule.then; return 'OPEN'; };
+  check(combos.every(r => viaChart(r) === repairAction(r)), 'The repair flowchart matches the game for all 16 combinations');
+  const acts = new Set(combos.map(repairAction));
+  check(acts.has('CUT') && acts.has('CLOSE') && acts.has('OPEN'), 'The repair rules can produce CUT, CLOSE and OPEN');
 }
 
 // ---------- Old Tom ----------
@@ -375,7 +407,7 @@ function shot(seed, { drift, readNear, delay, color = 'green' }) {
 const good = SEEDS.slice(0, 20).map(s => shot(s, { drift: 'deep', readNear: true, delay: 8 }));
 const wrongDrift = SEEDS.slice(0, 20).map(s => shot(s, { drift: 'surface', readNear: true, delay: 8 }));
 const farRead = SEEDS.slice(0, 20).map(s => shot(s, { drift: 'deep', readNear: false, delay: 8 }));
-const amber = SEEDS.slice(0, 5).map(s => shot(s, { drift: 'deep', readNear: true, delay: 8, color: 'amber' }));
+const amber = SEEDS.slice(0, 5).map(s => shot(s, { drift: 'deep', readNear: true, delay: 8, color: 'orange' }));
 console.log(`Careful green shots: ${good.filter(r => r === 'win').length}/20 win · wrong drift: ${wrongDrift.filter(r => r === 'win').length}/20 · reading far from target: ${farRead.filter(r => r === 'win').length}/20`);
 check(good.filter(r => r === 'win').length >= 18, 'A fresh lock + right drift + nearby reading hits Elgarz (18 of 20 seeds)');
 check(wrongDrift.filter(r => r === 'win').length <= 2, 'The wrong drift setting misses');

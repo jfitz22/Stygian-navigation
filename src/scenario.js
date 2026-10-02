@@ -48,14 +48,22 @@ export const TUNING = {
   sipRelief: 0.45,
   // beacons
   beaconSpeed: 200,        // miles per second
-  beaconStock: 12,         // red / amber / blue share this rack
+  beaconStock: 12,         // plain red beacons; the rack rebuilds
   beaconRebuild: 40,
-  greenStock: 6,           // "this is Elgarz" beacons. They never rebuild.
+  orangeStock: 6,          // sounding charges: an echo on impact, no ping. Never rebuild.
+  blueStock: 6,            // drift logs: the ice's path is recorded from impact. Never rebuild.
+  greenStock: 4,           // "this is Elgarz" beacons. They never rebuild.
+  driftLogEvery: 5,        // seconds between drift-log points
   hitLarge: 6,             // beacon hit radius for large ice: hitLarge + length * hitPerMile
   hitPerMile: 0.45,
   hitSmall: 8,
   jamEvery: [4, 7],        // the launcher jams after this many shots (random in range)
   revealDelay: 3.5,        // seconds between the blue light and the win screen
+  // aim quality: each bar is full up to *Full, then falls to zero over *Span
+  aimFixFull: 18, aimFixSpan: 90,          // seconds since the fix
+  aimReadFull: 15, aimReadSpan: 75,        // seconds since the current reading
+  aimDistFull: 90, aimDistSpan: 330,       // miles between the reading and the target
+  aimTrackFull: 15, aimTrackSpan: 75,      // seconds since the orb last measured the drift
   // scanner
   scanTime: 12,            // seconds of good alignment to finish a metal scan
   alignRadius: 60,         // miles of prediction error before alignment hits zero

@@ -6,6 +6,7 @@ import {
   BOARD_GRID, BOARD_PAGES,
 } from './scenario.js';
 import { RUNES, makePlate, keypadCode, shuffle, octantName } from './glyphs.js';
+export const PAYLOAD = { red: 'stock', orange: 'orange', blue: 'blue', green: 'green' };
 
 export const SYSTEMS = ['cameras', 'sonar', 'radio', 'scanner', 'currents'];
 export const SPINUP = { cameras: 1, sonar: 1.5, radio: 2, scanner: 4, currents: 1.5 };
@@ -270,7 +271,7 @@ export function createWorld(seed = newSeed()) {
     lastSplash: null,   // Old Tom swims to where the last buoy came down
     checklist: { coffee: false, fuel: false, sonar: false, buoy: false, orbs: false },
     pressure: false,
-    beacons: { stock: T.beaconStock, nextAt: 0, green: T.greenStock, flying: [], splashes: [], shots: 0, jamAt: 0, last: null },
+    beacons: { stock: T.beaconStock, nextAt: 0, orange: T.orangeStock, blue: T.blueStock, green: T.greenStock, flying: [], splashes: [], shots: 0, jamAt: 0, last: null },
     tags: [], events: [],
     elgarzPlan: null,
   };
@@ -339,10 +340,7 @@ export function pressBoard(w, slot) {
   if (fn === 'WIPERS') { w.wipe = { cam: w.activeCam, until: w.t + 8 }; emit(w, 'wipers'); }
   if (fn === 'WIRELESS') { w.music = !w.music; emit(w, 'wireless', { on: w.music }); }
   if (fn === 'LAMPS') { w.lamps = (w.lamps + 1) % 3; emit(w, 'lamps', { mode: w.lamps }); }
-  if (fn === 'LAUNCH') {
-    if (w.color === 'green') emit(w, 'deny', { msg: 'GREEN BEACONS FIRE ONLY FROM THE LAUNCHER TRIGGER' });
-    else fireBeacon(w, w.color);
-  }
+  if (fn === 'LAUNCH') fireBeacon(w, 'red');
   if (fn === 'BELL') emit(w, 'bell');
   if (fn === 'VENT') { if (f.lit) { f.heat = Math.max(0.5, f.heat - T.ventHeat); f.pending = 0; } emit(w, 'vent'); }
   if (fn === 'NOTHING') emit(w, 'dud');
@@ -441,14 +439,14 @@ export function aimQuality(w) {
   if (!l) return null;
   const g = ghostAt(w, w.t);
   const fixAge = w.t - l.t0, readAge = r ? w.t - r.t : null, readDist = r ? dist(r, g) : null;
-  const fFix = clamp(1 - (fixAge - 12) / 60, 0, 1);
+  const fFix = clamp(1 - (fixAge - T.aimFixFull) / T.aimFixSpan, 0, 1);
   if (l.track) {
     // the camera measured the drift itself: no buoy needed
-    const trackAge = w.t - l.track.t, fTrack = clamp(1 - (trackAge - 10) / 50, 0, 1);
+    const trackAge = w.t - l.track.t, fTrack = clamp(1 - (trackAge - T.aimTrackFull) / T.aimTrackSpan, 0, 1);
     return { q: Math.round(100 * fFix * fTrack), fixAge, readAge, readDist, drift: 'camera', tracked: true, trackAge, cam: l.track.cam, flight: dist(OBSERVATORY, g) / T.beaconSpeed, fFix, fTrack, fRead: 1, fDist: 1 };
   }
-  const fRead = r ? clamp(1 - (readAge - 10) / 50, 0, 1) : 0;
-  const fDist = r ? clamp(1 - (readDist - 90) / 330, 0, 1) : 0;
+  const fRead = r ? clamp(1 - (readAge - T.aimReadFull) / T.aimReadSpan, 0, 1) : 0;
+  const fDist = r ? clamp(1 - (readDist - T.aimDistFull) / T.aimDistSpan, 0, 1) : 0;
   const q = Math.round(100 * fFix * fRead * fDist);
   return { q, fixAge, readAge, readDist, drift: w.drift, flight: dist(OBSERVATORY, g) / T.beaconSpeed, fFix, fRead, fDist };
 }
@@ -500,7 +498,8 @@ export function setMusic(w, on) { w.music = !!on; }
 function radioSources(w) {
   const out = [];
   const b = lockedBerg(w);
-  if (b && b.radio) out.push({ kind: 'ice', ...b.radio, base: alignment(w, T.radioAlignRadius), need: gainFor(dist(b, OBSERVATORY)) });
+  // the beacon in the ice amplifies its energies; ice without a beacon is out of earshot
+  if (b && b.radio && b.tag) out.push({ kind: 'ice', ...b.radio, base: 1, need: gainFor(dist(b, OBSERVATORY)) });
   if (w.music) for (const s of w.stations) out.push({ kind: 'station', ...s, base: 1, need: T.stationGain });
   return out;
 }
@@ -522,14 +521,14 @@ export function radioSignal(w) {
 export function fireBeacon(w, color) {
   if (w.broken.launcher) { emit(w, 'deny', { msg: 'THE LAUNCHER IS JAMMED · REPAIR IT' }); return false; }
   if (!w.lock) { emit(w, 'deny', { msg: 'NO TARGET LOCKED' }); return false; }
-  const green = color === 'green';
-  if (green ? w.beacons.green <= 0 : w.beacons.stock <= 0) { emit(w, 'deny', { msg: green ? 'NO GREEN BEACONS LEFT' : 'BEACON RACK EMPTY' }); return false; }
+  const key = PAYLOAD[color] || 'stock';
+  if (w.beacons[key] <= 0) { emit(w, 'deny', { msg: key === 'stock' ? 'BEACON RACK EMPTY' : `NO ${color.toUpperCase()} BEACONS LEFT` }); return false; }
   const aq = aimQuality(w);
   let aim = ghostAt(w, w.t);
   for (let i = 0; i < 4; i++) aim = ghostAt(w, w.t + dist(OBSERVATORY, aim) / T.beaconSpeed);
   const tf = dist(OBSERVATORY, aim) / T.beaconSpeed;
-  if (green) w.beacons.green--;
-  else { w.beacons.stock--; if (!w.beacons.nextAt || w.beacons.nextAt < w.t) w.beacons.nextAt = w.t + T.beaconRebuild; }
+  w.beacons[key]--;
+  if (key === 'stock' && (!w.beacons.nextAt || w.beacons.nextAt < w.t)) w.beacons.nextAt = w.t + T.beaconRebuild;
   const target = lockedBerg(w);
   w.beacons.flying.push({
     x0: OBSERVATORY.x, y0: OBSERVATORY.y, x1: aim.x, y1: aim.y, t0: w.t, t1: w.t + tf, color,
@@ -660,7 +659,7 @@ export function gm(w, cmd, arg = {}) {
     for (const k of Object.keys(w.broken)) w.broken[k] = false;
     w.repairs = {}; w.buoyRebuildAt = 0; w.radio.clipTime = 0;
   }
-  if (cmd === 'restock') { w.beacons.stock = T.beaconStock; w.beacons.green = T.greenStock; }
+  if (cmd === 'restock') { w.beacons.stock = T.beaconStock; w.beacons.orange = T.orangeStock; w.beacons.blue = T.blueStock; w.beacons.green = T.greenStock; }
   if (cmd === 'shark-home' && w.tom.mode !== 'asleep') { const a = Math.atan2(w.tom.y - CENTER.y, w.tom.x - CENTER.x) + Math.PI; w.tom.x = CENTER.x + Math.cos(a) * 1500; w.tom.y = CENTER.y + Math.sin(a) * 1500; w.tom.target = null; w.tom.patrolR = 1500; }
   if (cmd === 'shark-home') { const a = Math.atan2(w.shark.y - CENTER.y, w.shark.x - CENTER.x) + Math.PI; w.shark.x = CENTER.x + Math.cos(a) * 1500; w.shark.y = CENTER.y + Math.sin(a) * 1500; w.lastPing = null; w.shark.mode = 'roam'; }
   if (cmd === 'shark-to') { w.lastPing = { x: arg.x, y: arg.y, t: w.t }; w.shark.mode = 'hunt'; }
@@ -718,7 +717,10 @@ export function step(w, dt = DT) {
 
   // move the Tomb, then the ice
   advanceTomb(w, w.tomb, t - dt, dt);
-  for (const b of w.bergs) advanceBerg(w, b, w.tomb, t, dt);
+  for (const b of w.bergs) {
+    advanceBerg(w, b, w.tomb, t, dt);
+    if (b.driftLog && t - b.driftLog[b.driftLog.length - 1].t >= T.driftLogEvery) b.driftLog.push({ x: b.x, y: b.y, t });
+  }
 
   // sonar deliveries
   for (const p of w.pings) {
@@ -748,7 +750,7 @@ export function step(w, dt = DT) {
   const s = w.scanner;
   if (s.frozen && !s.calibrated && t - s.lastPress > 25) { s.frozen = null; s.code = null; s.pressed = []; }
   const lb = lockedBerg(w);
-  if (isUp(w, 'scanner') && lb && s.calibrated && !lb.scanned && alignment(w) > T.alignNeeded) {
+  if (isUp(w, 'scanner') && lb && s.calibrated && !lb.scanned && scannerReach(w, lb) > 0) {
     lb.scan += dt / T.scanTime;
     if (lb.scan >= 1) { lb.scan = 1; lb.scanned = true; record(w, lb.id, 'metal', lb.metal); emit(w, 'scandone', { metal: lb.metal }); }
   }
@@ -757,7 +759,7 @@ export function step(w, dt = DT) {
   if (isUp(w, 'radio')) {
     const sig = radioSignal(w);
     if (lb && sig.lamps && sig.kind === 'ice') record(w, lb.id, 'radio', { freq: lb.radio.freq, band: lb.radio.band, carrier: lb.radio.carrier, shown: lb.radio.shown });
-    if (lb && alignment(w, T.radioAlignRadius) >= T.sweepAlign) {
+    if (lb && lb.tag) {
       if (w.sweep.bergId !== lb.id) w.sweep = { bergId: lb.id, bins: [] };
       const bin = Math.floor((w.radio.freq - 100) / T.sweepBin), nBins = Math.ceil(900 / T.sweepBin);
       if (!w.sweep.bins.includes(bin)) { w.sweep.bins.push(bin); if (w.sweep.bins.length >= nBins) record(w, lb.id, 'swept', true); }
@@ -853,6 +855,8 @@ export function step(w, dt = DT) {
         if (!w.cases.find(c => c.bergId === best.id && c.permanent)) { caseRow(w, best.id, true); emit(w, 'casepinned', { num: best.num }); }
         bc.last = { t, hit: true, num: best.num, intended: best.id === fl.report.bergId, color: fl.color, q: fl.report.q };
         emit(w, 'hit', { berg: best.id, num: best.num, color: fl.color });
+        if (fl.color === 'orange') record(w, best.id, 'hollow', best.hollow, { echo: best.echo });
+        if (fl.color === 'blue' && !best.driftLog) { best.driftLog = [{ x: best.x, y: best.y, t }]; emit(w, 'driftlog', { num: best.num }); }
         if (fl.color === 'green') {
           if (best.elgarz) { if (!w.reveal) { w.reveal = { t, bergId: best.id }; emit(w, 'reveal', { num: best.num }); } }
           else emit(w, 'greenwrong', { num: best.num });
@@ -917,6 +921,13 @@ export function relockCase(w, bergId) {
   if (!b || !row) return;
   if (b.tag) return lockOn(w, b.id, b.x, b.y, w.t, 'beacon');
   if (row.seen) return lockOn(w, b.id, row.seen.x, row.seen.y, row.seen.t, 'case board');
+}
+
+// ---------- metal scanner: it rides on the buoy ----------
+// 1 when the ice is right beside the buoy, falling to 0 at the edge of the buoy's range.
+export function scannerReach(w, b) {
+  if (!b || !w.buoy || w.t < w.buoy.landAt) return 0;
+  return clamp(1 - dist(b, w.buoy) / T.buoyRadius, 0, 1);
 }
 
 // ---------- camera control & tracking ----------
@@ -994,7 +1005,7 @@ export function snapshot(w) {
     remorhazes: w.remorhazes.map(r => ({ x: r.x, y: r.y, cam: r.cam })),
     storms: stormsAt(w, w.t),
     lock: w.lock, ghost: ghostAt(w, w.t), power: Object.fromEntries(SYSTEMS.map(s => [s, w.power[s].on])),
-    beacons: w.beacons.stock, green: w.beacons.green, calibrated: w.scanner.calibrated, broken: brokenList(w).map(b => b.name),
+    beacons: w.beacons.stock, orange: w.beacons.orange, blue: w.beacons.blue, green: w.beacons.green, calibrated: w.scanner.calibrated, broken: brokenList(w).map(b => b.name),
     furnace: { lit: w.furnace.lit, heat: w.furnace.heat, chute: w.furnace.chute }, music: w.music, fatigue: w.fatigue,
     camCode: camCode(w), activeCam: w.activeCam, tom: { x: w.tom.x, y: w.tom.y, mode: w.tom.mode },
     cases: w.cases.map(c => ({ num: (w.bergs.find(b => b.id === c.bergId) || {}).num, permanent: c.permanent, verdict: c.verdict, obs: w.obs[c.bergId] || null })), camUnlocked: Object.keys(w.camUnlocked),
