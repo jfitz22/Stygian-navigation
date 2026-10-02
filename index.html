@@ -20,7 +20,7 @@
     </header>
 
     <!-- beacon launcher -->
-    <section class="panel" id="p-launch" style="left:16px;top:56px;width:620px;height:446px">
+    <section class="panel" id="p-launch" style="left:16px;top:56px;width:620px;height:404px">
       <h2>BEACON LAUNCHER <small id="launchstat"></small></h2>
       <div id="aimbox">
         <div class="lbl">LOCKED TARGET</div>
@@ -41,29 +41,23 @@
       <div class="offline hidden" id="jammed">LAUNCHER JAMMED<br><small>REPAIR IT IN THE REPAIR BAY →</small></div>
     </section>
 
-    <!-- camera control: sits right above the main camera feed -->
-    <section class="panel" id="p-camctl" style="left:16px;top:510px;width:620px;height:232px">
-      <h2>CAMERA CONTROL <small id="camctlname"></small></h2>
-      <div id="camlocked">
-        <div class="lbl">FOCUS LEVERS</div>
-        <div id="levers">
-          <div class="lever" data-lever="wind"><span>WIND</span><button data-pos="UP">UP</button><button data-pos="MIDDLE">MID</button><button data-pos="DOWN">DOWN</button></div>
-          <div class="lever" data-lever="temp"><span>TEMP</span><button data-pos="UP">UP</button><button data-pos="MIDDLE">MID</button><button data-pos="DOWN">DOWN</button></div>
-        </div>
-        <div id="platebox">
-          <div class="lbl">SERVO PLATES</div>
-          <div id="plates"><button data-shape="CIRCLE"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14"/></svg></button><button data-shape="TRIANGLE"><svg viewBox="0 0 40 40"><path d="M20 5 L35 33 L5 33 Z"/></svg></button><button data-shape="SQUARE"><svg viewBox="0 0 40 40"><rect x="7" y="7" width="26" height="26"/></svg></button></div>
-          <div id="platedots"><i></i><i></i><i></i></div>
-          <div id="camctlhint">Set both levers, then press the three plates in order. The manual has the code.</div>
-        </div>
+  <!-- radio -->
+    <section class="panel" id="p-radio" style="left:16px;top:468px;width:620px;height:274px">
+      <h2>RADIO <small id="radiosrc">tuned to the locked target</small></h2>
+      <div class="screen"><canvas id="radiocanvas" width="300" height="110"></canvas></div>
+      <div id="songlamps"><span></span><span></span><span></span></div>
+      <div id="cliplamp"><div class="lamp off"></div>CLIP</div>
+      <div id="radioreadout">
+        <div class="nixie" id="freq">300.0</div>
+        <div class="fine"><button data-d="-5">◀◀</button><button data-d="-0.5">◀</button><button data-d="0.5">▶</button><button data-d="5">▶▶</button></div>
+        <div class="meter"><div id="strength"></div></div>
+        <div class="lbl sig">SIGNAL</div>
+        <div id="gainrow"><span class="lbl">GAIN</span><input type="range" id="gain" min="0" max="10" step="0.1" value="5"><span id="gainval">5.0</span></div>
       </div>
-      <div id="camopen" class="hidden">
-        <button id="turnleft" class="turnbtn">◀</button>
-        <div id="camfacing"><div class="nixie big" id="facingnum">000°</div><div class="lbl" id="unlockleft">UNLOCKED</div></div>
-        <button id="turnright" class="turnbtn">▶</button>
-        <div id="camopenhint">Hold an arrow to turn the camera. Watch the feed below.</div>
-      </div>
+      <div id="freqrow"><input type="range" id="freqslider" min="100" max="999.9" step="0.1" value="300"><div id="bandticks"><span>100</span><span>· LOW ·</span><span>400</span><span>· MID ·</span><span>700</span><span>· HIGH ·</span><span>999</span></div></div>
+      <div class="offline hidden" id="radiooff">NO POWER</div>
     </section>
+
 
     <!-- rune board -->
     <section class="panel" id="p-board" style="left:652px;top:56px;width:640px;height:534px">
@@ -123,11 +117,36 @@
       <div class="offline hidden" id="camoff">NO POWER</div>
     </div>
     <div id="camsel"></div>
-    <div class="hint">Click an iceberg in the view to lock onto it. Unlock and turn cameras from CAMERA CONTROL ▲</div>
+    <div class="hint">Click an iceberg in the view to lock onto it. Unlock and turn the camera with CAMERA CONTROL below.</div>
   </section>
 
+  <!-- camera control: right under the camera feed -->
+  <section class="panel" id="p-camctl" style="left:16px;top:548px;width:540px;height:220px">
+    <h2>CAMERA CONTROL <small id="camctlname"></small></h2>
+    <div id="camlocked">
+      <div class="lbl">FOCUS LEVERS</div>
+      <div id="levers">
+        <div class="lever" data-lever="wind"><span>WIND</span><button data-pos="UP">UP</button><button data-pos="MIDDLE">MID</button><button data-pos="DOWN">DOWN</button></div>
+        <div class="lever" data-lever="temp"><span>TEMP</span><button data-pos="UP">UP</button><button data-pos="MIDDLE">MID</button><button data-pos="DOWN">DOWN</button></div>
+      </div>
+      <div id="platebox">
+        <div class="lbl">SERVO PLATES</div>
+        <div id="plates"><button data-shape="CIRCLE"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14"/></svg></button><button data-shape="TRIANGLE"><svg viewBox="0 0 40 40"><path d="M20 5 L35 33 L5 33 Z"/></svg></button><button data-shape="SQUARE"><svg viewBox="0 0 40 40"><rect x="7" y="7" width="26" height="26"/></svg></button></div>
+        <div id="platedots"><i></i><i></i><i></i></div>
+        <div id="camctlhint">Levers: WIND and AIR on the feed. Then the plates, in order.</div>
+      </div>
+    </div>
+    <div id="camopen" class="hidden">
+      <button id="turnleft" class="turnbtn">◀</button>
+      <div id="camfacing"><div class="nixie big" id="facingnum">000°</div><div class="lbl" id="unlockleft">UNLOCKED</div></div>
+      <button id="turnright" class="turnbtn">▶</button>
+      <div id="camopenhint">Hold an arrow (or the left/right keys) to turn the camera.</div>
+    </div>
+  </section>
+
+
   <!-- currents -->
-  <section class="panel" id="p-cur" style="left:16px;top:548px;width:540px;height:220px">
+  <section class="panel" id="p-cur" style="left:1364px;top:498px;width:540px;height:270px">
     <h2>CURRENTS &amp; WIND <small id="curage"></small></h2>
     <canvas id="curcanvas" width="508" height="160"></canvas>
     <div class="offline hidden" id="curoff">NO POWER</div>
@@ -197,23 +216,6 @@
       <div id="echoinfo">Select a contact.</div>
     </div>
     <div class="offline hidden" id="sonaroff">NO POWER</div>
-  </section>
-
-  <!-- radio -->
-  <section class="panel" id="p-radio" style="left:1364px;top:498px;width:540px;height:270px">
-    <h2>RADIO <small id="radiosrc">tuned to the locked target</small></h2>
-    <div class="screen"><canvas id="radiocanvas" width="300" height="110"></canvas></div>
-    <div id="songlamps"><span></span><span></span><span></span></div>
-    <div id="cliplamp"><div class="lamp off"></div>CLIP</div>
-    <div id="radioreadout">
-      <div class="nixie" id="freq">300.0</div>
-      <div class="fine"><button data-d="-5">◀◀</button><button data-d="-0.5">◀</button><button data-d="0.5">▶</button><button data-d="5">▶▶</button></div>
-      <div class="meter"><div id="strength"></div></div>
-      <div class="lbl sig">SIGNAL</div>
-      <div id="gainrow"><span class="lbl">GAIN</span><input type="range" id="gain" min="0" max="10" step="0.1" value="5"><span id="gainval">5.0</span></div>
-    </div>
-    <div id="freqrow"><input type="range" id="freqslider" min="100" max="999.9" step="0.1" value="300"><div id="bandticks"><span>100</span><span>· LOW ·</span><span>400</span><span>· MID ·</span><span>700</span><span>· HIGH ·</span><span>999</span></div></div>
-    <div class="offline hidden" id="radiooff">NO POWER</div>
   </section>
 
   <!-- scanner -->

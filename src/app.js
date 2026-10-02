@@ -2,10 +2,10 @@ import {
   createWorld, newSeed, step, light, stoke, slotsAvailable, setPower, isUp, selectCam, deployBuoy, ping, lockContact, lockFromCamera,
   setDrift, ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
-  pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, setLever, pressPlate, setCamTurn, camIsUnlocked,
+  pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather,
 } from './sim.js';
 import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES } from './scenario.js';
-import { glyphSVG } from './glyphs.js';
+import { glyphSVG, gaugeSVG } from './glyphs.js';
 import * as audio from './audio.js';
 
 const $ = id => document.getElementById(id);
@@ -108,27 +108,26 @@ $('camcanvas').addEventListener('click', e => {
 // ---------- repair bay ----------
 const GAUGES = ['LOW', 'MIDDLE', 'HIGH', 'RED'], LAMPS = ['R', 'W', 'B', 'D'];
 function makeBoard() {
-  const rows = [], r = Math.random;
-  for (let i = 0; i < 5; i++) {
-    const g = r(), gauge = g < 0.3 ? 'LOW' : g < 0.6 ? 'MIDDLE' : g < 0.85 ? 'HIGH' : 'RED';
-    rows.push({ gauge, lamp: LAMPS[Math.floor(r() * 4)], set: null });
-  }
+  const r = Math.random;
+  let rows;
+  do {
+    rows = [];
+    for (let i = 0; i < 5; i++) {
+      const g = r(), gauge = g < 0.3 ? 'LOW' : g < 0.6 ? 'MIDDLE' : g < 0.85 ? 'HIGH' : 'RED';
+      rows.push({ gauge, lamp: LAMPS[Math.floor(r() * 4)], set: null });
+    }
+    // at least two rows must need closing or cutting, and at least one stays open
+  } while (rows.filter(x => correctAction(x) !== 'OPEN').length < 2 || rows.every(x => correctAction(x) !== 'OPEN'));
   return { rows, lockUntil: 0 };
 }
-// The manual's repair rules: first rule that fits; if none fits, CLOSE.
+// The manual's repair rules: first rule that fits; if none fits, leave it OPEN.
 function correctAction(row) {
   if (row.gauge === 'RED') return 'CUT';
   if (row.lamp === 'D') return 'CLOSE';
-  if (row.lamp === 'B' && row.gauge === 'LOW') return 'OPEN';
-  if (row.lamp === 'W' && row.gauge !== 'HIGH') return 'OPEN';
-  if (row.lamp === 'R' && row.gauge === 'LOW') return 'OPEN';
-  return 'CLOSE';
-}
-function gaugeSVG(g) {
-  const ang = { LOW: -60, MIDDLE: -15, HIGH: 30, RED: 70 }[g] * Math.PI / 180;
-  const x = 32 + Math.sin(ang) * 24, y = 32 - Math.cos(ang) * 24;
-  return `<svg class="gauge" viewBox="0 0 64 36"><path d="M8 32 A24 24 0 0 1 49 15" fill="none" stroke="#8a8f86" stroke-width="5"/><path d="M49 15 A24 24 0 0 1 56 32" fill="none" stroke="#ff4b3a" stroke-width="5"/>
-    <line x1="32" y1="32" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#f4f1e6" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="32" r="3" fill="#b08d57"/></svg>`;
+  if (row.lamp === 'R' && row.gauge === 'HIGH') return 'CUT';
+  if (row.lamp === 'B' && row.gauge !== 'LOW') return 'CLOSE';
+  if (row.lamp === 'W' && row.gauge === 'HIGH') return 'CLOSE';
+  return 'OPEN';
 }
 let repairKey = '';
 function drawRepairBay() {
@@ -451,6 +450,11 @@ function drawCamera() {
   ctx.fillStyle = 'rgba(232,207,152,.8)'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'center';
   for (let k = -40; k <= 40; k += 10) { const x = Wd / 2 + (k * Math.PI / 180 / hf) * Wd / 2; ctx.fillRect(x, 0, 1, 6); ctx.fillText(String((cam.facing + k + 360) % 360).padStart(3, '0'), x, 17); }
   ctx.textAlign = 'left'; ctx.fillText('● REC ' + fmt(t), 8, Ht - 8);
+  // weather station on the post: what the camera control levers are set from
+  { const wx = camWeather(world, cam);
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(Wd - 196, 24, 188, 22);
+    ctx.fillStyle = '#9ad0ff'; ctx.font = '600 12px IBM Plex Mono'; ctx.textAlign = 'right';
+    ctx.fillText(`WIND ${wx.windKn} kn · AIR ${wx.air}°`, Wd - 14, 40); ctx.textAlign = 'left'; }
   const lk = world.lock, lb = lockedBerg(world);
   if (lk && lb && up && cameraView(world, cam).some(it => it.o === lb)) {
     const done = lk.track && lk.track.cam === cam.id && t - lk.track.t < 1.5, k = lk.trackSince != null ? Math.min(1, (t - lk.trackSince) / T.trackTime) : 0;
@@ -804,14 +808,14 @@ function drawCamCtl() {
   $('camlocked').classList.toggle('hidden', open); $('camopen').classList.toggle('hidden', !open);
   if (open) {
     $('facingnum').textContent = String(Math.round(cam.facing) % 360).padStart(3, '0') + '°';
-    $('unlockleft').textContent = 'UNLOCKED · ' + fmt(world.camUnlocked[cam.id] - world.t) + ' LEFT';
+    $('unlockleft').textContent = 'UNLOCKED UNTIL IT BREAKS';
     return;
   }
   document.querySelectorAll('.lever').forEach(l => l.querySelectorAll('button').forEach(b => b.classList.toggle('sel', p[l.dataset.lever] === b.dataset.pos)));
   document.querySelectorAll('#platedots i').forEach((d, i) => d.classList.toggle('on', i < p.pressed.length));
   const bad = world.t < p.lockout;
   $('camctlhint').classList.toggle('bad', bad);
-  $('camctlhint').textContent = bad ? 'WRONG CODE · THE SERVOS ARE RESETTING' : 'Set both levers, then press the three plates in order. The manual has the code.';
+  $('camctlhint').textContent = bad ? 'WRONG CODE · THE SERVOS ARE RESETTING' : 'Levers: WIND and AIR on the feed. Then the plates, in order.';
 }
 
 // ---------- rune board ----------

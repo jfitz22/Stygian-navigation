@@ -196,8 +196,11 @@ function sharkSetup(seed) {
   const h0 = w4.furnace.heat;
   setCamTurn(w4, 1); for (let i = 0; i < 20; i++) step(w4, DT); setCamTurn(w4, 0);
   check(Math.abs(((w4.cams[0].facing - c0 + 360) % 360) - 2 * T.camTurnRate) < 1 && h0 - w4.furnace.heat < 1, 'An unlocked camera turns smoothly and costs no heat');
-  for (let i = 0; i < (T.camUnlockTime + 1) * 10; i++) { keepFurnace(w4); step(w4, DT); }
-  check(!camIsUnlocked(w4, 'c1'), 'The unlock runs out after two minutes');
+  for (let i = 0; i < 3000; i++) { keepFurnace(w4); step(w4, DT); }
+  check(camIsUnlocked(w4, 'c1'), 'An unlocked camera stays unlocked');
+  w4.cams[0].heat = 100; selectCam(w4, 'c1'); setPower(w4, 'cameras', true); w4.levers.remorhaz = 1;
+  for (let i = 0; i < 1500 && !w4.cams[0].broken; i++) { keepFurnace(w4); w4.cams[0].heat = 100; step(w4, DT); }
+  check(w4.cams[0].broken && !camIsUnlocked(w4, 'c1'), 'A destroyed camera loses its unlock');
   const w7 = createWorld(3); light(w7); gm(w7, 'pause'); const tp = w7.t; step(w7, DT);
   check(w7.paused && w7.t === tp, 'Pausing stops the watch'); gm(w7, 'pause'); step(w7, DT);
   check(!w7.paused && w7.t > tp, 'Resuming starts it again');

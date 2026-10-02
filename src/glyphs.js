@@ -76,3 +76,14 @@ export function glyphSVG(i, size = 40, stroke = 'currentColor', width = 1.1) {
   const paths = RUNES[i].d.map(line => `<polyline points="${line.map(p => p.join(',')).join(' ')}" />`).join('');
   return `<svg viewBox="0 0 10 10" width="${size}" height="${size}" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
 }
+
+// A dial with four zones split by tick marks: L, M, H and the red. The needle sits in the middle of its zone.
+export function gaugeSVG(g, ink = '#f4f1e6', dim = '#8a8f86') {
+  const cx = 52, cy = 52, R = 40, pt = (deg, r) => [cx + Math.sin(deg * Math.PI / 180) * r, cy - Math.cos(deg * Math.PI / 180) * r];
+  const arc = (a0, a1, col) => { const [x0, y0] = pt(a0, R), [x1, y1] = pt(a1, R); return `<path d="M${x0.toFixed(1)} ${y0.toFixed(1)} A${R} ${R} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}" fill="none" stroke="${col}" stroke-width="7"/>`; };
+  const ticks = [-90, -45, 0, 45, 90].map(a => { const [x0, y0] = pt(a, R - 9), [x1, y1] = pt(a, R + 5); return `<line x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" stroke="${ink}" stroke-width="2.5"/>`; }).join('');
+  const labels = [['L', -67], ['M', -22], ['H', 22]].map(([t, a]) => { const [x, y] = pt(a, R - 17); return `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" font-size="11" font-family="IBM Plex Mono" font-weight="600" fill="${ink}" text-anchor="middle">${t}</text>`; }).join('');
+  const na = { LOW: -67, MIDDLE: -22, HIGH: 22, RED: 67 }[g], [nx, ny] = pt(na, R - 4);
+  return `<svg class="gauge" viewBox="0 0 104 58">${arc(-90, 45, dim)}${arc(45, 90, '#ff4b3a')}${ticks}${labels}
+    <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="${ink}" stroke-width="3.5" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="4" fill="#b08d57"/></svg>`;
+}

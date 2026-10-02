@@ -34,7 +34,6 @@ export const TUNING = {
   boardFlipEvery: 60,      // seconds between flips
   boardFlipPresses: 4,     // presses that also flip it
   // camera control (overhead deck)
-  camUnlockTime: 120,      // seconds an unlocked camera can be turned
   camTurnRate: 24,         // degrees per second while an arrow is held
   plateLockout: 4,         // seconds the plates lock after a wrong code
   // camera tracking
@@ -71,7 +70,7 @@ export const TUNING = {
   stationGain: 3,          // gain the cabin wireless stations need
   fuseClip: 6,             // seconds of clipping before the radio fuse blows
   // cameras
-  camRange: 620,
+  camRange: 680,
   camFov: 90 * Math.PI / 180,
   camHeatUp: 1.8,          // heat per second while watched
   camCoolDown: 2.6,
@@ -276,6 +275,6 @@ export const PLATE_ORDER = [
   ['SQUARE', 'CIRCLE', 'TRIANGLE'],   // page III
   ['CIRCLE', 'SQUARE', 'TRIANGLE'],   // page IV
 ];
-// Levers: set from the latest buoy reading (wind in knots, water temperature in degrees as displayed).
+// Levers: set from the weather readout on the camera feed (wind in knots, air temperature in degrees).
 export function windLever(kn) { return kn < 30 ? 'DOWN' : kn <= 38 ? 'MIDDLE' : 'UP'; }
 export function tempLever(deg) { return deg < -40 ? 'DOWN' : deg <= -25 ? 'MIDDLE' : 'UP'; }

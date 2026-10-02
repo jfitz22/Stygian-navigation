@@ -630,7 +630,7 @@ export function spawnDue(w) {
 // ---------- GM commands ----------
 export function gm(w, cmd, arg = {}) {
   if (cmd === 'pause') { w.paused = !w.paused; emit(w, w.paused ? 'paused' : 'resumed'); }
-  if (cmd === 'camunlock') { w.camUnlocked[w.activeCam] = w.t + T.camUnlockTime; }
+  if (cmd === 'camunlock') { w.camUnlocked[w.activeCam] = true; }
   if (cmd === 'repair') {
     w.cams.forEach(c => { c.broken = false; c.heat = 0; }); w.remorhazes = [];
     for (const k of Object.keys(w.broken)) w.broken[k] = false;
@@ -753,7 +753,7 @@ export function step(w, dt = DT) {
     const c = w.cams.find(c => c.id === r.cam), d = dist(r, c);
     c.tremor = clamp(1 - d / T.remorhazSpawnDist, 0, 1);
     if (c.heat < T.remorhazGiveUp && d > 20) { r.gone = true; emit(w, 'burrow', { cam: c.id }); continue; }
-    if (d < 6) { r.gone = true; c.broken = true; c.heat = 0; c.tremor = 0; emit(w, 'camdead', { cam: c.id }); continue; }
+    if (d < 6) { r.gone = true; c.broken = true; c.heat = 0; c.tremor = 0; delete w.camUnlocked[c.id]; emit(w, 'camdead', { cam: c.id }); continue; }
     const sp = T.remorhazSpeed * Math.max(0.5, w.levers.remorhaz);
     r.x += (c.x - r.x) / d * sp * dt; r.y += (c.y - r.y) / d * sp * dt;
   }
@@ -820,11 +820,17 @@ export function step(w, dt = DT) {
 }
 
 // ---------- camera control & tracking ----------
-export const camIsUnlocked = (w, id) => (w.camUnlocked[id] || 0) > w.t;
+// Once unlocked, a camera stays unlocked until it is destroyed.
+export const camIsUnlocked = (w, id) => !!w.camUnlocked[id];
+// The weather readout on a camera's feed: wind speed and the air temperature at that post.
+export function camWeather(w, cam) {
+  const wi = windAt(w.t, w.field);
+  return { windKn: Math.round(wi.speed * 3.4), windOct: octantName(wi.from), air: Math.round(tempAt(cam.x, cam.y, w.t, w.field, w.tomb) - 4) };
+}
 export function setCamTurn(w, dir) { w.camTurn = dir; }
 export function camCode(w) {
-  const D = readingDisplay(w.readings);
-  return { order: PLATE_ORDER[w.board.page], wind: D ? windLever(D.windKn) : 'MIDDLE', temp: D ? tempLever(D.temp) : 'MIDDLE' };
+  const wx = camWeather(w, w.cams.find(c => c.id === w.activeCam));
+  return { order: PLATE_ORDER[w.board.page], wind: windLever(wx.windKn), temp: tempLever(wx.air) };
 }
 export function setLever(w, name, pos) { w.camPanel[name] = pos; emit(w, 'lever'); }
 export function pressPlate(w, shape) {
@@ -835,7 +841,7 @@ export function pressPlate(w, shape) {
   const code = camCode(w);
   const ok = p.pressed.join() === code.order.join() && p.wind === code.wind && p.temp === code.temp;
   p.pressed = [];
-  if (ok) { w.camUnlocked[w.activeCam] = w.t + T.camUnlockTime; emit(w, 'camunlocked', { cam: w.activeCam }); }
+  if (ok) { w.camUnlocked[w.activeCam] = true; emit(w, 'camunlocked', { cam: w.activeCam }); }
   else { p.lockout = w.t + T.plateLockout; emit(w, 'camfail'); }
 }
 function trackStep(w, cam, dt) {
@@ -889,7 +895,7 @@ export function snapshot(w) {
     lock: w.lock, ghost: ghostAt(w, w.t), power: Object.fromEntries(SYSTEMS.map(s => [s, w.power[s].on])),
     beacons: w.beacons.stock, green: w.beacons.green, calibrated: w.scanner.calibrated, broken: brokenList(w).map(b => b.name),
     furnace: { lit: w.furnace.lit, heat: w.furnace.heat, chute: w.furnace.chute }, music: w.music, fatigue: w.fatigue,
-    camCode: camCode(w), activeCam: w.activeCam, camUnlocked: Object.fromEntries(Object.entries(w.camUnlocked).filter(([, u]) => u > w.t).map(([k, u]) => [k, Math.ceil(u - w.t)])),
+    camCode: camCode(w), activeCam: w.activeCam, camUnlocked: Object.keys(w.camUnlocked),
     board: { page: BOARD_PAGES[w.board.page], fns: w.board.runes.map(r => runeFunction(r, w.board.page)) },
     stations: w.stations.map(s => ({ freq: s.freq, decoded: s.decoded, band: s.band })),
     code: w.readings ? keypadCode(w.scanner.plate, readingDisplay(w.readings)) : null,

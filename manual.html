@@ -98,11 +98,11 @@
 
 <section class="page" data-n="2">
   <h2>The cockpit</h2>
-  <p>The operator sits at the <b>main board</b>: cameras, chart, sonar, radio, scanner and furnace. Above it is the <b>overhead deck</b>. The buttons <span class="mono">▲ LOOK UP</span> and <span class="mono">▼ LOOK DOWN</span> sit side by side on the top bar (the up and down arrow keys work too). Next to them is <span class="mono">❚❚ PAUSE</span>: anyone at the table, or the GM, can pause and resume the watch (key P).</p>
+  <p>The operator sits at the <b>main board</b>: cameras with their camera control, chart, sonar, currents, scanner and furnace. Above it is the <b>overhead deck</b>. The buttons <span class="mono">▲ LOOK UP</span> and <span class="mono">▼ LOOK DOWN</span> sit side by side on the top bar (the up and down arrow keys work too). Next to them is <span class="mono">❚❚ PAUSE</span>: anyone at the table, or the GM, can pause and resume the watch (key P).</p>
   <table>
     <tr><th>ON THE OVERHEAD DECK</th><th>WHAT IT DOES</th></tr>
     <tr><td><b>Beacon launcher</b></td><td>Pick a colour and fire. Shows <b>aim quality</b> and a report on every shot (page 6).</td></tr>
-    <tr><td><b>Camera control</b></td><td>Unlock the camera on screen and turn it by hand (page 10). It sits just above the camera feed.</td></tr>
+    <tr><td><b>Radio</b></td><td>Tune and decode the locked iceberg (page 7).</td></tr>
     <tr><td><b>Rune board</b></td><td>Twelve unlabelled rune buttons: fuel, coffee, wipers and more. Only this book says which is which (page 4).</td></tr>
     <tr><td><b>Wire service</b></td><td>A ticker with the buoy weather, storms, the Grindmaw and messages from the shore.</td></tr>
     <tr><td><b>Repair bay</b></td><td>Everything that breaks is fixed here (page 11).</td></tr>
@@ -201,7 +201,7 @@
   <h2>The radio</h2>
   <div class="ask"><b>ASK THE OPERATOR FOR:</b> the frequency · the wave shape · the three lamp colours, left to right · is the wireless on?</div>
   <h3><span class="step">1.</span> Tune</h3>
-  <p>Lock onto an iceberg. Slide the <b>frequency</b> along the band and watch the <b>SIGNAL</b> bar. About half the ice makes some sound.</p>
+  <p>The radio is on the <b>overhead deck</b>. Lock onto an iceberg. Slide the <b>frequency</b> along the band and watch the <b>SIGNAL</b> bar. About half the ice makes some sound.</p>
   <h3><span class="step">2.</span> Match the gain</h3>
   <p>Move the <b>GAIN</b> until the wave just touches the dashed brass lines; then three lamps flash. Too little and it drowns in static. Too much and the <b>CLIP</b> lamp lights. <b>Leave it clipping for a few seconds and the fuse blows</b> (repair bay). Distant ice needs more gain.</p>
   <h3><span class="step">3.</span> Is it the cabin wireless?</h3>
@@ -249,17 +249,17 @@
 
 <section class="page" data-n="10">
   <h2>Cameras, camera control and burrowers</h2>
-  <div class="ask"><b>ASK THE OPERATOR FOR:</b> which camera is on screen · the WIND speed and WATER temperature on the Currents panel · the PAGE on the rune board</div>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> the WIND and AIR readout in the top corner of the camera feed · the PAGE on the rune board</div>
   <p>Seven camera posts ring the island. Click an iceberg in the view to lock onto it. Keep it in view and the camera <b>tracks</b> it (page 6).</p>
-  <h3>Camera control (overhead deck)</h3>
-  <p>To turn a camera by hand, unlock it on the <b>camera control</b> panel. An unlock lasts <b>two minutes</b>; then hold <span class="mono">◀</span> or <span class="mono">▶</span> (or the left and right arrow keys) to turn it and follow the ice. Turning is free.</p>
+  <h3>Camera control (under the camera feed)</h3>
+  <p>To turn a camera by hand, unlock it on the <b>camera control</b> panel. <b>Once unlocked, a camera stays unlocked</b> until a burrower destroys it; after the repair it must be unlocked again. Hold <span class="mono">◀</span> or <span class="mono">▶</span> (or the left and right arrow keys) to turn it and follow the ice. Turning is free.</p>
   <h3><span class="step">1.</span> Set the focus levers</h3>
   <table>
     <tr><th>LEVER</th><th>DOWN</th><th>MIDDLE</th><th>UP</th></tr>
-    <tr><td><b>WIND</b> (speed on the Currents panel)</td><td>under 30 kn</td><td>30 to 38 kn</td><td>over 38 kn</td></tr>
-    <tr><td><b>TEMP</b> (water temperature)</td><td>colder than -40°</td><td>-40° to -25°</td><td>warmer than -25°</td></tr>
+    <tr><td><b>WIND</b> (WIND on the camera feed)</td><td>under 30 kn</td><td>30 to 38 kn</td><td>over 38 kn</td></tr>
+    <tr><td><b>TEMP</b> (AIR on the camera feed)</td><td>colder than -40°</td><td>-40° to -25°</td><td>warmer than -25°</td></tr>
   </table>
-  <p>No reading on the Currents panel? Set <b>both levers to MIDDLE</b>.</p>
+  <p>Every camera post has its own weather station, so each camera can need different lever settings. No buoy needed.</p>
   <h3><span class="step">2.</span> Press the servo plates in order</h3>
   <table id="platetable"></table>
   <p>Wrong code: the servos reset for a few seconds. Try again.</p>
@@ -274,22 +274,24 @@
 
 <section class="page" data-n="11">
   <h2>The repair bay</h2>
-  <div class="ask"><b>ASK THE OPERATOR FOR:</b> what is broken · for each of the five rows: where the gauge needle points and the colour of the lamp</div>
-  <p>Cameras, the <b>furnace grate</b>, the <b>beacon launcher</b>, the <b>buoy winch</b> and the <b>radio fuse</b> can all break. Pick the broken thing in the repair bay. Each of its five rows has a <b>gauge</b> (needle LOW, MIDDLE, HIGH, or in the RED) and a <b>lamp</b> (RED, WHITE, BLUE, or DARK). Set each row to OPEN, CLOSE or CUT. For each row use the <b>first rule that fits</b>:</p>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> what is broken · for each of the five rows: which section the gauge needle is in (L, M, H or the red) and the colour of the lamp</div>
+  <p>Cameras, the <b>furnace grate</b>, the <b>beacon launcher</b>, the <b>buoy winch</b> and the <b>radio fuse</b> can all break. Pick the broken thing in the repair bay. Each of its five rows has a <b>gauge</b> and a <b>lamp</b> (RED, WHITE, BLUE, or DARK). The gauge is split by tick marks into four sections:</p>
+  <div id="gauges" style="display:flex;gap:18px;justify-content:center;margin:6px 0 10px"></div>
+  <p>Set each row to OPEN, CLOSE or CUT. For each row use the <b>first rule that fits</b>. <b>If no rule fits, leave it OPEN.</b></p>
   <table>
     <tr><th>#</th><th>IF THE ROW SHOWS</th><th>SET IT TO</th></tr>
     <tr><td>1</td><td>the needle is in the <b>RED</b></td><td><b>CUT</b></td></tr>
     <tr><td>2</td><td>the lamp is <b>DARK</b></td><td><b>CLOSE</b></td></tr>
-    <tr><td>3</td><td>the lamp is <b>BLUE</b> and the needle is <b>LOW</b></td><td><b>OPEN</b></td></tr>
-    <tr><td>4</td><td>the lamp is <b>WHITE</b> and the needle is <b>LOW</b> or <b>MIDDLE</b></td><td><b>OPEN</b></td></tr>
-    <tr><td>5</td><td>the lamp is <b>RED</b> and the needle is <b>LOW</b></td><td><b>OPEN</b></td></tr>
-    <tr><td>-</td><td>nothing above fits</td><td><b>CLOSE</b></td></tr>
+    <tr><td>3</td><td>the lamp is <b>RED</b> and the needle is in <b>H</b></td><td><b>CUT</b></td></tr>
+    <tr><td>4</td><td>the lamp is <b>BLUE</b> and the needle is in <b>M</b> or <b>H</b></td><td><b>CLOSE</b></td></tr>
+    <tr><td>5</td><td>the lamp is <b>WHITE</b> and the needle is in <b>H</b></td><td><b>CLOSE</b></td></tr>
+    <tr><td>-</td><td>none of the above</td><td><b>OPEN</b></td></tr>
   </table>
   <p>Then <span class="mono">SEND THE REPAIR CREW</span>. Wrong rows spark and reset. A camera takes <span data-t="repairTime"></span> seconds; everything else <span data-t="minorRepairTime"></span>.</p>
 </section>
 
 <script type="module">
-import { RUNES, glyphSVG, HOUSES } from './src/glyphs.js';
+import { RUNES, glyphSVG, HOUSES, gaugeSVG } from './src/glyphs.js';
 import { RADIO_TABLE, TUNING, TOMB_RADIUS, CELL, BOARD_GRID, BOARD_PAGES, PLATE_ORDER } from './src/scenario.js';
 const V = { TOMB_RADIUS, CELL };
 document.querySelectorAll('[data-t]').forEach(e => { e.textContent = TUNING[e.dataset.t]; });
@@ -300,6 +302,8 @@ document.getElementById('radiotable').innerHTML = '<tr><th>LAMPS (AFTER STEP 4)<
   '<tr><td colspan="4">Any other pattern: noise. No meaning.</td></tr>';
 document.getElementById('boardgrid').innerHTML = '<tr><th>HOUSE</th><th>WEIGHT 1</th><th>WEIGHT 2</th><th>WEIGHT 3</th><th>WEIGHT 4</th></tr>' +
   HOUSES.map(h => `<tr><td>${h.toUpperCase()}</td>${BOARD_GRID[h].map(f => `<td class="fn">${f}</td>`).join('')}</tr>`).join('');
+document.getElementById('gauges').innerHTML = [['LOW', 'L (low)'], ['MIDDLE', 'M (middle)'], ['HIGH', 'H (high)'], ['RED', 'in the red']]
+  .map(([g, t]) => `<div style="text-align:center;font-size:12px">${gaugeSVG(g, '#2a1d0c', '#9c8f70').replace('class="gauge"', 'width="110" height="62"')}<br>${t}</div>`).join('');
 const shapeName = { CIRCLE: '● circle', TRIANGLE: '▲ triangle', SQUARE: '■ square' };
 document.getElementById('platetable').innerHTML = '<tr><th>RUNE BOARD PAGE</th><th>FIRST</th><th>SECOND</th><th>THIRD</th></tr>' +
   PLATE_ORDER.map((o, i) => `<tr><td><b>${BOARD_PAGES[i]}</b></td>${o.map(sh => `<td>${shapeName[sh]}</td>`).join('')}</tr>`).join('');

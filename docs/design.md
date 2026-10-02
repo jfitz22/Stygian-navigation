@@ -32,14 +32,16 @@ Every watch has a seed (`?seed=`). With no seed a fresh sea is rolled. At 3:00 E
 
 The operator has two views and pans between them with **▲ LOOK UP / ▼ LOOK DOWN**, side by side on the top bar next to **❚❚ PAUSE** (the operator or the GM can pause; a card shows until someone resumes). When looking up, the top half of the main board is still visible below the deck.
 
-**Main board:** cameras, chart, sonar, currents and weather, furnace, the target lock (drift switch and aim quality), radio and scanner.
+**Main board:** cameras with camera control right underneath, chart, sonar, currents and weather, furnace, the target lock (drift switch and aim quality) and scanner.
+
+**Camera control:** each camera feed shows its post's WIND and AIR temperature. Set two focus levers from those and press three servo plates in the order the rune board page dictates; that camera then stays unlocked (free turning, no heat) until a remorhaz destroys it.
 
 **Overhead deck:**
 - **Beacon launcher:** colour, fire, aim quality and a shot report.
-- **Camera control:** directly above the camera feed. Set two focus levers from the buoy weather (wind speed, water temperature) and press three servo plates in the order the rune board page dictates; the camera on screen then turns freely for 2 minutes.
+- **Radio:** tune and decode the locked iceberg.
 - **Rune board:** a KTANE-style flip calendar of 12 unlabelled runes.
 - **Wire service:** a ticker with the weather, storms, shark, board timer, breakdowns and GM messages.
-- **Repair bay.**
+- **Repair bay.** (Its lower half is reserved for a future tracking board.)
 
 ## Mechanics
 
@@ -52,7 +54,7 @@ The operator has two views and pans between them with **▲ LOOK UP / ▼ LOOK D
 - **Scanner.** A 3×3 rune keypad. Wind picks the first house, deep vs surface speed picks the direction round the wheel, and temperature picks heaviest, lightest or second lightest. The setting drifts out of tune once the buoy's conditions have disagreed with it for 50 s, about 3–5 times a watch.
 - **Radio.** A long slider with a wide, forgiving peak, plus gain matching. Carrier shape transforms the lamps, and band plus lamps give the meaning. The wireless adds three false stations. Clipping for 6 s blows the fuse.
 - **Grindmaw.** Always on the chart. After every ping it swims for the ping spot: fast (9 mi/s) when more than 1.5 squares away, steady (3.5 mi/s) when close. If it finds the buoy there, it eats it and tears the winch.
-- **Breakdowns.** Every breakdown goes through the same repair board: five rows, each a gauge (low/middle/high/red) and a lamp (red/white/blue/dark); first matching rule, otherwise CLOSE:
+- **Breakdowns.** Every breakdown goes through the same repair board: five rows, each a gauge (low/middle/high/red) and a lamp (red/white/blue/dark); rules say what to CLOSE or CUT, otherwise leave it OPEN; every board needs at least two rows changed:
   - cameras (remorhazes, now faster)
   - the furnace grate (blowout)
   - the launcher (jams every 4–7 shots)
@@ -60,7 +62,7 @@ The operator has two views and pans between them with **▲ LOOK UP / ▼ LOOK D
   - the radio fuse (clipping)
 - **Sonar.** Contacts last 90 s, and successive pings of the same ice are joined by a trail. Each echo draws deep and surface current arrows round the buoy for 25 s.
 - **Storms.** Five per watch, each aimed over a camera. The GM can drop more.
-- **Cameras.** Seven, evenly spaced round the island, 620 mi range and 90° wide. Their starting bearings come from `tools/tune-cameras.mjs`.
+- **Cameras.** Seven, evenly spaced round the island, 680 mi range and 90° wide. Their starting bearings come from `tools/tune-cameras.mjs`.
 
 Nothing can end the game early. Every loss is recoverable.
 
