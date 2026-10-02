@@ -2,9 +2,9 @@ import {
   createWorld, newSeed, step, light, stoke, slotsAvailable, setPower, isUp, selectCam, deployBuoy, ping, lockContact, lockFromCamera,
   setDrift, ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
-  pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
+  pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, focusPing, setPitch, inShoal, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
 } from './sim.js';
-import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES } from './scenario.js';
+import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES, SHOALS, PITCHES } from './scenario.js';
 import { glyphSVG, gaugeSVG, repairAction } from './glyphs.js';
 import * as audio from './audio.js';
 
@@ -186,7 +186,7 @@ addEventListener('mouseup', e => {
   if (d.moved) return;
   const p = canvasPoint(mapCv, e), wp = S2W(p.x, p.y);
   if (ui.buoyMode) { if (deployBuoy(world, wp.x, wp.y)) ui.buoyMode = false; return; }
-  const c = nearestContact(wp, 14 / ui.view.z);
+  const c = nearestContact(wp, 18 / ui.view.z);
   if (c) selectContact(c);
 });
 mapCv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(canvasPoint(mapCv, e), e.deltaY < 0 ? 1.2 : 1 / 1.2); }, { passive: false });
@@ -244,6 +244,17 @@ function drawMap() {
     ctx.setLineDash([3, 6]); ctx.strokeStyle = 'rgba(255,179,71,.8)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(c0.x, c0.y, T.buoyDeployRange * z, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
     ctx.fillStyle = 'rgba(255,179,71,.9)'; ctx.font = '12px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText('CLICK INSIDE THE DASHED LINE TO DROP A BUOY', Wd / 2, 46);
+  }
+  // shoals: rocks that scatter the sonar
+  for (const s of SHOALS) {
+    const c = W2S(s.x, s.y), r = s.r * z;
+    ctx.save(); ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, 7); ctx.clip();
+    ctx.fillStyle = 'rgba(70,58,44,.35)'; ctx.fillRect(c.x - r, c.y - r, r * 2, r * 2);
+    ctx.strokeStyle = 'rgba(200,170,120,.25)';
+    for (let k = -r * 2; k < r * 2; k += 7) { ctx.beginPath(); ctx.moveTo(c.x + k, c.y - r); ctx.lineTo(c.x + k + r * 2, c.y + r); ctx.stroke(); }
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(200,170,120,.6)'; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(220,195,150,.8)'; ctx.font = '9px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText(s.name.toUpperCase(), c.x, c.y + 3); ctx.fillText('ROCKS · NO SONAR', c.x, c.y + 13);
   }
   // tomb + ring
   { const c = W2S(world.tomb.x, world.tomb.y);
@@ -309,7 +320,7 @@ function drawMap() {
   // contacts
   for (const c of world.contacts) {
     const p = W2S(c.x, c.y), a = Math.max(0, 1 - (t - c.tD) / T.contactFade);
-    const r = Math.max(2.5, Math.min(9, (c.large ? 3 : 2) + c.length * 0.18));
+    const r = 1.25 * Math.max(2.5, Math.min(9, (c.large ? 3 : 2) + c.length * 0.18));
     ctx.fillStyle = `rgba(92,255,157,${0.25 + 0.75 * a})`; ctx.shadowColor = '#5cff9d'; ctx.shadowBlur = 8 * a;
     ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
     if (ui.selected === c.id) { ctx.strokeStyle = '#ffb347'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, r + 6, 0, 7); ctx.stroke(); ctx.lineWidth = 1;
@@ -418,6 +429,17 @@ function drawCamera() {
   ctx.fillStyle = sea; ctx.fillRect(0, HORIZON, Wd, Ht - HORIZON);
   ctx.strokeStyle = 'rgba(180,220,220,.06)';
   for (let y = HORIZON + 4; y < Ht; y += 6 + (y - HORIZON) * 0.08) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(Wd, y); ctx.stroke(); }
+  // shoal rocks on the horizon
+  for (const s of SHOALS) {
+    const d = dist(s, cam); if (d > T.camRange + s.r) continue;
+    for (let k = -3; k <= 3; k++) {
+      const a = Math.atan2(s.x - cam.x, -(s.y - cam.y)) + k * 0.06;
+      let rel = a - cam.facing * Math.PI / 180; while (rel > Math.PI) rel -= 2 * Math.PI; while (rel < -Math.PI) rel += 2 * Math.PI;
+      if (Math.abs(rel) > T.camFov / 2) continue;
+      const sx = Wd / 2 + (rel / (T.camFov / 2)) * (Wd / 2), base = HORIZON + 3600 / Math.max(60, d), hgt = 14 + ((k * 7 + 11) % 9) * 3;
+      ctx.fillStyle = 'rgba(28,24,22,.9)'; ctx.beginPath(); ctx.moveTo(sx - 18, base); ctx.lineTo(sx - 6, base - hgt); ctx.lineTo(sx + 3, base - hgt * 0.6); ctx.lineTo(sx + 9, base - hgt * 0.9); ctx.lineTo(sx + 20, base); ctx.fill();
+    }
+  }
   const items = cameraView(world, cam);
   const hf = T.camFov / 2;
   for (const it of items) {
@@ -585,7 +607,7 @@ const SON_R = 140;
 function sonarXY(x, y) { const b = world.buoy; return { x: 150 + (x - b.x) / T.buoyRadius * SON_R, y: 150 + (y - b.y) / T.buoyRadius * SON_R }; }
 sonCv.addEventListener('click', e => {
   if (!world.buoy) return; const p = canvasPoint(sonCv, e);
-  let best = null, bd = 14;
+  let best = null, bd = 18;
   for (const c of world.contacts) { const q = sonarXY(c.x, c.y); const d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; best = c; } }
   if (best) selectContact(best);
 });
@@ -636,14 +658,16 @@ function drawEcho() {
   ctx.fillStyle = '#e8dfc6'; ctx.fillRect(0, 0, 176, 110);
   ctx.strokeStyle = 'rgba(120,90,60,.25)'; for (let x = 0; x < 176; x += 16) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 110); ctx.stroke(); }
   if (!c) { $('echoinfo').innerHTML = 'Click a contact on the sonar or the chart to print its echo and lock onto it.'; return; }
-  const b = world.bergs.find(b => b.id === c.bergId), e = b.echo;
+  const b = world.bergs.find(b => b.id === c.bergId), o = world.obs[b.id] || {}, focused = o.hollow != null, smear = ui.smear && ui.smear.id === b.id && world.t - ui.smear.t < 20;
+  const e = focused ? b.echo : { humps: 0, tail: 'unfocused' }, spike = Math.min(66, 18 + c.length * 1.7);
   let seed = 0; for (const ch of c.id) seed = (seed * 31 + ch.charCodeAt(0)) % 9973;
   const rnd = i => (Math.sin(seed + i * 12.9898) * 43758.5453) % 1;
   ctx.strokeStyle = '#2a1a0a'; ctx.lineWidth = 1.6; ctx.beginPath();
   const base = 88;
   for (let x = 0; x < 176; x++) {
     let y = base + rnd(x) * 1.5;
-    if (x > 14 && x < 26) y -= 60 * Math.sin((x - 14) / 12 * Math.PI);
+    if (x > 14 && x < 26) y -= spike * Math.sin((x - 14) / 12 * Math.PI);
+    if (!focused && x > 30) y -= (rnd(x * 3) - 0.5) * (smear ? 26 : 6);
     for (let h = 0; h < e.humps; h++) { const c0 = 48 + h * 26; if (x > c0 && x < c0 + 18) y -= 30 * Math.sin((x - c0) / 18 * Math.PI); }
     const tail = 50 + e.humps * 26;
     if (x > tail) {
@@ -654,6 +678,7 @@ function drawEcho() {
   }
   ctx.stroke(); ctx.lineWidth = 1;
   ctx.fillStyle = '#3a2a10'; ctx.font = '10px IBM Plex Mono'; ctx.fillText(`PING ${fmt(c.tS)}`, 4, 106);
+  ctx.fillStyle = '#3a2a10'; ctx.textAlign = 'right'; ctx.fillText(focused ? 'FOCUSED' : smear ? 'SMEARED · CHECK PITCH' : 'SIZE ONLY · FOCUS FOR CHAMBERS', 172, 10); ctx.textAlign = 'left';
   $('echoinfo').innerHTML = `Contact pinged at <b>${fmt(c.tS)}</b> in <b>${gridRef(c.x, c.y)}</b><br>Length ≈ <b>${Math.round(c.length)} mi</b>`;
 }
 
@@ -768,7 +793,7 @@ function drawLock() {
   $('locknum').textContent = $('locknum2').textContent = b ? '#' + b.num : '--';
   const g = l && ghostAt(world, world.t);
   $('lockinfo').innerHTML = !l ? 'No lock. Click a sonar contact or an iceberg in a scrying orb.' :
-    `Fix from <b>${l.source.toUpperCase()}</b>, <b>${ago(world.t - l.t0)}</b><br>Predicted in <b>${gridRef(g.x, g.y)}</b>${b.tag ? ` · tagged <b style="color:${COLORS[b.tag]}">${b.tag.toUpperCase()}</b>` : ''}`;
+    `Fix from <b>${l.source.toUpperCase()}</b>, <b>${ago(world.t - l.t0)}</b>${world.obs[b.id] && world.obs[b.id].length != null ? ` · ≈${world.obs[b.id].length} mi` : ''}<br>Predicted in <b>${gridRef(g.x, g.y)}</b>${b.tag ? ` · tagged <b style="color:${COLORS[b.tag]}">${b.tag.toUpperCase()}</b>` : ''}`;
   document.querySelectorAll('#drift button').forEach(x => x.classList.toggle('sel', x.dataset.v === world.drift));
   const r = world.readings;
   $('driftinfo').innerHTML = aq && aq.tracked ? `<b style="color:var(--phos)">ORB TRACK</b>: using the drift the ${camName(aq.cam)} orb measured ${ago(aq.trackAge)}. The drift switch is not used.` : !r ? 'No current reading yet. The prediction will not move. Track the ice in an orb, or read the current with a buoy.' : `Predicting with the <b>${world.drift.toUpperCase()}</b> current read at ${gridRef(r.x, r.y)}, ${ago(world.t - r.t)}.`;
@@ -898,7 +923,7 @@ function drawCases() {
     const radio = o.radio ? `<span class="rdots">${[...o.radio.shown].map(x => `<i class="${x}"></i>`).join('')}</span><span class="rtext">${Math.round(o.radio.freq)} ${o.radio.band} ${CARRIER_GLYPH[o.radio.carrier]}${o.swept ? ' · SWEPT' : ''}</span>`
       : o.swept ? '<span class="tile F">SWEPT</span>' : '<span class="tile q">?</span>';
     return `<div class="caserow${c.permanent ? '' : ' temp'}${c.verdict === 'EXCLUDED' ? ' excluded' : ''}${lockId === c.bergId ? ' locked' : ''}" data-id="${c.bergId}">
-      <span class="tile">#${b.num}</span><span class="odo${prev.sq !== undefined && prev.sq !== sq ? ' roll' : ''}">${sq}</span>
+      <span class="tile">#${b.num}${o.length != null ? `<small style="font-size:10px;opacity:.7;margin-left:4px">${o.length}mi</small>` : ''}</span><span class="odo${prev.sq !== undefined && prev.sq !== sq ? ' roll' : ''}">${sq}</span>
       <span class="${fl('h').trim()}">${tf(o.hollow)}${o.echo && o.hollow != null ? miniEcho(o.echo) : ''}</span>
       <span class="${fl('m').trim()}">${tf(o.metal)}</span>
       <span class="${fl('r').trim()}">${radio}</span>
@@ -921,7 +946,7 @@ const JERRY = [
   ['checklist', 'Startup list is up on the wire service. Look UP. Do it in order this time, Jerry.'],
   ['orbs', "Remorhaz smell the heat of the scrying orbs. Look away when you're not using one."],
   ['orbctl', 'Orb gears freeze solid. Set the levers to the weather ON THE ORB before you turn it.'],
-  ['sonar', "Every ping rings the Grindmaw's dinner bell. Ping, then MOVE the buoy."],
+  ['sonar', "Every ping rings the Grindmaw's dinner bell. Focused ones too. Ping, then MOVE the buoy."],
   ['furnace', 'Two shovels. NEVER three. Fill the chute from the rune board first.'],
   ['scanner', 'Scanner rides on the buoy. Ice has to be near the buoy. Re-set it when the weather turns.'],
   ['radio', "Radio only hears ice with a beacon in it. And JERRY: gain DOWN. Two fuses this week."],
@@ -1027,6 +1052,7 @@ function drawPower() {
     if (p.on) used++;
     el.classList.toggle('on', p.on); el.classList.toggle('spin', p.on && world.t < p.ready);
   }
+  if ($('pitchknob').textContent !== PITCHES[world.pitch]) $('pitchknob').textContent = PITCHES[world.pitch];
   $('powcount').textContent = f.lit ? `${used} of ${slotsNow} in use` : 'furnace cold';
   $('stage').classList.toggle('lit', f.lit); $('stage').classList.toggle('hot', f.lit && f.heat > 90);
   $('flames').style.height = f.lit ? (20 + f.heat * 1.05) + '%' : '0';
@@ -1085,7 +1111,7 @@ function handleEvents() {
       case 'power': audio.sfx.clunk(); break;
       case 'buoy': audio.sfx.buoy(); break;
       case 'ping': audio.sfx.ping(); break;
-      case 'echo': audio.sfx.echo(); toast(e.n ? `ECHO RETURNED · ${e.n} CONTACT${e.n > 1 ? 'S' : ''}` : 'ECHO RETURNED · NOTHING THERE', 'info'); break;
+      case 'echo': audio.sfx.echo(); toast(e.scattered ? 'THE BUOY IS ON THE ROCKS · THE PING SCATTERED' : e.n ? `ECHO RETURNED · ${e.n} CONTACT${e.n > 1 ? 'S' : ''}` : 'ECHO RETURNED · NOTHING THERE', 'info'); break;
       case 'lock': audio.sfx.lock(); break;
       case 'rune': audio.sfx.rune(); break;
       case 'runefail': audio.sfx.runefail(); break;
@@ -1105,6 +1131,10 @@ function handleEvents() {
       case 'broke': audio.sfx.camdead(); if (e.sys === 'launcher') toast('THE BEACON LAUNCHER JAMMED · REPAIR BAY ▲'); if (e.sys === 'fuse') toast('THE RADIO FUSE BLEW · REPAIR BAY ▲'); if (e.sys === 'winch') toast('THE GRINDMAW TORE THE WINCH CABLE · REPAIR BAY ▲'); if (e.sys === 'furnace') toast('THE GRATE CRACKED · REPAIR BAY ▲'); break;
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
+      case 'pitch': audio.sfx.click(); break;
+      case 'focusok': audio.sfx.echo(); toast(`FOCUSED ECHO ON #${e.num} · CHAMBERS PRINTED`, 'info'); break;
+      case 'focusbad': audio.sfx.deny(); if (!e.rock && !e.noTemp) ui.smear = { id: (world.bergs.find(b => b.num === e.num) || {}).id, t: world.t };
+        toast(e.rock ? 'ROCKS SCATTERED THE FOCUSED PING' : e.noTemp ? 'NO WATER TEMPERATURE · POWER THE CURRENTS TO SET THE PITCH' : `THE ECHO FROM #${e.num} SMEARED · CHECK THE PITCH`); break;
       case 'driftlog': toast(`DRIFT LOG RUNNING ON #${e.num} · SELECT IT ON THE CASE BOARD TO SEE ITS PATH`, 'info'); break;
       case 'casepinned': audio.sfx.flip(); toast(`#${e.num} IS PINNED TO THE CASE BOARD`, 'info'); break;
       case 'observed': audio.sfx.flip(); break;
@@ -1138,6 +1168,8 @@ function handleEvents() {
 }
 $('wincontinue').onclick = () => { $('winscreen').classList.add('hidden'); $('cutscene').classList.add('hidden'); cut = null; };
 $('ping').onclick = () => ping(world);
+$('focusbtn').onclick = () => focusPing(world);
+$('pitchknob').onclick = () => setPitch(world, world.pitch + 1);
 
 // ---------- GM link ----------
 const gmChan = 'BroadcastChannel' in window ? new BroadcastChannel('lastwatch-gm:' + location.pathname.replace(/[^/]*$/, '')) : null;

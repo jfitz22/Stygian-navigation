@@ -72,12 +72,13 @@
   <h3>Elgarz shows all of these signs</h3>
   <table>
     <tr><th>SIGN</th><th>HOW YOU CHECK IT</th><th>PAGE</th></tr>
-    <tr><td><b>Hollow inside</b></td><td>Sonar echo printout</td><td>5</td></tr>
+    <tr><td><b>Over 20 miles long</b></td><td>The length on the echo printout, or the orb's estimate. 20 or under is not Elgarz.</td><td>5</td></tr>
+    <tr><td><b>Hollow inside</b></td><td>A <b>focused ping</b> at the right pitch, or an orange sounding charge</td><td>5</td></tr>
     <tr><td><b>Worked metal</b></td><td>Metal scanner (set it first)</td><td>8</td></tr>
     <tr><td><b>The Triad</b> on the radio</td><td>Radio tuning and decoding</td><td>7</td></tr>
     <tr><td><b>Never near the Tomb of Levistus</b></td><td>The Tomb drifts, with a dashed ring <b><span data-v="TOMB_RADIUS"></span> miles</b> round it. Elgarz never comes inside it. <b>Anything you see inside the ring is not Elgarz</b>, however good it looks. It also tells you where not to waste pings.</td><td>-</td></tr>
   </table>
-  <div class="warn"><b>No single sign is proof.</b> About a third of all ice is riddled with caves and rings hollow. Several icebergs sing the Triad: Geryon's herd left relics all over this sea. Plenty of ice has metal frozen inside. At least one iceberg has the first three signs and keeps company with the Tomb. Elgarz may not even be in the sea when your watch begins.</div>
+  <div class="warn"><b>No single sign is proof.</b> Half the big ice is riddled with caves and rings hollow. Several icebergs sing the Triad: Geryon's herd left relics all over this sea. Plenty of ice has metal frozen inside. At least one iceberg has the first three signs and keeps company with the Tomb. Elgarz may not even be in the sea when your watch begins.</div>
   <h3>The machine in one minute</h3>
   <ol>
     <li><b>Light the furnace</b> and keep it fed (page 3). It runs <b>at most three systems</b>: Scrying orbs, Sonar, Radio, Scanner, Currents.</li>
@@ -168,10 +169,15 @@
     <li>Contacts show where the ice <b>was</b> at the ping. They last <span data-t="contactFade"></span> seconds. <b>Ping the same ice again and a dotted trail joins the contacts</b>, showing which way it is going.</li>
     <li>Every echo also draws <b>current arrows</b> round the buoy for a while: <b style="color:#6a4fc9">purple for DEEP</b>, <b style="color:#2a8fc0">blue for SURFACE</b>.</li>
   </ol>
+  <h3>Size first, then the focused ping</h3>
+  <p>A normal ping only gives each contact's <b>length</b> (and a tall or short spike on the printout). <b>20 miles or under: not Elgarz.</b> For the big ones, <b>select the contact</b>, set the <b>pitch knob</b> beside PING, and press <span class="mono">FOCUS PING</span>. At the right pitch the printout shows the chambers; at the wrong pitch it smears. The pitch comes from the target's length and the <b>water temperature</b> on the Currents panel:</p>
+  <table id="pitchtable"></table>
+  <h3>Shoals</h3>
+  <p>Three rocky shoals are hatched on the chart. <b>Rock scatters the sonar</b>: nothing inside a shoal echoes, and a buoy dropped on the rocks hears nothing at all. Use the <b>scrying orbs</b> to look in (each shoal sits beside an orb, just out of its starting view) and an <b>orange charge</b> to test for hollowness.</p>
   <h3>The Grindmaw</h3>
-  <p>A colossal Styx shark, always on the chart. <b>Every ping calls it</b> to the spot where you pinged. While it is far away it races; within about one and a half squares it slows to a steady swim. If the buoy is still there when it arrives, it <b>eats the buoy and tears the winch cable</b>. Repair the <b>buoy winch</b> before you can launch another buoy. Once it reaches the spot, it <b>circles the Last Watch</b> at that distance until the next ping, so watch for it crossing your buoy. <b>Ping, then move the buoy.</b></p>
+  <p>A colossal Styx shark, always on the chart. <b>Every ping calls it</b>, focused pings too, to the spot where you pinged. While it is far away it races; within about one and a half squares it slows to a steady swim. If the buoy is still there when it arrives, it <b>eats the buoy and tears the winch cable</b>. Repair the <b>buoy winch</b> before you can launch another buoy. Once it reaches the spot, it <b>circles the Last Watch</b> at that distance until the next ping, so watch for it crossing your buoy. <b>Ping, then move the buoy.</b></p>
   <h3>Reading the echo printout</h3>
-  <p>Ignore the first <b>tall spike</b> (the surface). Count the rounded <b>bumps</b> after it, then look at the <b>tail</b>.</p>
+  <p>(Only a <b>focused</b> printout shows this.) Ignore the first <b>tall spike</b> (the surface; taller means longer ice). Count the rounded <b>bumps</b> after it, then look at the <b>tail</b>.</p>
   <svg class="trace" viewBox="0 0 400 70"><polyline fill="none" stroke="#2a1d0c" stroke-width="2" points="0,60 30,60 40,8 50,60 400,60"/><text x="120" y="40" font-size="13" font-family="IBM Plex Mono">no bumps · flat: SOLID</text></svg>
   <svg class="trace" viewBox="0 0 400 70"><polyline fill="none" stroke="#2a1d0c" stroke-width="2" points="0,60 30,60 40,8 50,60 90,60 100,40 110,30 120,40 130,60 140,60 160,40 170,30 180,40 190,60 200,60 205,52 210,66 215,55 220,64 225,57 230,62 240,59 260,61 400,60"/><text x="270" y="40" font-size="13" font-family="IBM Plex Mono">ringing tail: HOLLOW</text></svg>
   <svg class="trace" viewBox="0 0 400 70"><polyline fill="none" stroke="#2a1d0c" stroke-width="2" points="0,60 30,60 40,8 50,60 90,60 100,40 110,30 120,40 130,60 140,60 160,40 170,30 180,40 190,60 200,60 204,52 207,66 211,50 214,68 218,55 221,63 225,49 229,67 233,56 237,64 241,51 245,66 400,60"/><text x="270" y="40" font-size="13" font-family="IBM Plex Mono">scratchy tail: ALIVE</text></svg>
@@ -256,7 +262,7 @@
 <section class="page" data-n="10">
   <h2>Scrying orbs, orb control and burrowers</h2>
   <div class="ask"><b>ASK THE OPERATOR FOR:</b> the WIND and AIR readout in the top corner of the orb feed · the PAGE on the rune board</div>
-  <p>Seven orb posts ring the island. Click an iceberg in the view to lock onto it. Keep it in view and the orb <b>tracks</b> it (page 6).</p>
+  <p>Seven orb posts ring the island. Click an iceberg in the view to lock onto it (the orb estimates its <b>length</b>). Keep it in view and the orb <b>tracks</b> it (page 6).</p>
   <h3>Orb control (under the orb feed)</h3>
   <p>To turn an orb by hand, unlock it on the <b>orb control</b> panel. <b>Once unlocked, an orb stays unlocked</b> until a burrower destroys it; after the repair it must be unlocked again. Hold <span class="mono">◀</span> or <span class="mono">▶</span> (or the left and right arrow keys) to turn it and follow the ice. Turning is free.</p>
   <h3><span class="step">1.</span> Set the focus levers</h3>
@@ -320,7 +326,7 @@
 
 <script type="module">
 import { RUNES, glyphSVG, HOUSES, gaugeSVG } from './src/glyphs.js';
-import { RADIO_TABLE, TUNING, TOMB_RADIUS, CELL, BOARD_GRID, BOARD_PAGES, PLATE_ORDER } from './src/scenario.js';
+import { RADIO_TABLE, TUNING, TOMB_RADIUS, CELL, BOARD_GRID, BOARD_PAGES, PLATE_ORDER, pitchFor } from './src/scenario.js';
 const V = { TOMB_RADIUS, CELL };
 document.querySelectorAll('[data-t]').forEach(e => { e.textContent = TUNING[e.dataset.t]; });
 document.querySelectorAll('[data-v]').forEach(e => { e.textContent = V[e.dataset.v]; });
@@ -332,6 +338,9 @@ document.getElementById('boardgrid').innerHTML = '<tr><th>HOUSE</th><th>WEIGHT 1
   HOUSES.map(h => `<tr><td>${h.toUpperCase()}</td>${BOARD_GRID[h].map(f => `<td class="fn">${f}</td>`).join('')}</tr>`).join('');
 document.getElementById('gauges').innerHTML = [['LOW', 'L (low)'], ['MIDDLE', 'M (middle)'], ['HIGH', 'H (high)'], ['RED', 'in the red']]
   .map(([g, t]) => `<div style="text-align:center;font-size:12px">${gaugeSVG(g, '#2a1d0c', '#9c8f70').replace('class="gauge"', 'width="110" height="68"')}<br>${t}</div>`).join('');
+{ const P = ['○', '△', '□', '◇'], el = document.getElementById('pitchtable');
+    if (el) el.innerHTML = '<tr><th>TARGET LENGTH</th><th>WATER colder than -40°</th><th>WATER -40° to -25°</th><th>WATER warmer than -25°</th></tr>' +
+      [[21, 25, '21 to 25 miles'], [26, 99, '26 miles and over']].map(([lo, , label]) => '<tr><td><b>' + label + '</b></td>' + [-45, -30, -20].map(t => '<td style="font-size:22px;text-align:center">' + P[pitchFor(lo, t)] + '</td>').join('') + '</tr>').join(''); }
 const shapeName = { CIRCLE: '● circle', TRIANGLE: '▲ triangle', SQUARE: '■ square' };
 document.getElementById('platetable').innerHTML = '<tr><th>RUNE BOARD PAGE</th><th>FIRST</th><th>SECOND</th><th>THIRD</th></tr>' +
   PLATE_ORDER.map((o, i) => `<tr><td><b>${BOARD_PAGES[i]}</b></td>${o.map(sh => `<td>${shapeName[sh]}</td>`).join('')}</tr>`).join('');

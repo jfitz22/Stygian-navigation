@@ -1,7 +1,7 @@
 // The Last Watch simulation. Pure logic, no DOM. Runs in the browser and in Node.
 import {
   MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, TOMB_RADIUS, TUNING as T, CAMERAS, NOTABLES,
-  GENERIC_COUNT, GENERIC_TRANSMIT, GENERIC_METAL, GENERIC_TRIAD, GENERIC_HOLLOW, PLATE_ORDER, windLever, tempLever,
+  FIELDS, FILLER, SHOALS, SIZE_CUT, pitchFor, PITCHES, PLATE_ORDER, windLever, tempLever,
   makeField, vortexAt, windAt, tempAt, makeStorms, stormThrough, bandOf, BAND_RANGE, CARRIERS, encodeLamps, NOISE_SIGNALS, STATIONS,
   BOARD_GRID, BOARD_PAGES,
 } from './scenario.js';
@@ -150,6 +150,8 @@ function makeShape(rng, look, large) {
     if (look === 'cairn' && i === Math.floor(n / 2)) h = 2.2;
     if (look === 'bell') h = edge * (0.9 + 0.1 * Math.sin(u * Math.PI));
     if (look === 'hulk') h = edge * (0.62 + 0.1 * rng());
+    if (look === 'crown') h = edge * (i % 2 ? 0.55 : 1.6 + 0.6 * rng());           // tall and spiky
+    if (look === 'grave') h = edge * (i % 3 === 1 ? 1.1 : 0.6);                      // blocky headstones
     pts.push([u, h]);
   }
   return pts;
@@ -196,30 +198,37 @@ export function createWorld(seed = newSeed()) {
   }
   const bergs = [], reserve = [];
   let num = 1;
+  // ice over 8 miles rides the deep current
+  const mk = (id, name, p, length, o, look, notable) => ({
+    id, name, num: num++, x: p.x, y: p.y, large: length > 8, length,
+    hollow: o.hollow, metal: o.metal, echo: o.echo || (o.hollow ? { humps: o.humps || 1 + Math.floor(gen() * 2), tail: 'ring' } : { humps: 0, tail: gen() < 0.5 ? 'flat' : 'fuzzflat' }),
+    radio: o.radio ? makeRadio(gen, o.radio) : null, look, elgarz: !!o.elgarz, tombDrawn: !!o.tombDrawn, notable,
+    shape: makeShape(gen, look, length > 8), tag: null, scan: 0, scanned: false,
+  });
+  const bigLen = () => Math.round(21 + gen() * 9), smallLen = () => Math.round((2 + gen() * 13) * 10) / 10;
   for (const n of NOTABLES) {
     let p = randomInReach(gen, 300, T.rimHold * REACH);
     if (n.tombDrawn) { const a = gen() * Math.PI * 2; p = { x: tombStart.x + Math.cos(a) * T.hulkOrbitR, y: tombStart.y + Math.sin(a) * T.hulkOrbitR }; }
-    const b = {
-      id: n.id, name: n.name, num: num++, x: p.x, y: p.y, large: n.large, length: n.length,
-      hollow: n.hollow, metal: n.metal, echo: n.echo, radio: n.radio ? makeRadio(gen, n.radio) : null, look: n.look,
-      elgarz: !!n.elgarz, tombDrawn: !!n.tombDrawn, notable: true, shape: makeShape(gen, n.look, n.large), tag: null, scan: 0, scanned: false,
-    };
+    const b = mk(n.id, n.name, p, n.length, n, n.look, true);
     if (n.spawn) reserve.push({ ...b, spawnAt: n.spawn === 'elgarz' ? T.elgarzSpawnAt : T.lateDecoys[reserve.filter(r => !r.elgarz).length] }); else bergs.push(b);
   }
-  let triads = 0;
-  for (let i = 0; i < GENERIC_COUNT; i++) {
-    const large = gen() < 0.35;
-    const p = randomInReach(gen, 250, T.rimHold * REACH + 80);
-    const tx = gen() < GENERIC_TRANSMIT, metal = gen() < GENERIC_METAL, hollow = gen() < GENERIC_HOLLOW, humps = 1 + Math.floor(gen() * 2);
-    let ns = NOISE_SIGNALS[Math.floor(gen() * NOISE_SIGNALS.length)];
-    if (tx && triads < GENERIC_TRIAD && !metal) { ns = ['BRW', 'MID']; triads++; }
-    bergs.push({
-      id: 'g' + i, name: metal ? 'Ice with wreckage' : hollow ? 'Ice caves' : 'Unremarkable ice', num: num++, x: p.x, y: p.y, large,
-      length: large ? 9.5 + gen() * 9 : 1.5 + gen() * 4,
-      hollow, metal, echo: hollow ? { humps, tail: 'ring' } : { humps: 0, tail: gen() < 0.5 ? 'flat' : 'fuzzflat' },
-      radio: tx ? makeRadio(gen, { decoded: ns[0], band: ns[1] }) : null, look: 'plain', elgarz: false, notable: false,
-      shape: makeShape(gen, 'plain', large), tag: null, scan: 0, scanned: false,
+  // the named fields start together and drift apart slowly
+  for (const fld of FIELDS) {
+    const c = randomInReach(gen, 500, 1300), ang = gen() * Math.PI * 2;
+    fld.members.forEach((m, i) => {
+      const off = fld.shape === 'line' ? { x: Math.cos(ang) * (i - 2) * 55, y: Math.sin(ang) * (i - 2) * 55 }
+        : fld.shape === 'grid' ? { x: ((i % 3) - 1) * 45, y: (Math.floor(i / 3) - 0.5) * 45 }
+        : { x: Math.cos(ang + i / fld.members.length * 6.283) * 50, y: Math.sin(ang + i / fld.members.length * 6.283) * 50 };
+      bergs.push({ ...mk(fld.id + i, fld.name, { x: c.x + off.x, y: c.y + off.y }, bigLen(), m, fld.look, true), field: fld.id });
     });
+  }
+  // the rest of the sea
+  let gi = 0;
+  for (const f of FILLER) for (let k = 0; k < f.count; k++) {
+    const length = f.large ? bigLen() : smallLen(), ns = NOISE_SIGNALS[Math.floor(gen() * NOISE_SIGNALS.length)];
+    const radio = f.triad ? { decoded: 'BRW', band: 'MID' } : gen() < (f.transmit || 0) ? { decoded: ns[0], band: ns[1] } : null;
+    const name = f.metal ? 'Ice with wreckage' : f.hollow ? 'Ice caves' : f.large ? 'A plain giant' : 'A small floe';
+    bergs.push(mk('g' + gi++, name, randomInReach(gen, 250, T.rimHold * REACH + 80), length, { hollow: f.hollow, metal: f.metal, radio }, 'plain', false));
   }
   const all = [...bergs, ...reserve];
   // shuffle numbering so notables are not obviously the low numbers
@@ -261,6 +270,7 @@ export function createWorld(seed = newSeed()) {
     coffee: { brewUntil: 0, sips: 0 }, fatigue: 0,
     board: { page: 0, runes: [], presses: 0, nextFlip: 0, flippedAt: -99 },
     color: 'red',
+    pitch: 0,           // focused-ping knob setting (0..3)
     camUnlocked: {},    // camera id -> time its unlock runs out
     camTurn: 0,         // -1, 0, +1 while an arrow is held
     camPanel: { wind: 'MIDDLE', temp: 'MIDDLE', pressed: [], lockout: 0 },
@@ -372,8 +382,9 @@ export function ping(w) {
   if (w.pings.some(p => p.deliverAt > w.t)) { emit(w, 'deny', { msg: 'STILL LISTENING FOR THE LAST ECHO' }); return false; }
   const at = { x: w.buoy.x, y: w.buoy.y };
   const found = [];
+  const buoyOnRock = inShoal(at);
   for (const b of w.bergs) {
-    if (dist(b, at) <= T.buoyRadius) {
+    if (!buoyOnRock && dist(b, at) <= T.buoyRadius && !inShoal(b)) {
       const a = w.rng() * Math.PI * 2, e = w.rng() * 3;
       found.push({ bergId: b.id, x: b.x + Math.cos(a) * e, y: b.y + Math.sin(a) * e, length: b.length, large: b.large });
     }
@@ -385,7 +396,7 @@ export function ping(w) {
     if (hyp(gx * 140, gy * 140) > T.buoyRadius) continue;
     flow.push({ x, y, deep: deepAt(w.field, x, y, w.t), surf: surfaceAt(w.field, x, y, w.t) });
   }
-  w.pings.push({ tS: w.t, deliverAt: w.t + T.sonarDelay, at, found, flow });
+  w.pings.push({ tS: w.t, deliverAt: w.t + T.sonarDelay, at, found, flow, scattered: buoyOnRock });
   w.lastPing = { x: at.x, y: at.y, t: w.t };
   if (w.shark.mode !== 'hunt') emit(w, 'sharkhunt');
   w.shark.mode = 'hunt';
@@ -403,14 +414,16 @@ export function lockOn(w, bergId, x, y, t0, source) {
 export function lockContact(w, c) {
   const b = lockOn(w, c.bergId, c.x, c.y, c.tS, 'sonar');
   // the echo printout says whether it is hollow
-  if (b) record(w, b.id, 'hollow', b.hollow, { echo: b.echo });
+  if (b) record(w, b.id, 'length', Math.round(b.length));
   return b;
 }
 // A camera estimates position from bearing and apparent size, to within a few miles.
 export function lockFromCamera(w, bergId) {
   const b = w.bergs.find(b => b.id === bergId);
   const a = w.rng() * Math.PI * 2, e = 1 + w.rng() * 2;
-  return lockOn(w, bergId, b.x + Math.cos(a) * e, b.y + Math.sin(a) * e, w.t, 'camera');
+  const res = lockOn(w, bergId, b.x + Math.cos(a) * e, b.y + Math.sin(a) * e, w.t, 'camera');
+  record(w, bergId, 'length', Math.round(b.length));   // the orb estimates its length
+  return res;
 }
 export function setDrift(w, mode) { w.drift = mode; emit(w, 'click'); }
 
@@ -728,7 +741,7 @@ export function step(w, dt = DT) {
       p.delivered = true;
       for (const c of p.found) { w.contacts.push({ ...c, tS: p.tS, tD: t, id: 'k' + Math.floor(w.rng() * 1e9) }); seen(w, c.bergId, c.x, c.y, p.tS); }
       w.flows.push({ t, pts: p.flow });
-      emit(w, 'echo', { n: p.found.length });
+      if (p.focus) finishFocus(w, p); else emit(w, 'echo', { n: p.found.length, scattered: p.scattered });
     }
   }
   w.pings = w.pings.filter(p => !p.delivered || t - p.deliverAt < 1);
@@ -855,7 +868,7 @@ export function step(w, dt = DT) {
         if (!w.cases.find(c => c.bergId === best.id && c.permanent)) { caseRow(w, best.id, true); emit(w, 'casepinned', { num: best.num }); }
         bc.last = { t, hit: true, num: best.num, intended: best.id === fl.report.bergId, color: fl.color, q: fl.report.q };
         emit(w, 'hit', { berg: best.id, num: best.num, color: fl.color });
-        if (fl.color === 'orange') record(w, best.id, 'hollow', best.hollow, { echo: best.echo });
+        if (fl.color === 'orange') record(w, best.id, 'hollow', best.hollow, { echo: best.echo, length: Math.round(best.length) });
         if (fl.color === 'blue' && !best.driftLog) { best.driftLog = [{ x: best.x, y: best.y, t }]; emit(w, 'driftlog', { num: best.num }); }
         if (fl.color === 'green') {
           if (best.elgarz) { if (!w.reveal) { w.reveal = { t, bergId: best.id }; emit(w, 'reveal', { num: best.num }); } }
@@ -909,7 +922,7 @@ function seen(w, bergId, x, y, t) {
   if (row && (!row.seen || t >= row.seen.t)) row.seen = { x, y, t };
 }
 function record(w, bergId, key, value, extra = {}) {
-  const o = w.obs[bergId] = w.obs[bergId] || { hollow: null, echo: null, metal: null, radio: null, swept: false };
+  const o = w.obs[bergId] = w.obs[bergId] || { length: null, hollow: null, echo: null, metal: null, radio: null, swept: false };
   const before = JSON.stringify(o);
   o[key] = value; Object.assign(o, extra);
   if (JSON.stringify(o) !== before) emit(w, 'observed', { bergId, key });
@@ -921,6 +934,34 @@ export function relockCase(w, bergId) {
   if (!b || !row) return;
   if (b.tag) return lockOn(w, b.id, b.x, b.y, w.t, 'beacon');
   if (row.seen) return lockOn(w, b.id, row.seen.x, row.seen.y, row.seen.t, 'case board');
+}
+
+// ---------- shoals and the focused ping ----------
+export const inShoal = p => SHOALS.some(s => dist(p, s) <= s.r);
+export function setPitch(w, i) { w.pitch = ((i % 4) + 4) % 4; emit(w, 'pitch'); }
+// A focused ping listens to one locked contact. With the knob set right it prints the chambers (HOLLOW or not).
+// It is still a ping, so the Grindmaw hears it.
+export function focusPing(w) {
+  if (!isUp(w, 'sonar')) { emit(w, 'deny', { msg: 'SONAR IS UNPOWERED' }); return false; }
+  if (!w.buoy || w.t < w.buoy.landAt) { emit(w, 'deny', { msg: 'NO BUOY IN THE WATER' }); return false; }
+  const b = lockedBerg(w);
+  if (!b) { emit(w, 'deny', { msg: 'LOCK ONTO A CONTACT FIRST' }); return false; }
+  if (w.pings.some(p => p.deliverAt > w.t)) { emit(w, 'deny', { msg: 'STILL LISTENING FOR THE LAST ECHO' }); return false; }
+  if (dist(b, w.buoy) > T.buoyRadius) { emit(w, 'deny', { msg: 'THE TARGET IS OUT OF BUOY RANGE' }); return false; }
+  const at = { x: w.buoy.x, y: w.buoy.y };
+  const temp = w.readings ? readingDisplay(w.readings).temp : null;
+  const right = temp != null ? pitchFor(Math.round(b.length), temp) : -1;
+  w.pings.push({ tS: w.t, deliverAt: w.t + T.focusDelay, at, found: [], flow: [], focus: { bergId: b.id, ok: w.pitch === right && !inShoal(b) && !inShoal(at), rock: inShoal(b) || inShoal(at), noTemp: temp == null } });
+  w.lastPing = { x: at.x, y: at.y, t: w.t };
+  if (w.shark.mode !== 'hunt') emit(w, 'sharkhunt');
+  w.shark.mode = 'hunt';
+  emit(w, 'ping', { focus: true });
+  return true;
+}
+function finishFocus(w, p) {
+  const b = w.bergs.find(x => x.id === p.focus.bergId); if (!b) return;
+  if (p.focus.ok) { record(w, b.id, 'hollow', b.hollow, { echo: b.echo, length: Math.round(b.length) }); emit(w, 'focusok', { num: b.num, hollow: b.hollow }); }
+  else emit(w, 'focusbad', { num: b.num, rock: p.focus.rock, noTemp: p.focus.noTemp });
 }
 
 // ---------- metal scanner: it rides on the buoy ----------
@@ -1008,6 +1049,7 @@ export function snapshot(w) {
     beacons: w.beacons.stock, orange: w.beacons.orange, blue: w.beacons.blue, green: w.beacons.green, calibrated: w.scanner.calibrated, broken: brokenList(w).map(b => b.name),
     furnace: { lit: w.furnace.lit, heat: w.furnace.heat, chute: w.furnace.chute }, music: w.music, fatigue: w.fatigue,
     camCode: camCode(w), activeCam: w.activeCam, tom: { x: w.tom.x, y: w.tom.y, mode: w.tom.mode },
+    shoals: SHOALS, pitch: w.pitch,
     cases: w.cases.map(c => ({ num: (w.bergs.find(b => b.id === c.bergId) || {}).num, permanent: c.permanent, verdict: c.verdict, obs: w.obs[c.bergId] || null })), camUnlocked: Object.keys(w.camUnlocked),
     board: { page: BOARD_PAGES[w.board.page], fns: w.board.runes.map(r => runeFunction(r, w.board.page)) },
     stations: w.stations.map(s => ({ freq: s.freq, decoded: s.decoded, band: s.band })),
