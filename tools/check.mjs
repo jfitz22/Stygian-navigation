@@ -3,9 +3,9 @@ import {
   createWorld, step, light, stoke, dist, snapshot, setPower, deployBuoy, ping, lockContact, setDrift, fireBeacon,
   countSightings, camSees, snowAt, slotsAvailable, pressKey, readingDisplay, radioSignal, setFreq, setGain, gainFor, setMusic, lockOn, DT,
   pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip, camCode, setLever, pressPlate, setCamTurn, camIsUnlocked, selectCam, gm,
-  relockCase, setVerdict, isUp,
+  relockCase, setVerdict, isUp, focusPing, setPitch, inShoal,
 } from '../src/sim.js';
-import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RADIO_TABLE, BOARD_GRID } from '../src/scenario.js';
+import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RADIO_TABLE, BOARD_GRID, SHOALS, pitchFor, SIZE_CUT } from '../src/scenario.js';
 import { keypadCode, RUNES, REPAIR_RULES, repairAction } from '../src/glyphs.js';
 
 const SEEDS = Array.from({ length: Number(process.argv[2]) || 40 }, (_, i) => 1000 + i * 37);
@@ -88,8 +88,18 @@ check(fullMatch === 0, 'No decoy except the Gilded Hulk is hollow, metal and Tri
 check(hulkInRing === SEEDS.length, `The Gilded Hulk stays inside the Tomb ring all watch (${hulkInRing}/${SEEDS.length} seeds)`);
 check(triadNoMetal === SEEDS.length && triadNotHollow === SEEDS.length, 'Every seed has Triad ice without metal and Triad ice that is not hollow');
 check(Math.min(...oneSign) >= 12, 'Plenty of ice shows metal or the Triad, not just the echo');
+{
+  let ok = true;
+  for (const seed of SEEDS) {
+    const w0 = createWorld(seed), all = [...w0.bergs, ...w0.reserve], big = all.filter(b => b.length > SIZE_CUT), tr = b => b.radio && b.radio.decoded === 'BRW' && b.radio.band === 'MID', H = big.filter(b => b.hollow);
+    const shape = [all.length, all.length - big.length, big.length - H.length, H.length, H.filter(b => !b.metal && !tr(b)).length, H.filter(b => b.metal && !tr(b)).length, H.filter(b => !b.metal && tr(b)).length, H.filter(b => b.metal && tr(b)).length].join(',');
+    if (shape !== '60,20,20,20,7,5,6,2') { ok = false; console.log('composition', seed, shape); }
+    if (all.some(b => b.length > 19.5 && b.length <= SIZE_CUT + 0.5)) { ok = false; console.log('ambiguous size', seed); }
+  }
+  check(ok, '60 ice: 20 small, 20 large solid, 20 large hollow (7 plain, 5 metal, 6 Triad, 2 all three)');
+}
 console.log(`Share of ice that rings hollow: ${pct(Math.min(...hollowShare), 1)}-${pct(Math.max(...hollowShare), 1)}`);
-check(mean(hollowShare) > 0.28 && mean(hollowShare) < 0.4, 'About a third of all ice rings hollow');
+check(mean(hollowShare) > 0.35 && mean(hollowShare) < 0.45, 'About two in five of all ice rings hollow (half the large ice, a few small floes)');
 check(stats.stormHits.every(n => n >= 5), 'At least five storms in twenty minutes, each whiting out the orb it is aimed at');
 
 // ---------- determinism ----------
@@ -280,10 +290,10 @@ function sharkSetup(seed) {
 {
   const w = createWorld(21); light(w); ['sonar', 'currents', 'radio'].forEach(s => setPower(w, s, true));
   for (let i = 0; i < 20; i++) step(w, DT);
-  const b = w.bergs.find(b => b.radio && b.large && dist(b, CENTER) < 1300);
+  const b = w.bergs.find(b => b.radio && b.length > SIZE_CUT && !b.tombDrawn && !inShoal(b) && dist(b, CENTER) < 1300);
   deployBuoy(w, b.x + 20, b.y); for (let i = 0; i < 60; i++) step(w, DT); ping(w); for (let i = 0; i < 60; i++) step(w, DT);
   lockContact(w, w.contacts.find(c => c.bergId === b.id));
-  check(w.cases.length === 1 && !w.cases[0].permanent && w.obs[b.id].hollow === b.hollow, 'Locking ice from sonar puts it on the case board (temporarily) with its HOLLOW reading');
+  check(w.cases.length === 1 && !w.cases[0].permanent && w.obs[b.id].length === Math.round(b.length) && w.obs[b.id].hollow == null, 'Locking ice from sonar puts it on the case board (temporarily) with its length, not yet its hollowness');
   setDrift(w, 'deep'); fireBeacon(w, 'red'); for (let i = 0; i < 150; i++) step(w, DT);
   check(w.cases[0].permanent, 'A beacon hit pins the ice to the case board');
   const other = w.bergs.find(x => x.id !== b.id); lockOn(w, other.id, other.x, other.y, w.t, 'camera');
@@ -332,6 +342,28 @@ function sharkSetup(seed) {
   check(combos.every(r => viaChart(r) === repairAction(r)), 'The repair flowchart matches the game for all 16 combinations');
   const acts = new Set(combos.map(repairAction));
   check(acts.has('CUT') && acts.has('CLOSE') && acts.has('OPEN'), 'The repair rules can produce CUT, CLOSE and OPEN');
+}
+
+// ---------- focused ping and shoals ----------
+{
+  const w = createWorld(61); light(w); ['sonar', 'currents'].forEach(s => setPower(w, s, true)); for (let i = 0; i < 20; i++) step(w, DT);
+  const b = w.bergs.find(x => x.length > SIZE_CUT && !inShoal(x) && dist(x, CENTER) < 1300);
+  deployBuoy(w, b.x + 30, b.y); for (let i = 0; i < 60; i++) step(w, DT); ping(w); for (let i = 0; i < 60; i++) step(w, DT);
+  lockContact(w, w.contacts.find(c => c.bergId === b.id));
+  const right = pitchFor(Math.round(b.length), Math.round(w.readings.temp));
+  setPitch(w, right + 1); w.shark.mode = 'roam'; w.lastPing = null;
+  focusPing(w); for (let i = 0; i < 40; i++) step(w, DT);
+  check(w.obs[b.id].hollow == null, 'A focused ping at the wrong pitch prints nothing useful');
+  check(w.shark.mode === 'hunt', 'A focused ping calls the Grindmaw');
+  setPitch(w, right); focusPing(w); for (let i = 0; i < 40; i++) step(w, DT);
+  check(w.obs[b.id].hollow === b.hollow, 'At the right pitch a focused ping records HOLLOW');
+  check(SHOALS.length === 3 && SHOALS.every(s => { const c = CAMERAS.find(k => k.id === s.cam); return dist(s, c) < T.camRange && !camSees(c, s); }), 'Three shoals, each within reach of an orb but outside its starting view');
+  const w2 = createWorld(62); light(w2); setPower(w2, 'sonar', true); for (let i = 0; i < 20; i++) step(w2, DT);
+  const sh = SHOALS[0]; w2.bergs[0].x = sh.x; w2.bergs[0].y = sh.y; w2.bergs[1].x = sh.x + sh.r + 60; w2.bergs[1].y = sh.y;
+  deployBuoy(w2, sh.x + sh.r + 40, sh.y); for (let i = 0; i < 60; i++) step(w2, DT); w2.bergs[0].x = sh.x; w2.bergs[0].y = sh.y; ping(w2); for (let i = 0; i < 60; i++) step(w2, DT);
+  check(!w2.contacts.some(c => c.bergId === w2.bergs[0].id), 'Ice inside a shoal gives no sonar echo');
+  w2.buoyRebuildAt = 0; deployBuoy(w2, sh.x, sh.y); for (let i = 0; i < 200; i++) { keepFurnace(w2); step(w2, DT); } ping(w2); const before = w2.contacts.length; for (let i = 0; i < 60; i++) step(w2, DT);
+  check(w2.pings.length === 0 || w2.contacts.length === before, 'A buoy on the rocks gets no echoes at all');
 }
 
 // ---------- Old Tom ----------

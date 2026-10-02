@@ -326,6 +326,12 @@ button { font-family: inherit; cursor: pointer; }
 
 /* sonar */
 #sonarside { position: absolute; left: 336px; top: 46px; right: 14px; }
+#sonarside .bigbtn { height: 46px; margin-bottom: 8px; font-size: 20px; }
+#focusrow { display: flex; gap: 6px; margin-bottom: 8px; }
+#pitchknob { width: 50px; height: 50px; border-radius: 50%; font-size: 24px; line-height: 1; color: var(--brass-hi); background: radial-gradient(circle at 40% 35%, #4a3c2c, #1a140e); border: 3px solid var(--brass); box-shadow: 0 3px 6px #000; }
+#pitchknob:active { transform: rotate(30deg); }
+#focusbtn { flex: 1; background: linear-gradient(#21402f, #10241a); color: #d8ffe8; border: 2px solid var(--phos-dim); border-radius: 6px; font-size: 12px; letter-spacing: 2px; }
+#focusbtn small { font-size: 9px; letter-spacing: 0; color: #9ac; }
 .bigbtn { width: 100%; height: 64px; font-family: 'Cinzel', serif; font-size: 22px; letter-spacing: 6px; background: radial-gradient(circle at 50% 30%, #2f6e4c, #133524);
   color: #d8ffe8; border: 3px solid #5cff9d; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 4px 0 #04130b; }
 .bigbtn:active { transform: translateY(3px); box-shadow: none; }

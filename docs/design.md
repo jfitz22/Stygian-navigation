@@ -21,6 +21,12 @@ Elgarz is the only iceberg with all four signs, and **no single sign is proof**:
 
 About a third of all ice rings hollow (ice caves), about half transmits something, and at least a dozen icebergs per seed show metal or the Triad. The easy echo test can't rule out the field on its own.
 
+## The ice
+
+60 floes: 20 small (20 miles or under: not Elgarz, crossed off by length), 20 large and solid, 20 large and hollow (7 with neither metal nor Triad, 5 hollow and metal with the wrong signal or none, 6 hollow and Triad without metal, and 2 with all three: Elgarz and the Gilded Hulk, which circles inside the Tomb's ring). Three named fields start together and spread slowly: the Graveyard (hollow Triad-singers without metal), the Chain (iron-bound solid ice) and the Crown (tall spiky giants, hollow and metal with the wrong signal).
+
+Size is free (ping length or the orb's estimate). Hollowness takes a **focused ping**: select the contact, set the four-symbol pitch knob from target length and water temperature, fire; wrong pitch smears. It still calls the Grindmaw; the orange sounding charge is the silent shortcut. Three **shoals** beside orbs scatter the sonar: ice inside them only shows on the orbs.
+
 ## The sea
 
 - The map is a square drawn around the observatory's reach circle, with the Last Watch on an island in the middle. The chart grid is 12 by 12 squares (A–L, 1–12), 300 mi each.

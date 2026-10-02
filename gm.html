@@ -141,6 +141,7 @@ ch.onmessage = ev => {
   ctx.fillStyle = 'rgba(232,207,152,.6)'; ctx.font = '11px monospace';
   for (let i = 0; i < GRID; i++) { ctx.fillText(COLS[i], (i + 0.45) * CELL * z, 12); ctx.fillText(String(i + 1), 3, (i + 0.55) * CELL * z); }
   ctx.strokeStyle = 'rgba(232,207,152,.25)'; ctx.setLineDash([2, 5]); ctx.beginPath(); ctx.arc(CENTER.x * z, CENTER.y * z, REACH * z, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+  for (const sh of s.shoals || []) { ctx.fillStyle = 'rgba(140,110,70,.25)'; ctx.beginPath(); ctx.arc(sh.x * z, sh.y * z, sh.r * z, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(220,195,150,.7)'; ctx.font = '10px monospace'; ctx.fillText(sh.name, sh.x * z - 30, sh.y * z); }
   for (const st of s.storms) { ctx.fillStyle = `rgba(220,230,240,${0.15 * st.strength})`; ctx.beginPath(); ctx.arc(st.x * z, st.y * z, st.r * z, 0, 7); ctx.fill(); }
   ctx.strokeStyle = 'rgba(154,208,255,.6)'; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(s.tomb.x * z, s.tomb.y * z, TOMB_RADIUS * z, 0, 7); ctx.stroke(); ctx.setLineDash([]);
   ctx.fillStyle = '#cfefff'; ctx.beginPath(); ctx.arc(s.tomb.x * z, s.tomb.y * z, 5, 0, 7); ctx.fill();

@@ -13,6 +13,7 @@ Case board, the echo → metal → radio → Tomb funnel (Hulk circles the Tomb)
 Second-edition diagram manual (manual2.html, US Letter) alongside the first edition; radio via beacons; scanner on the buoy; payload beacons (orange sounding charge, blue drift log); green down to 4; slower aim-quality decay.
 
 ## Ideas for later
+- **Beacon making**: instead of red beacons rebuilding on their own, build them in the repair bay with a repair-board-style puzzle.
 - Obra Dinn-style soft confirmation (e.g. a GM-sent "getting warmer" note after correct exclusions).
 - GM difficulty presets (Easy / Standard / Hard lever bundles).
 - Stream legibility pass on small text before the art pass; sound pass alongside the art pass.
