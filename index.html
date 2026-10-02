@@ -30,6 +30,7 @@
         <div id="aimq"><span id="aimnum">--</span><div id="aimlamp" class="lamp off"></div></div>
         <div id="aimfactors"></div>
       </div>
+      <div id="aimtip" class="aimtip hidden"></div>
       <div id="firebox">
         <div class="lbl">BEACON COLOUR</div>
         <div id="colors"></div>
@@ -73,6 +74,14 @@
       <div class="cabin-label">COFFEE</div>
       <div id="mug" title="click to drink"><div id="mugfill"></div><div class="steam"></div></div>
       <div id="mugstat" class="lbl"></div>
+      <div id="eyebox" title="how tired the operator is">
+        <svg viewBox="0 0 64 34"><defs><clipPath id="eyeclip"><path d="M2 17 Q32 -6 62 17 Q32 40 2 17 Z"/></clipPath></defs>
+          <path d="M2 17 Q32 -6 62 17 Q32 40 2 17 Z" fill="#e8e2d0"/>
+          <g clip-path="url(#eyeclip)"><circle cx="32" cy="17" r="9" fill="#3b7bff"/><circle cx="32" cy="17" r="4" fill="#000"/>
+            <rect id="lidtop" x="0" y="-34" width="64" height="34" fill="#6e5430"/><rect id="lidbot" x="0" y="34" width="64" height="34" fill="#6e5430"/></g>
+          <path d="M2 17 Q32 -6 62 17 Q32 40 2 17 Z" fill="none" stroke="#b08d57" stroke-width="2"/></svg>
+        <div id="eyestat" class="lbl">ALERT</div>
+      </div>
     </div>
     <div class="clockwrap">
       <div class="nixie" id="clock">00:00</div>
@@ -150,6 +159,7 @@
       <div class="lbl">AIM QUALITY</div>
       <div id="aimq2"><span id="aimnum2">--</span><div id="aimlamp2" class="lamp off"></div></div>
       <button id="gofire" class="lookbtn">▲ FIRE FROM THE<br>OVERHEAD DECK</button>
+      <div id="aimtip2" class="aimtip hidden"></div>
     </div>
   </section>
 

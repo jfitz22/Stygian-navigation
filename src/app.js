@@ -724,6 +724,16 @@ function drawLock() {
   const q = aq ? aq.q : null;
   $('aimnum').textContent = $('aimnum2').textContent = q == null ? '--' : q + '%';
   $('aimlamp').className = $('aimlamp2').className = 'lamp ' + lampClass(q);
+  // advice pop-up when aim quality is low
+  let tip = '';
+  if (aq && q < 50) {
+    if (!world.buoy || !world.power.currents.on) tip = '<b>Low aim quality.</b> Switch on <b>CURRENTS</b> with a buoy in the water so the prediction knows how the water moves.';
+    else if (aq.readAge == null) tip = '<b>Low aim quality.</b> Waiting for the first current reading from the buoy.';
+    else if (aq.fDist < 0.5) tip = '<b>Low aim quality.</b> The current was read far from the target. Drop the buoy right next to it.';
+    else if (aq.fRead < 0.5) tip = '<b>Low aim quality.</b> The current reading is old. Keep <b>CURRENTS</b> powered.';
+    else tip = '<b>Low aim quality.</b> The fix is old. Ping again or click the ice on camera to re-lock.';
+  }
+  for (const id of ['aimtip', 'aimtip2']) { const el = $(id); el.classList.toggle('hidden', !tip); if (el.innerHTML !== tip) el.innerHTML = tip; }
   $('aimfactors').innerHTML = !aq ? '<div class="note2">Lock onto an iceberg to aim.</div>' :
     factorRow('FIX AGE', Math.round(aq.fixAge) + ' s', aq.fFix) +
     factorRow('CURRENT READING AGE', aq.readAge == null ? 'none' : Math.round(aq.readAge) + ' s', aq.fRead) +
@@ -830,7 +840,14 @@ function drawPower() {
   $('mugstat').innerHTML = brewing ? 'BREWING...' : cf.sips ? `${cf.sips} SIP${cf.sips > 1 ? 'S' : ''} LEFT<br>CLICK TO DRINK` : 'POT EMPTY<br>BREW ON THE RUNE BOARD';
   // operator fatigue and cabin lighting
   const fa = world.fatigue;
-  $('fatigue').style.opacity = Math.max(0, fa - 0.15) * 1.1;
+  // tiredness darkens the edges first and creeps inward
+  const clear = Math.max(12, 100 - Math.max(0, fa - 0.1) * 100), dark = Math.min(0.95, fa * 1.15);
+  const grad = fa < 0.1 ? 'none' : `radial-gradient(ellipse at center, transparent ${clear * 0.55}%, rgba(0,0,0,${(dark * 0.55).toFixed(2)}) ${clear * 0.85}%, rgba(0,0,0,${dark.toFixed(2)}) ${Math.min(100, clear * 1.05 + 10)}%)`;
+  if ($('fatigue').dataset.g !== grad) { $('fatigue').dataset.g = grad; $('fatigue').style.background = grad; }
+  const lid = Math.min(1, fa * 0.95) * 17 + (($('blink').classList.contains('shut')) ? 17 : 0);
+  $('lidtop').setAttribute('y', -34 + lid); $('lidbot').setAttribute('y', 34 - lid);
+  $('eyestat').textContent = fa < 0.25 ? 'ALERT' : fa < 0.5 ? 'TIRED' : fa < 0.75 ? 'DROWSY' : 'NODDING OFF';
+  $('eyestat').classList.toggle('warn', fa >= 0.75);
   document.querySelectorAll('#main .screen canvas, #main canvas').forEach(c => { c.style.filter = fa > 0.3 ? `blur(${((fa - 0.3) * 1.6).toFixed(2)}px)` : ''; });
   $('main').style.transform = fa > 0.5 ? `translate(${Math.sin(world.t * 0.7) * (fa - 0.5) * 8}px, ${Math.sin(world.t * 0.53) * (fa - 0.5) * 5}px)` : '';
   if (fa > 0.65 && !$('blink').classList.contains('shut') && Math.random() < (fa - 0.6) * 0.012) { $('blink').classList.add('shut'); setTimeout(() => $('blink').classList.remove('shut'), 260 + fa * 300); }

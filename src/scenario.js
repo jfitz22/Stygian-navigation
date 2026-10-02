@@ -90,7 +90,7 @@ export const TUNING = {
   // drift
   rimHold: 0.8,            // fraction of REACH where the sea starts pushing ice back inward
   rimPull: 0.0045,
-  tombDriftFactor: 0.65,
+  tombSpeed: 1.3,          // miles per second the Tomb travels (GM lever multiplies it)
   tombRepelBand: 160,      // Elgarz starts to swerve this far outside the Tomb's ring
   tombDrawPull: 1.2,       // how hard the Gilded Hulk is drawn toward the Tomb (mi/s)
 };

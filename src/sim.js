@@ -95,12 +95,15 @@ export function camSees(cam, p, margin = 0) {
 }
 
 // ---------- movement (shared by the game and the spawn planner, so plans come true) ----------
+// The Tomb processes through the sea at a steady pace, steered by the deep current and a slow
+// clockwise turn round the island, so it never stalls in slack water.
 function advanceTomb(w, tomb, t, dt) {
-  const d = deepAt(w.field, tomb.x, tomb.y, t), k = T.tombDriftFactor * w.levers.tomb * w.levers.drift;
-  let vx = d.x * k, vy = d.y * k;
+  const d = deepAt(w.field, tomb.x, tomb.y, t);
   const dx = tomb.x - CENTER.x, dy = tomb.y - CENTER.y, r = hyp(dx, dy) || 1;
-  if (r < 520) { vx += dx / r * 0.5; vy += dy / r * 0.5; }
-  tomb.x += vx * dt; tomb.y += vy * dt;
+  let hx = d.x + (-dy / r) * 0.35, hy = d.y + (dx / r) * 0.35;
+  if (r < 520) { hx += dx / r * 0.8; hy += dy / r * 0.8; }
+  const h = hyp(hx, hy) || 1, sp = T.tombSpeed * w.levers.tomb * w.levers.drift;
+  tomb.x += hx / h * sp * dt; tomb.y += hy / h * sp * dt;
 }
 function advanceBerg(w, b, tomb, t, dt) {
   const v = driftOf(w.field, b.large, b.x, b.y, t);

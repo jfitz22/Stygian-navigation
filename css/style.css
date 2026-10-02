@@ -39,14 +39,26 @@ button { font-family: inherit; cursor: pointer; }
 #deckbar .plate { font-size: 18px; padding: 5px 14px; }
 .lookbtn { background: linear-gradient(#2c3238, #181c20); color: var(--brass-hi); border: 2px solid var(--brass); border-radius: 4px; padding: 8px 16px; font-family: 'Cinzel', serif; font-size: 15px; letter-spacing: 3px; box-shadow: 0 2px 0 #000; }
 .lookbtn:hover { box-shadow: 0 0 14px rgba(232,207,152,.4); }
-#lookdown { margin-left: auto; }
+#lookup, #lookdown { position: absolute; left: 660px; top: 50%; transform: translateY(-50%); }
 /* cabin lighting (LAMPS rune) */
 #stage.night .panel { filter: brightness(.38) saturate(.7); }
 #stage.night .screen, #stage.night canvas, #stage.night .nixie { filter: brightness(1.7); }
 #stage.night #topbar, #stage.night #deckbar { filter: brightness(.4); }
 #stage.redlamp #rig { filter: sepia(1) hue-rotate(-50deg) saturate(4) brightness(.75); }
 /* operator fatigue */
-#fatigue { position: absolute; inset: 0; pointer-events: none; z-index: 30; opacity: 0; background: radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,.92) 100%); }
+#fatigue { position: absolute; inset: 0; pointer-events: none; z-index: 30; }
+/* operator's eye (fatigue gauge) */
+#eyebox { display: flex; align-items: center; gap: 8px; margin-left: 18px; }
+#eyebox svg { width: 64px; height: 34px; }
+#eyestat { width: 92px; line-height: 1.3; }
+#eyestat.warn { color: var(--threat); animation: blink .8s infinite; }
+/* aim advice pop-up */
+.aimtip { position: absolute; z-index: 6; background: #e6dcc0; color: #2a1d0c; padding: 8px 10px; font-size: 12px; line-height: 1.4; border-radius: 4px; box-shadow: 0 4px 12px #000; font-family: 'IBM Plex Mono', monospace; }
+.aimtip::before { content: ''; position: absolute; top: -7px; left: 24px; border: 7px solid transparent; border-top: none; border-bottom-color: #e6dcc0; }
+.aimtip b { color: #8a1e10; }
+#aimtip2 { left: 0; right: 0; top: 104px; }
+#aimtip { left: 14px; width: 270px; top: 470px; }
+#aimtip::before { top: auto; bottom: -7px; border-bottom: none; border-top: 7px solid #e6dcc0; }
 #blink { position: absolute; inset: 0; pointer-events: none; z-index: 31; background: #000; opacity: 0; transition: opacity .18s; }
 #blink.shut { opacity: .96; }
 
