@@ -15,7 +15,14 @@ What we want to add next, roughly in priority order. Revision 3 is the main game
 - **Ending beat**: after the blue light, an epilogue/debrief card (time, green beacons used, ice examined, rule-outs).
 - **Rising pressure** after ~12 minutes (storms and the Grindmaw escalate) so the end of the watch feels urgent; still nothing ends the game early.
 
-## Manual and the four crew
+## Manual redesign (revision 4b)
+- **Keep the current manual and its link.** Build the redesign as a separate page (e.g. manual2.html) linked alongside, so the two can be compared side by side before anything is replaced.
+- Lean into a **submarine operations diagram book**: section codes, FIG. captions, stamps, typewriter layout. Generate every diagram from the game's own numbers.
+- Replace dry tables with things to *read*: a nomogram for the camera levers, a plotted temperature curve for the scanner, a radio spectrum strip, a furnace burn-down chart, a repair wiring schematic.
+- No ciphers (boring, and AI reads them). Role cards: skipped for now.
+- Probes discussion happens alongside 4b.
+
+## Manual and the four crew (parked)
 - **Role cards** for the four manual holders, each owning part of the loop (e.g. Navigator: chart, currents, aiming; Sonar officer: echo, buoy, shark; Wireless officer: radio; Engineer: scanner, rune board, repairs, camera unlock).
 - **Coded manual sections** for flavour and challenge. Keep them AI-resistant by keying them to *live game state* (rune board page, a camera's local wind, the watch number) so a photographed page decodes to a rule that is useless without the operator's screen.
 
