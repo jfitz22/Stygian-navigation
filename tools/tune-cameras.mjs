@@ -1,7 +1,9 @@
-// Design aid: search for camera posts that catch Elgarz's possible routes most often.
-// Run: node tools/tune-cameras.mjs   (prints a CAMERAS list to paste into scenario.js)
+// Design aid: the camera posts are spaced evenly round the island; this searches for the bearing each
+// one should START at so that Elgarz's possible routes pass through camera view as often as possible.
+// (The crew can turn the cameras during play; this only sets where they point when the watch begins.)
+// Run: node tools/tune-cameras.mjs   (prints facings to paste into CAMERAS in scenario.js)
 import { createWorld, step, light, trace, DT } from '../src/sim.js';
-import { CENTER, REACH, TUNING as T } from '../src/scenario.js';
+import { CENTER, REACH, TUNING as T, CAMERAS } from '../src/scenario.js';
 
 const SEEDS = Array.from({ length: 24 }, (_, i) => 5000 + i * 53);
 const traces = [];
@@ -18,45 +20,41 @@ const P = traces[0].length;
 console.log(`${traces.length} routes, ${P} samples each`);
 
 const fov = T.camFov / 2, range = T.camRange;
-const cands = [];
-for (let x = 200; x < 3400; x += 200) for (let y = 200; y < 3400; y += 200) {
-  const r = Math.hypot(x - CENTER.x, y - CENTER.y);
-  if (r < 250 || r > 1450) continue;
-  for (let f = 0; f < 360; f += 30) cands.push({ x, y, facing: f });
-}
-const seen = cands.map(c => traces.map(tr => {
+const FACINGS = Array.from({ length: 24 }, (_, i) => i * 15);
+// seen[cam][facingIndex][trace] = bit array
+const seen = CAMERAS.map(c => FACINGS.map(f => traces.map(tr => {
   const bits = new Uint8Array(P);
   tr.forEach((p, i) => {
     const d = Math.hypot(p.x - c.x, p.y - c.y); if (d > range) return;
-    let rel = Math.atan2(p.x - c.x, -(p.y - c.y)) - c.facing * Math.PI / 180;
+    let rel = Math.atan2(p.x - c.x, -(p.y - c.y)) - f * Math.PI / 180;
     while (rel > Math.PI) rel -= 2 * Math.PI; while (rel < -Math.PI) rel += 2 * Math.PI;
     if (Math.abs(rel) <= fov) bits[i] = 1;
   });
   return bits;
-}));
+})));
 function windows(bits) {      // separate sightings of >= 15 s (3 samples)
   let n = 0, run = 0;
   for (let i = 0; i <= bits.length; i++) { if (i < bits.length && bits[i]) run++; else { if (run >= 3) n++; run = 0; } }
   return n;
 }
-let union = traces.map(() => new Uint8Array(P));
-const chosen = [];
-for (let k = 0; k < 7; k++) {
-  let best = -1, bs = -1;
-  cands.forEach((c, ci) => {
-    if (chosen.some(o => Math.hypot(o.x - c.x, o.y - c.y) < 450)) return;   // spread the posts out
-    let s = 0;
-    for (let ti = 0; ti < traces.length; ti++) {
-      const u = union[ti], b = seen[ci][ti], m = new Uint8Array(P);
-      for (let i = 0; i < P; i++) m[i] = u[i] | b[i];
-      s += Math.min(windows(m), 3);
-    }
-    if (s > bs) { bs = s; best = ci; }
-  });
-  chosen.push(cands[best]);
-  union = union.map((u, ti) => u.map((v, i) => v | seen[best][ti][i]));
-  const counts = union.map(windows);
-  console.log(`camera ${k + 1}: (${cands[best].x}, ${cands[best].y}) facing ${cands[best].facing} · routes with 2+ sightings ${counts.filter(n => n >= 2).length}/${traces.length}`);
+function score(choice) {
+  let s = 0, two = 0;
+  for (let ti = 0; ti < traces.length; ti++) {
+    const m = new Uint8Array(P);
+    choice.forEach((fi, ci) => { const b = seen[ci][fi][ti]; for (let i = 0; i < P; i++) m[i] |= b[i]; });
+    const n = windows(m); s += Math.min(n, 3); if (n >= 2) two++;
+  }
+  return { s, two };
 }
-const names = ['GALLOWS REACH', 'HOARFROST SPIRE', 'SOUTHEAST POST', 'SALTGRAVE', 'CHAIN ROCK', 'WESTERN WATCH', 'MIDSEA PILLAR'];
-console.log(chosen.map((c, i) => `  { id: 'c${i + 1}', name: '${names[i]}', x: ${c.x}, y: ${c.y}, facing: ${c.facing} },`).join('\n'));
+let choice = CAMERAS.map(c => FACINGS.indexOf(Math.round(c.facing / 15) * 15 % 360));
+for (let pass = 0; pass < 3; pass++) {
+  for (let ci = 0; ci < CAMERAS.length; ci++) {
+    let best = choice[ci], bs = -1;
+    for (let fi = 0; fi < FACINGS.length; fi++) { const c = [...choice]; c[ci] = fi; const { s } = score(c); if (s > bs) { bs = s; best = fi; } }
+    choice[ci] = best;
+  }
+  const { s, two } = score(choice);
+  console.log(`pass ${pass + 1}: score ${s}, routes with 2+ sightings ${two}/${traces.length}`);
+}
+console.log(CAMERAS.map((c, i) => `  ${c.id} ${c.name}: facing ${FACINGS[choice[i]]}`).join('\n'));
+console.log('FACINGS = [' + choice.map(i => FACINGS[i]).join(', ') + ']');

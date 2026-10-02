@@ -2,8 +2,9 @@ import {
   createWorld, newSeed, step, light, stoke, slotsAvailable, setPower, isUp, selectCam, deployBuoy, ping, lockContact, lockFromCamera,
   setDrift, ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
+  pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE,
 } from './sim.js';
-import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T } from './scenario.js';
+import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES } from './scenario.js';
 import { glyphSVG } from './glyphs.js';
 import * as audio from './audio.js';
 
@@ -19,9 +20,11 @@ const ui = {
   buoyMode: false,
   wipeUntil: 0,
   coffee: 0, brewing: false,
-  music: false, lamps: 0,
   camHits: [],
-  repair: {},              // camId -> board
+  repair: {},              // system id -> repair board
+  repairSel: null,
+  noteCorner: 0,
+  tickerQ: [],             // GM messages waiting for the wire service
 };
 const fmt = s => { s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
 const ago = s => fmt(s) + ' ago';
@@ -49,8 +52,23 @@ function toast(msg, kind = '') {
   const t = $('toast'); t.textContent = msg; t.className = 'show ' + kind;
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.className = kind, 3600);
 }
-function note(text) { const n = $('note'); n.textContent = text; n.classList.remove('hidden'); audio.sfx.buoy(); }
-$('note').onclick = () => $('note').classList.add('hidden');
+// Pneumatic-tube notes land in the four corners of the chart in turn.
+function note(text) {
+  const k = ui.noteCorner++ % 4, box = $('notes');
+  const old = box.querySelector('.c' + k); if (old) old.remove();
+  const n = document.createElement('div'); n.className = 'note c' + k; n.textContent = text;
+  n.onclick = () => n.remove();
+  box.appendChild(n); audio.sfx.buoy();
+}
+function look(up) { $('stage').classList.toggle('up', up); audio.sfx.clunk(); }
+$('lookup').onclick = () => look(true);
+$('gofire').onclick = () => look(true);
+$('lookdown').onclick = () => look(false);
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowUp') look(true);
+  if (e.key === 'ArrowDown') look(false);
+});
 
 // ---------- intro / sound ----------
 $('begin').onclick = () => { audio.unlock(); $('intro').classList.add('hidden'); audio.sfx.click(); };
@@ -60,6 +78,7 @@ addEventListener('keydown', e => { if ((e.key === 'm' || e.key === 'M') && e.tar
 
 // ---------- furnace & power ----------
 $('ignite').onclick = () => light(world);
+$('mug').onclick = () => sip(world);
 $('stoke').onclick = () => stoke(world);
 const SYS_LABEL = { cameras: 'CAMERAS', sonar: 'SONAR', radio: 'RADIO', scanner: 'SCANNER', currents: 'CURRENTS' };
 for (const s of SYSTEMS) {
@@ -82,7 +101,7 @@ $('camcanvas').addEventListener('click', e => {
   if (hit) lockFromCamera(world, hit.id);
 });
 
-// ---------- repair board ----------
+// ---------- repair bay ----------
 function makeBoard() {
   const rows = [];
   for (let i = 0; i < 5; i++) {
@@ -98,18 +117,37 @@ function correctAction(row) {
   if (row.sheath === 'brass') return row.lit ? 'OPEN' : 'SHUT';
   return 'SHUT';
 }
-function renderBoard(cam) {
-  const el = $('repairboard');
-  if (cam.repair) {
-    const left = Math.ceil(cam.repair - world.t);
-    el.innerHTML = `<div class="rb-title">REPAIR SLED EN ROUTE</div><div class="rb-sub">${cam.name} back online in ${left}s</div>`;
-    el.dataset.cam = ''; return;
+let repairKey = '';
+function drawRepairBay() {
+  const list = brokenList(world);
+  $('repaircount').textContent = list.length ? list.length + ' broken' : 'all sound';
+  if (!list.find(x => x.id === ui.repairSel)) ui.repairSel = list.length ? list[0].id : null;
+  const key = list.map(x => x.id + (world.repairs[x.id] ? '*' : '')).join(',') + '|' + ui.repairSel;
+  if (key !== repairKey) {
+    repairKey = key;
+    $('repairtabs').innerHTML = '';
+    for (const x of list) {
+      const b = document.createElement('button'); b.textContent = x.name;
+      b.className = (x.id === ui.repairSel ? 'sel ' : '') + (world.repairs[x.id] ? 'busy' : '');
+      b.onclick = () => { ui.repairSel = x.id; audio.sfx.click(); };
+      $('repairtabs').appendChild(b);
+    }
+    $('repairboard').dataset.ver = '';
   }
-  let b = ui.repair[cam.id]; if (!b) b = ui.repair[cam.id] = makeBoard();
-  if (el.dataset.cam === cam.id && el.dataset.ver === String(b.ver || 0)) return;
-  el.dataset.cam = cam.id; el.dataset.ver = String(b.ver || 0);
-  el.innerHTML = `<div class="rb-title">${cam.name}: CAMERA DESTROYED</div>
-    <div class="rb-sub">Set every conduit, then dispatch the repair sled. The Operations Manual knows the rules.</div>
+  const el = $('repairboard');
+  if (!ui.repairSel) { if (el.dataset.ver !== 'none') { el.dataset.ver = 'none'; el.innerHTML = '<div class="rb-sub" style="margin-top:20px">Nothing is broken. Long may it last.</div>'; } return; }
+  const item = list.find(x => x.id === ui.repairSel);
+  if (world.repairs[item.id]) {
+    el.dataset.ver = 'busy';
+    el.innerHTML = `<div class="rb-title">REPAIR CREW AT WORK</div><div class="rb-sub">${item.name} back in service in ${Math.ceil(world.repairs[item.id] - world.t)}s</div>`;
+    return;
+  }
+  let b = ui.repair[item.id]; if (!b) b = ui.repair[item.id] = makeBoard();
+  const ver = item.id + ':' + (b.ver || 0);
+  if (el.dataset.ver === ver) return;
+  el.dataset.ver = ver;
+  el.innerHTML = `<div class="rb-title">${item.name}: BROKEN</div>
+    <div class="rb-sub">Set every conduit, then send the repair crew. The Operations Manual knows the rules.</div>
     <div class="rb-rows">${b.rows.map((r, i) => `
       <div class="rb-row"><b>${i + 1}</b>
         <div class="sheath ${r.sheath}" style="${r.frost ? 'background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.75) 0 2px,transparent 2px 5px),' + (r.sheath === 'brass' ? 'linear-gradient(#e2c27f,#8b6b3d)' : r.sheath === 'iron' ? 'linear-gradient(#777,#333)' : 'linear-gradient(#fff,#c9c4b8)') : ''}"></div>
@@ -117,12 +155,12 @@ function renderBoard(cam) {
         <span class="lamp ${r.lit ? 'on' : 'off'}" style="width:14px;height:14px"></span>
         <div class="act">${['OPEN', 'SHUT', 'CUT'].map(a => `<button data-i="${i}" data-a="${a}" class="${r.set === a ? 'sel' : ''}">${a}</button>`).join('')}</div>
       </div>`).join('')}</div>
-    <button class="rb-go">DISPATCH REPAIR SLED</button>`;
+    <button class="rb-go">SEND THE REPAIR CREW</button>`;
   el.querySelectorAll('.act button').forEach(btn => btn.onclick = () => { b.rows[+btn.dataset.i].set = btn.dataset.a; b.ver = (b.ver || 0) + 1; audio.sfx.click(); });
   el.querySelector('.rb-go').onclick = () => {
     if (world.t < b.lockUntil) return;
     const wrong = b.rows.filter(r => r.set !== correctAction(r));
-    if (!wrong.length) { startRepair(world, cam.id); delete ui.repair[cam.id]; el.dataset.ver = ''; }
+    if (!wrong.length) { startRepair(world, item.id); delete ui.repair[item.id]; el.dataset.ver = ''; }
     else { wrong.forEach(r => r.set = null); b.lockUntil = world.t + 4; b.ver = (b.ver || 0) + 1; badRepair(world); toast(`SPARKS! ${wrong.length} CONDUIT${wrong.length > 1 ? 'S' : ''} WRONG. THEY HAVE RESET.`); }
   };
 }
@@ -237,6 +275,32 @@ function drawMap() {
     ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText('BUOY', b.x, b.y - 9);
     for (const p of world.pings) { const k = (t - p.tS) / T.sonarDelay; if (k < 1) { ctx.strokeStyle = `rgba(92,255,157,${1 - k})`; ctx.beginPath(); ctx.arc(b.x, b.y, T.buoyRadius * z * k, 0, 7); ctx.stroke(); } }
   }
+  // what the water was doing round the buoy at the last echo
+  for (const fl of world.flows) {
+    const a = Math.max(0, 1 - (t - fl.t) / T.flowShow);
+    for (const p of fl.pts) {
+      const q = W2S(p.x, p.y);
+      for (const [v, col] of [[p.deep, '169,139,255'], [p.surf, '111,208,255']]) {
+        const L = 34 * z * Math.min(2.2, Math.hypot(v.x, v.y)) / 0.19 * 0.19 + 6, ang = Math.atan2(v.y, v.x);
+        const ex = q.x + Math.cos(ang) * L, ey = q.y + Math.sin(ang) * L;
+        ctx.strokeStyle = `rgba(${col},${0.75 * a})`; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(ex, ey); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - Math.cos(ang - 0.5) * 5, ey - Math.sin(ang - 0.5) * 5); ctx.moveTo(ex, ey); ctx.lineTo(ex - Math.cos(ang + 0.5) * 5, ey - Math.sin(ang + 0.5) * 5); ctx.stroke();
+      }
+    }
+    ctx.lineWidth = 1;
+    if (fl.pts.length) { const q = W2S(fl.pts[0].x, fl.pts[0].y); ctx.fillStyle = `rgba(200,190,255,${0.8 * a})`; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText('DEEP', q.x, q.y - 6); ctx.fillStyle = `rgba(150,220,255,${0.8 * a})`; ctx.fillText('SURFACE', q.x + 34, q.y - 6); }
+  }
+  // sonar trails: successive pings of the same ice are joined
+  const byBerg = {};
+  for (const c of world.contacts) (byBerg[c.bergId] = byBerg[c.bergId] || []).push(c);
+  for (const list of Object.values(byBerg)) {
+    if (list.length < 2) continue;
+    list.sort((a, b) => a.tS - b.tS);
+    for (let i = 1; i < list.length; i++) {
+      const a = W2S(list[i - 1].x, list[i - 1].y), b = W2S(list[i].x, list[i].y), al = Math.max(0, 1 - (t - list[i].tD) / T.contactFade);
+      ctx.strokeStyle = `rgba(92,255,157,${0.15 + 0.5 * al})`; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
   // contacts
   for (const c of world.contacts) {
     const p = W2S(c.x, c.y), a = Math.max(0, 1 - (t - c.tD) / T.contactFade);
@@ -249,12 +313,12 @@ function drawMap() {
   // lock & ghost
   if (world.lock) {
     const l = world.lock, p0 = W2S(l.x, l.y), g = ghostAt(world, t), pg = W2S(g.x, g.y);
-    const rr = (12 + (t - l.t0) * 0.5) * z + 6;
+    const aq = aimQuality(world), rr = (12 + (t - l.t0) * 0.6 + (aq.readDist ?? 400) * 0.08) * z + 6;
     ctx.strokeStyle = 'rgba(244,241,230,.5)'; ctx.setLineDash([2, 4]); ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(pg.x, pg.y); ctx.stroke();
     ctx.setLineDash([5, 4]); ctx.strokeStyle = '#f4f1e6'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(pg.x, pg.y, rr, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pg.x - 6, pg.y); ctx.lineTo(pg.x + 6, pg.y); ctx.moveTo(pg.x, pg.y - 6); ctx.lineTo(pg.x, pg.y + 6); ctx.stroke();
     ctx.strokeStyle = '#ffb347'; ctx.beginPath(); ctx.moveTo(p0.x - 4, p0.y - 4); ctx.lineTo(p0.x + 4, p0.y + 4); ctx.moveTo(p0.x + 4, p0.y - 4); ctx.lineTo(p0.x - 4, p0.y + 4); ctx.stroke();
-    ctx.fillStyle = '#f4f1e6'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText('PREDICTED · ' + gridRef(g.x, g.y), pg.x + rr + 4, pg.y - 4);
+    ctx.fillStyle = '#f4f1e6'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText(`PREDICTED (${world.drift.toUpperCase()}) · ${gridRef(g.x, g.y)} · AIM ${aq.q}%`, pg.x + rr + 4, pg.y - 4);
   }
   // tagged bergs (live)
   for (const b of world.bergs) {
@@ -282,6 +346,8 @@ function drawMap() {
     const p = W2S(s.x, s.y), k = (t - s.t) / 40;
     ctx.strokeStyle = `rgba(150,180,200,${1 - k})`; ctx.beginPath(); ctx.arc(p.x, p.y, 6 + 10 * Math.min(1, (t - s.t) / 2), 0, 7); ctx.stroke();
     ctx.fillStyle = `rgba(150,180,200,${1 - k})`; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText('MISS', p.x, p.y - 12);
+    if (s.tx != null) { const q = W2S(s.tx, s.ty); ctx.strokeStyle = `rgba(255,179,71,${0.7 * (1 - k)})`; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, 7); ctx.stroke(); ctx.fillStyle = `rgba(255,179,71,${0.8 * (1 - k)})`; ctx.fillText('TARGET WAS HERE', q.x, q.y + 16); }
   }
   // the Grindmaw (always tracked)
   { const s = world.shark, p = W2S(s.x, s.y);
@@ -310,12 +376,11 @@ const camCv = $('camcanvas'), cctx = camCv.getContext('2d');
 const HORIZON = 132;
 function drawCamera() {
   const cam = world.cams.find(c => c.id === world.activeCam), ctx = cctx, Wd = camCv.width, Ht = camCv.height, t = world.t;
-  $('camname').textContent = cam.name + ' · ' + gridRef(cam.x, cam.y) + ' · facing ' + cam.facing + '°';
+  $('camname').textContent = cam.name + ' · ' + gridRef(cam.x, cam.y) + ' · facing ' + String(Math.round(cam.facing)).padStart(3, '0') + '°';
   const up = isUp(world, 'cameras');
   $('camoff').textContent = world.power.cameras.on ? 'WARMING UP' : 'NO POWER';
   $('camoff').classList.toggle('hidden', up);
-  const rb = $('repairboard');
-  if (up && cam.broken) { rb.classList.remove('hidden'); renderBoard(cam); } else { rb.classList.add('hidden'); rb.dataset.cam = ''; }
+  $('camdead').classList.toggle('hidden', !(up && cam.broken));
   ui.camHits = [];
   const sky = ctx.createLinearGradient(0, 0, 0, HORIZON); sky.addColorStop(0, '#04110e'); sky.addColorStop(1, '#16302c');
   ctx.fillStyle = sky; ctx.fillRect(0, 0, Wd, HORIZON);
@@ -363,7 +428,8 @@ function drawCamera() {
     }
     if (b.tag) { ctx.fillStyle = COLORS[b.tag]; ctx.shadowColor = COLORS[b.tag]; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(x0 + width / 2, base - hScale * 0.6, 3 + (1 - fog) * 3, 0, 7); ctx.fill(); ctx.shadowBlur = 0; }
   }
-  const snow = Math.max(0, snowAt(world, cam.x, cam.y, t) - (t < ui.wipeUntil ? 0.8 : 0));
+  const wiped = world.wipe && world.wipe.cam === cam.id && t < world.wipe.until;
+  const snow = Math.max(0, snowAt(world, cam.x, cam.y, t) - (wiped ? 0.8 : 0));
   if (snow > 0.02) {
     ctx.fillStyle = `rgba(200,210,220,${snow * 0.8})`; ctx.fillRect(0, 0, Wd, Ht);
     ctx.fillStyle = `rgba(255,255,255,${0.4 + snow * 0.5})`;
@@ -555,12 +621,13 @@ const WAVE = {
 };
 function drawRadio() {
   const up = isUp(world, 'radio'), sig = radioSignal(world), t = world.t, ctx = rctx;
-  $('radiooff').classList.toggle('hidden', up); $('radiooff').textContent = world.power.radio.on ? 'WARMING UP' : 'NO POWER';
+  $('radiooff').classList.toggle('hidden', up); $('radiooff').innerHTML = world.broken.fuse ? 'FUSE BLOWN<br><small style="font-size:12px;letter-spacing:2px">REPAIR IT ON THE OVERHEAD DECK ▲</small>' : world.power.radio.on ? 'WARMING UP' : 'NO POWER';
   $('freq').textContent = world.radio.freq.toFixed(1);
   if (document.activeElement !== $('freqslider')) $('freqslider').value = world.radio.freq;
   if (document.activeElement !== $('gain')) $('gain').value = world.radio.gain;
   $('gainval').textContent = world.radio.gain.toFixed(1);
   $('radiosrc').textContent = world.music ? 'cabin wireless is ON' : 'tuned to the locked target';
+  $('p-radio').classList.toggle('fusehot', world.radio.clipTime > 1.5);
   $('strength').style.width = (sig.strength * 100).toFixed(0) + '%';
   $('cliplamp').firstElementChild.className = 'lamp ' + (sig.clip ? 'on' : 'off');
   ctx.fillStyle = 'rgba(3,8,6,.6)'; ctx.fillRect(0, 0, 300, 110);
@@ -579,7 +646,7 @@ function drawRadio() {
     }
     ctx.stroke(); ctx.lineWidth = 1;
     ctx.fillStyle = 'rgba(232,207,152,.7)'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left';
-    ctx.fillText(sig.clip ? 'CLIPPING · LOWER THE GAIN' : sig.strength > 0.75 && !sig.lamps ? 'MATCH THE GAIN TO THE BRASS LINES' : !lockedBerg(world) && !world.music ? 'NO TARGET LOCKED' : '', 6, 12);
+    ctx.fillText(sig.clip ? (world.radio.clipTime > 1.5 ? 'FUSE HOT · LOWER THE GAIN NOW' : 'CLIPPING · LOWER THE GAIN') : sig.strength > 0.75 && !sig.lamps ? 'MATCH THE GAIN TO THE BRASS LINES' : !lockedBerg(world) && !world.music ? 'NO TARGET LOCKED' : '', 6, 12);
     ctx.textAlign = 'right'; ctx.fillText(sig.band, 294, 106);
   }
   const lamps = document.querySelectorAll('#songlamps span');
@@ -600,7 +667,7 @@ function drawScanner() {
   ctx.lineWidth = 10;
   [['#5a1a12', -Math.PI, -Math.PI * (1.2 - T.alignNeeded)], ['#5a4a12', -Math.PI * (1.2 - T.alignNeeded), -Math.PI * (1 - T.alignNeeded)], ['#1f6b45', -Math.PI * (1 - T.alignNeeded), 0]].forEach(([c, s, e]) => { ctx.strokeStyle = c; ctx.beginPath(); ctx.arc(100, 110, 80, s, e); ctx.stroke(); });
   ctx.lineWidth = 1;
-  const ang = -Math.PI + a * Math.PI + Math.sin(world.t * 13) * 0.01;
+  const ang = -Math.PI + a * Math.PI + Math.sin(world.t * 13) * 0.01 + Math.sin(world.t * 1.7) * world.fatigue * 0.18;
   ctx.strokeStyle = '#f4f1e6'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(100, 110); ctx.lineTo(100 + Math.cos(ang) * 74, 110 + Math.sin(ang) * 74); ctx.stroke(); ctx.lineWidth = 1;
   ctx.fillStyle = '#b08d57'; ctx.beginPath(); ctx.arc(100, 110, 7, 0, 7); ctx.fill();
   ctx.fillStyle = '#cfc6ab'; ctx.font = '11px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText('ALIGNMENT', 100, 128);
@@ -631,67 +698,100 @@ function drawScanner() {
   if (locked && Math.floor(world.t * 2) % 2 === 0) padKey = '';
 }
 
-// ---------- lock & beacon ----------
+// ---------- target lock (main board) and beacon launcher (overhead deck) ----------
 document.querySelectorAll('#drift button').forEach(b => b.onclick = () => setDrift(world, b.dataset.v));
 for (const [k, v] of Object.entries(COLORS)) {
   const b = document.createElement('button'); b.className = 'col'; b.dataset.c = k; b.style.background = v;
   b.innerHTML = k === 'green' ? 'THIS IS<br>ELGARZ' : k.toUpperCase();
-  b.onclick = () => { ui.color = k; audio.sfx.click(); };
+  b.onclick = () => { setColor(world, k); audio.sfx.click(); };
   $('colors').appendChild(b);
 }
-$('fire').onclick = () => fireBeacon(world, ui.color);
+$('fire').onclick = () => fireBeacon(world, world.color);
+const lampClass = q => q == null ? 'off' : q >= 70 ? 'good' : q >= 40 ? 'fair' : 'poor';
+function factorRow(label, value, k) {
+  const col = k >= 0.75 ? 'var(--phos)' : k >= 0.4 ? 'var(--amber)' : 'var(--threat)';
+  return `<div class="row"><div>${label}<br><b>${value}</b></div><div class="bar"><div style="width:${Math.round(k * 100)}%;background:${col}"></div></div></div>`;
+}
 function drawLock() {
-  const l = world.lock, b = lockedBerg(world);
-  $('locknum').textContent = b ? '#' + b.num : '--';
+  const l = world.lock, b = lockedBerg(world), aq = aimQuality(world);
+  $('locknum').textContent = $('locknum2').textContent = b ? '#' + b.num : '--';
   const g = l && ghostAt(world, world.t);
   $('lockinfo').innerHTML = !l ? 'No lock. Click a sonar contact or an iceberg on camera.' :
     `Fix from <b>${l.source.toUpperCase()}</b>, <b>${ago(world.t - l.t0)}</b><br>Predicted in <b>${gridRef(g.x, g.y)}</b>${b.tag ? ` · tagged <b style="color:${COLORS[b.tag]}">${b.tag.toUpperCase()}</b>` : ''}`;
   document.querySelectorAll('#drift button').forEach(x => x.classList.toggle('sel', x.dataset.v === world.drift));
   const r = world.readings;
-  $('driftinfo').innerHTML = !r ? 'No current reading yet. The prediction will not move.' : `Using the buoy reading from ${gridRef(r.x, r.y)}, ${ago(world.t - r.t)}.`;
-  document.querySelectorAll('.col').forEach(x => x.classList.toggle('sel', x.dataset.c === ui.color));
-  const green = ui.color === 'green', bc = world.beacons;
+  $('driftinfo').innerHTML = !r ? 'No current reading yet. The prediction will not move.' : `Predicting with the <b>${world.drift.toUpperCase()}</b> current read at ${gridRef(r.x, r.y)}, ${ago(world.t - r.t)}.`;
+  const q = aq ? aq.q : null;
+  $('aimnum').textContent = $('aimnum2').textContent = q == null ? '--' : q + '%';
+  $('aimlamp').className = $('aimlamp2').className = 'lamp ' + lampClass(q);
+  $('aimfactors').innerHTML = !aq ? '<div class="note2">Lock onto an iceberg to aim.</div>' :
+    factorRow('FIX AGE', Math.round(aq.fixAge) + ' s', aq.fFix) +
+    factorRow('CURRENT READING AGE', aq.readAge == null ? 'none' : Math.round(aq.readAge) + ' s', aq.fRead) +
+    factorRow('READING TAKEN FROM TARGET', aq.readDist == null ? 'none' : Math.round(aq.readDist) + ' mi', aq.fDist) +
+    `<div class="note2">Drift switch: <b>${aq.drift.toUpperCase()}</b>. Flight time about ${Math.round(aq.flight)} s. Aim quality cannot tell if the drift switch is wrong for this ice.</div>`;
+  document.querySelectorAll('.col').forEach(x => x.classList.toggle('sel', x.dataset.c === world.color));
+  const green = world.color === 'green', bc = world.beacons;
   $('fire').classList.toggle('green', green);
-  $('fire').disabled = !l || (green ? bc.green <= 0 : bc.stock <= 0);
-  $('fire').innerHTML = green ? `FIRE · ${bc.green} LEFT` : 'FIRE BEACON';
+  $('fire').disabled = !l || world.broken.launcher || (green ? bc.green <= 0 : bc.stock <= 0);
+  $('fire').innerHTML = green ? `FIRE GREEN · ${bc.green} LEFT` : 'FIRE BEACON';
+  $('jammed').classList.toggle('hidden', !world.broken.launcher);
+  $('launchstat').textContent = world.broken.launcher ? 'JAMMED' : bc.flying.length ? 'beacon in flight' : 'ready';
   const rack = $('rack'), key = bc.stock + '/' + bc.green;
   if (rack.dataset.n !== key) {
     rack.dataset.n = key;
     rack.innerHTML = Array.from({ length: T.beaconStock }, (_, i) => `<i class="${i < bc.stock ? '' : 'empty'}"></i>`).join('') + '<b></b>' +
       Array.from({ length: T.greenStock }, (_, i) => `<i class="g ${i < bc.green ? '' : 'empty'}"></i>`).join('');
   }
+  const last = bc.last, rep = $('shotreport'), rkey = last ? last.t : 0;
+  if (rep.dataset.t !== String(rkey) && last) {
+    rep.dataset.t = String(rkey);
+    rep.innerHTML = last.hit
+      ? `<b class="hit">HIT #${last.num}</b>${last.intended ? '' : ' (not the iceberg you locked)'} with ${last.color.toUpperCase()}. Aim quality was ${last.q}%.`
+      : `<b class="miss">MISSED #${last.num}${last.by != null ? ' BY ' + last.by + ' mi' : ''}</b>. Aim quality was ${last.q}%.<br>Why: ${last.reasons.join('; ')}.`;
+  }
 }
 
-// ---------- cabin comforts (they move around) ----------
-const COMFORTS = [
-  { id: 'coffee', ico: '☕', label: 'COFFEE' },
-  { id: 'wipers', ico: '⌒', label: 'WIPERS' },
-  { id: 'music', ico: '♫', label: 'MUSIC' },
-  { id: 'lamps', ico: '✺', label: 'LAMPS' },
-  { id: 'bell', ico: '🔔', label: 'BELL' },
-];
-const slots = COMFORTS.map((_, i) => i);
-COMFORTS.forEach((c, i) => {
-  const b = document.createElement('button'); b.className = 'comfort'; b.id = 'cf-' + c.id; b.style.left = (i * 94) + 'px';
-  b.innerHTML = `<span class="ico">${c.ico}</span>${c.label}`;
-  b.onclick = () => { comfort(c.id); setTimeout(() => shuffleComforts(i), 500); };
-  $('comforts').appendChild(b);
-});
-function shuffleComforts(i) {
-  if (Math.random() < 0.35) return;
-  let j = Math.floor(Math.random() * COMFORTS.length); if (j === i) j = (j + 1) % COMFORTS.length;
-  [slots[i], slots[j]] = [slots[j], slots[i]];
-  COMFORTS.forEach((c, k) => { $('cf-' + c.id).style.left = (slots[k] * 94) + 'px'; });
-  audio.sfx.clunk();
+// ---------- rune board ----------
+let boardKey = '';
+function drawBoard() {
+  const b = world.board, key = b.page + '|' + b.runes.join(',');
+  if (key !== boardKey) {
+    const flipped = boardKey !== '';
+    boardKey = key;
+    const pad = $('boardpad'); pad.innerHTML = '';
+    b.runes.forEach((rid, i) => {
+      const btn = document.createElement('button'); btn.className = 'brune'; btn.innerHTML = glyphSVG(rid, 54);
+      btn.onclick = () => { btn.classList.add('pressed'); setTimeout(() => btn.classList.remove('pressed'), 250); pressBoard(world, i); };
+      pad.appendChild(btn);
+    });
+    $('flippage').textContent = BOARD_PAGES[b.page];
+    if (flipped) { const f = $('flippage'); f.classList.remove('flip'); void f.offsetWidth; f.classList.add('flip'); }
+  }
+  $('flipbar').firstElementChild.style.width = Math.max(0, Math.min(100, (b.nextFlip - world.t) / T.boardFlipEvery * 100)) + '%';
+  const pips = Array.from({ length: T.chuteMax }, (_, i) => `<i class="${i < world.furnace.chute ? 'f' : ''}"></i>`).join('');
+  if ($('chute2').innerHTML !== pips) { $('chute2').innerHTML = pips; $('chute').innerHTML = pips; }
 }
-function comfort(id) {
-  if (id === 'coffee') { ui.brewing = true; audio.sfx.coffee(); }
-  if (id === 'wipers') { ui.wipeUntil = world.t + 8; const w = $('wiper'); w.classList.remove('go'); void w.offsetWidth; w.classList.add('go'); audio.sfx.wipers(); }
-  if (id === 'music') { ui.music = !ui.music; setMusic(world, ui.music); audio.setMusic(ui.music); audio.sfx.click(); }
-  if (id === 'lamps') { ui.lamps = (ui.lamps + 1) % 3; $('stage').classList.toggle('warm', ui.lamps === 1); $('stage').classList.toggle('red', ui.lamps === 2); audio.sfx.lamps(); }
-  if (id === 'bell') audio.sfx.bell();
+
+// ---------- wire service (ticker) ----------
+let tickX = 0, tickW = 0;
+function tickerText() {
+  const items = [];
+  while (ui.tickerQ.length) items.push('<b>' + ui.tickerQ.shift() + '</b>');
+  const D = readingDisplay(world.readings);
+  items.push(D ? `BUOY ${gridRef(world.readings.x, world.readings.y)}: WIND FROM ${D.windOct} ${D.windKn} KN · WATER ${D.temp}° · SURFACE ${D.surfKn.toFixed(1)} KN · DEEP ${D.deepKn.toFixed(1)} KN` : 'NO BUOY READING · DROP A BUOY AND POWER THE CURRENTS');
+  const storms = stormsAt(world, world.t);
+  items.push(storms.length ? storms.map(st => 'STORM OVER ' + gridRef(st.x, st.y)).join(' · ') : 'SKIES CLEAR OVER THE FIFTH');
+  items.push(world.shark.mode === 'hunt' ? 'THE GRINDMAW IS SWIMMING FOR ' + gridRef(world.lastPing.x, world.lastPing.y) : 'THE GRINDMAW IS IN ' + gridRef(world.shark.x, world.shark.y));
+  items.push(`RUNE BOARD PAGE ${BOARD_PAGES[world.board.page]} · FLIPS IN ${Math.max(0, Math.ceil(world.board.nextFlip - world.t))} S`);
+  const br = brokenList(world); if (br.length) items.push('BROKEN: ' + br.map(x => x.name).join(', '));
+  if (world.fatigue > 0.6) items.push('THE OPERATOR IS NODDING OFF · COFFEE ADVISED');
+  return items.join(' &nbsp;✦&nbsp; ') + ' &nbsp;✦&nbsp; ';
 }
-$('mug').onclick = () => { if (ui.coffee > 0.1) { ui.coffee = Math.max(0, ui.coffee - 0.34); audio.sfx.click(); } };
+function drawTicker(dt) {
+  const el = $('tickertext');
+  if (!tickW || tickX < -tickW || ui.tickerQ.length) { el.innerHTML = tickerText(); tickW = el.offsetWidth; tickX = 600; }
+  tickX -= 110 * dt; el.style.transform = `translateX(${tickX}px)`;
+}
 
 // ---------- furnace, power & misc panel state ----------
 function drawPower() {
@@ -708,24 +808,33 @@ function drawPower() {
   $('heatfill').style.height = Math.min(100, f.heat) + '%';
   $('heatfill').classList.toggle('hot', f.heat > 90);
   const cooling = !f.lit && world.t < f.outUntil;
-  $('ignite').disabled = f.lit || cooling;
-  $('ignite').textContent = cooling ? `COOLING ${Math.ceil(f.outUntil - world.t)}` : f.everLit ? 'RELIGHT' : 'LIGHT';
-  $('stoke').disabled = !f.lit;
+  $('ignite').disabled = f.lit || cooling || world.broken.furnace;
+  $('ignite').textContent = world.broken.furnace ? 'GRATE CRACKED' : cooling ? `COOLING ${Math.ceil(f.outUntil - world.t)}` : f.everLit ? 'RELIGHT' : 'LIGHT';
+  $('stoke').disabled = !f.lit || f.chute <= 0;
+  $('stoke').textContent = f.chute > 0 ? 'STOKE' : 'CHUTE EMPTY';
   const st = $('furnacestat');
-  const msg = !f.lit ? (cooling ? 'BLOWN OUT · WAIT, THEN RELIGHT' : f.everLit ? 'THE FURNACE HAS GONE OUT · RELIGHT' : 'LIGHT THE FURNACE') :
-    f.heat > 90 ? 'TOO HOT · DO NOT STOKE' : f.heat < T.slotHeat[0] ? 'LOW HEAT · STOKE THE FURNACE' : '';
+  const msg = !f.lit ? (world.broken.furnace ? 'GRATE CRACKED · REPAIR IT ON THE OVERHEAD DECK' : cooling ? 'BLOWN OUT · WAIT, THEN RELIGHT' : f.everLit ? 'THE FURNACE HAS GONE OUT · RELIGHT' : 'LIGHT THE FURNACE') :
+    f.heat > 90 ? 'TOO HOT · DO NOT STOKE' : f.heat < T.slotHeat[0] ? (f.chute ? 'LOW HEAT · STOKE THE FURNACE' : 'LOW HEAT · FILL THE FUEL CHUTE ▲') : '';
   st.textContent = msg; st.classList.toggle('warn', !!msg && world.furnace.everLit);
   for (const c of world.cams) {
     const el = $('cb-' + c.id);
     el.classList.toggle('active', world.activeCam === c.id); el.classList.toggle('broken', c.broken);
     el.querySelector('.heat div').style.width = c.heat + '%';
     const tr = el.querySelector('.trem');
-    tr.textContent = c.broken ? (c.repair ? 'REPAIRING' : 'DESTROYED') : c.tremor > 0 ? 'SHAKING' : 'STILL';
+    tr.textContent = c.broken ? (world.repairs[c.id] ? 'REPAIRING' : 'DESTROYED') : c.tremor > 0 ? 'SHAKING' : 'STILL';
     tr.classList.toggle('on', c.tremor > 0 && !c.broken);
   }
-  if (ui.brewing) { ui.coffee = Math.min(1, ui.coffee + 1 / 12 / 60); if (ui.coffee >= 1) ui.brewing = false; }
-  $('mugfill').style.height = (ui.coffee * 100) + '%';
-  $('mug').classList.toggle('hot', ui.coffee > 0.05);
+  const cf = world.coffee, brewing = cf.brewUntil > world.t;
+  $('mugfill').style.height = (brewing ? (1 - (cf.brewUntil - world.t) / T.coffeeBrew) : cf.sips / T.coffeeSips) * 100 + '%';
+  $('mug').classList.toggle('hot', cf.sips > 0 || brewing); $('mug').classList.toggle('full', cf.sips > 0);
+  $('mugstat').innerHTML = brewing ? 'BREWING...' : cf.sips ? `${cf.sips} SIP${cf.sips > 1 ? 'S' : ''} LEFT<br>CLICK TO DRINK` : 'POT EMPTY<br>BREW ON THE RUNE BOARD';
+  // operator fatigue and cabin lighting
+  const fa = world.fatigue;
+  $('fatigue').style.opacity = Math.max(0, fa - 0.15) * 1.1;
+  document.querySelectorAll('#main .screen canvas, #main canvas').forEach(c => { c.style.filter = fa > 0.3 ? `blur(${((fa - 0.3) * 1.6).toFixed(2)}px)` : ''; });
+  $('main').style.transform = fa > 0.5 ? `translate(${Math.sin(world.t * 0.7) * (fa - 0.5) * 8}px, ${Math.sin(world.t * 0.53) * (fa - 0.5) * 5}px)` : '';
+  if (fa > 0.65 && !$('blink').classList.contains('shut') && Math.random() < (fa - 0.6) * 0.012) { $('blink').classList.add('shut'); setTimeout(() => $('blink').classList.remove('shut'), 260 + fa * 300); }
+  $('stage').classList.toggle('night', world.lamps === 1); $('stage').classList.toggle('redlamp', world.lamps === 2);
   $('clock').textContent = fmt(world.t);
   $('btn-buoy').classList.toggle('armed', ui.buoyMode);
 }
@@ -754,13 +863,27 @@ function handleEvents() {
       case 'hit': audio.sfx.hit(); if (e.color !== 'green') toast(`BEACON STRUCK ICEBERG #${e.num}`, 'info'); break;
       case 'greenwrong': toast(`GREEN BEACON STRUCK #${e.num} · NOTHING ANSWERS`); break;
       case 'reveal': audio.sfx.reveal(); toast(`GREEN BEACON STRUCK #${e.num} · THE ICE IS BLAZING BLUE`, 'info'); break;
-      case 'miss': audio.sfx.miss(); toast('BEACON MISSED · IT FELL INTO THE SEA'); break;
+      case 'miss': audio.sfx.miss(); toast(`MISSED #${e.num}${e.by != null ? ' BY ' + e.by + ' MI' : ''} · SEE THE LAUNCHER REPORT ▲`); break;
       case 'sharkhunt': audio.sfx.sharkhunt(); toast('THE GRINDMAW HEARD THE PING · IT IS COMING'); break;
-      case 'buoydead': audio.sfx.buoydead(); toast('THE GRINDMAW TOOK THE BUOY'); break;
+      case 'buoydead': audio.sfx.buoydead(); break;
       case 'remorhaz': if (world.activeCam === e.cam) audio.sfx.remorhaz(); break;
       case 'camdead': audio.sfx.camdead(); toast(`${camName(e.cam)} CAMERA DESTROYED`); break;
-      case 'repairstart': audio.sfx.click(); toast('REPAIR SLED DISPATCHED', 'info'); break;
-      case 'repaired': audio.sfx.repaired(); toast('CAMERA BACK ONLINE', 'info'); break;
+      case 'repairstart': audio.sfx.click(); toast('REPAIR CREW SENT', 'info'); break;
+      case 'repaired': audio.sfx.repaired(); toast((world.cams.find(c => c.id === e.id) ? camName(e.id) + ' CAMERA' : BREAKABLE[e.id]) + ' REPAIRED', 'info'); break;
+      case 'broke': audio.sfx.camdead(); if (e.sys === 'launcher') toast('THE BEACON LAUNCHER JAMMED · REPAIR BAY ▲'); if (e.sys === 'fuse') toast('THE RADIO FUSE BLEW · REPAIR BAY ▲'); if (e.sys === 'winch') toast('THE GRINDMAW TORE THE WINCH CABLE · REPAIR BAY ▲'); if (e.sys === 'furnace') toast('THE GRATE CRACKED · REPAIR BAY ▲'); break;
+      case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
+      case 'flip': audio.sfx.flip(); break;
+      case 'fuel': audio.sfx.fuel(); break;
+      case 'turn': audio.sfx.turn(); break;
+      case 'brew': audio.sfx.coffee(); toast('THE COFFEE IS ON', 'info'); break;
+      case 'brewed': audio.sfx.lamps(); toast('COFFEE IS READY · CLICK THE MUG', 'info'); break;
+      case 'sip': audio.sfx.click(); break;
+      case 'vent': audio.sfx.vent(); toast('FURNACE VENTED', 'info'); break;
+      case 'wipers': { const wp = $('wiper'); wp.classList.remove('go'); void wp.offsetWidth; wp.classList.add('go'); audio.sfx.wipers(); break; }
+      case 'wireless': audio.setMusic(e.on); toast(e.on ? 'THE CABIN WIRELESS IS PLAYING' : 'THE CABIN WIRELESS IS OFF', 'info'); break;
+      case 'lamps': audio.sfx.lamps(); break;
+      case 'bell': audio.sfx.bell(); break;
+      case 'dud': audio.sfx.clunk(); break;
       case 'spark': audio.sfx.spark(); break;
       case 'win': audio.sfx.win(); $('wintime').textContent = 'Marked at ' + fmt(world.t) + ' on the watch clock.'; $('winscreen').classList.remove('hidden'); break;
     }
@@ -775,8 +898,9 @@ const gmChan = 'BroadcastChannel' in window ? new BroadcastChannel('lastwatch-gm
 if (gmChan) gmChan.onmessage = ev => {
   const m = ev.data || {};
   if (m.cmd === 'reset') { const u = new URL(location.href); u.searchParams.set('seed', m.seed || newSeed()); location.href = u.toString(); }
-  else if (m.cmd) gm(world, m.cmd);
+  else if (m.cmd) gm(world, m.cmd, m.arg || {});
   if (m.note) note(m.note);
+  if (m.ticker) ui.tickerQ.push(String(m.ticker).toUpperCase());
 };
 let lastSnap = 0;
 
@@ -786,7 +910,7 @@ function frame(now) {
   acc += Math.min(0.25, (now - last) / 1000); last = now;
   while (acc >= DT) { step(world, DT); acc -= DT; }
   handleEvents();
-  drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower();
+  drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower(); drawBoard(); drawRepairBay(); drawTicker(Math.min(0.1, (now - (frame.prev || now)) / 1000)); frame.prev = now;
   if (gmChan && now - lastSnap > 500) { lastSnap = now; gmChan.postMessage({ snap: snapshot(world) }); }
   requestAnimationFrame(frame);
 }

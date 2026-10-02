@@ -11,14 +11,68 @@
 <body>
 <div id="viewport">
 <div id="stage" class="dark">
+<div id="rig">
 
+  <!-- ================= OVERHEAD DECK (look up) ================= -->
+  <div id="deck">
+    <header id="deckbar">
+      <div class="plate title">OVERHEAD DECK <span>· LAUNCHER · RUNE BOARD · REPAIR BAY ·</span></div>
+      <button id="lookdown" class="lookbtn">▼ LOOK DOWN</button>
+    </header>
+
+    <!-- beacon launcher -->
+    <section class="panel" id="p-launch" style="left:16px;top:56px;width:620px;height:532px">
+      <h2>BEACON LAUNCHER <small id="launchstat"></small></h2>
+      <div id="aimbox">
+        <div class="lbl">LOCKED TARGET</div>
+        <div class="nixie big" id="locknum2">--</div>
+        <div class="lbl" style="margin-top:12px">AIM QUALITY</div>
+        <div id="aimq"><span id="aimnum">--</span><div id="aimlamp" class="lamp off"></div></div>
+        <div id="aimfactors"></div>
+      </div>
+      <div id="firebox">
+        <div class="lbl">BEACON COLOUR</div>
+        <div id="colors"></div>
+        <button id="fire">FIRE BEACON</button>
+        <div id="rack"></div>
+        <div class="lbl" style="margin-top:12px">LAST SHOT</div>
+        <div id="shotreport">No beacons fired yet.</div>
+      </div>
+      <div class="offline hidden" id="jammed">LAUNCHER JAMMED<br><small>REPAIR IT IN THE REPAIR BAY →</small></div>
+    </section>
+
+    <!-- rune board -->
+    <section class="panel" id="p-board" style="left:652px;top:56px;width:640px;height:384px">
+      <h2>RUNE BOARD <small>the Operations Manual says what each rune does</small></h2>
+      <div id="flipcard"><div class="lbl">PAGE</div><div id="flippage">I</div><div id="flipbar"><div></div></div></div>
+      <div id="boardpad"></div>
+      <div id="chutebox"><div class="lbl">FUEL CHUTE</div><div id="chute2"></div></div>
+    </section>
+
+    <!-- ticker -->
+    <section class="panel" id="p-ticker" style="left:652px;top:448px;width:640px;height:140px">
+      <h2>WIRE SERVICE</h2>
+      <div id="ticker"><div id="tickertext"></div></div>
+    </section>
+
+    <!-- repair bay -->
+    <section class="panel" id="p-repair" style="left:1308px;top:56px;width:596px;height:532px">
+      <h2>REPAIR BAY <small id="repaircount"></small></h2>
+      <div id="repairtabs"></div>
+      <div id="repairboard"><div class="rb-sub" style="margin-top:20px">Nothing is broken. Long may it last.</div></div>
+    </section>
+  </div>
+
+  <!-- ================= MAIN BOARD ================= -->
+  <div id="main">
   <!-- top bar -->
   <header id="topbar">
     <div class="plate title">THE LAST WATCH <span>· OBSERVATORY OF THE FIFTH ·</span></div>
+    <button id="lookup" class="lookbtn">▲ LOOK UP</button>
     <div id="cabin" class="cabin">
-      <div class="cabin-label">CABIN</div>
-      <div id="comforts"></div>
-      <div id="mug" title="coffee"><div id="mugfill"></div><div class="steam"></div></div>
+      <div class="cabin-label">COFFEE</div>
+      <div id="mug" title="click to drink"><div id="mugfill"></div><div class="steam"></div></div>
+      <div id="mugstat" class="lbl"></div>
     </div>
     <div class="clockwrap">
       <div class="nixie" id="clock">00:00</div>
@@ -33,11 +87,11 @@
     <div class="screen crt" id="camscreen">
       <canvas id="camcanvas" width="508" height="300"></canvas>
       <div id="wiper"></div>
-      <div id="repairboard" class="hidden"></div>
+      <div class="offline hidden" id="camdead">CAMERA DESTROYED<br><small>REPAIR IT ON THE OVERHEAD DECK ▲</small></div>
       <div class="offline hidden" id="camoff">NO POWER</div>
     </div>
     <div id="camsel"></div>
-    <div class="hint">Click an iceberg in the view to lock onto it.</div>
+    <div class="hint">Click an iceberg in the view to lock onto it. Turn cameras from the rune board ▲</div>
   </section>
 
   <!-- currents -->
@@ -52,6 +106,7 @@
     <h2>FURNACE &amp; POWER <small id="powcount"></small></h2>
     <div id="furnace">
       <div id="furnacedoor"><div id="flames"></div></div>
+      <div id="chute"></div>
       <div id="furnacebtns"><button id="ignite">LIGHT</button><button id="stoke">STOKE</button></div>
     </div>
     <div id="heatgauge"><div id="heatzone"></div><div id="heatfill"></div></div><div id="heatlbl">HEAT</div>
@@ -71,13 +126,13 @@
         <button id="btn-home" class="tool">RESET VIEW</button>
       </div>
       <div id="toast"></div>
-      <div id="note" class="hidden"></div>
+      <div id="notes"></div>
     </div>
   </section>
 
-  <!-- lock & beacon -->
+  <!-- target lock -->
   <section class="panel" id="p-beacon" style="left:572px;top:850px;width:776px;height:214px">
-    <h2>TARGET LOCK &amp; BEACON LAUNCHER</h2>
+    <h2>TARGET LOCK</h2>
     <div id="lockbox">
       <div class="lbl">LOCKED TARGET</div>
       <div class="nixie big" id="locknum">--</div>
@@ -91,11 +146,10 @@
       </div>
       <div id="driftinfo"></div>
     </div>
-    <div id="firebox">
-      <div class="lbl">BEACON COLOUR</div>
-      <div id="colors"></div>
-      <button id="fire">FIRE<br>BEACON</button>
-      <div id="rack"></div>
+    <div id="aimmini">
+      <div class="lbl">AIM QUALITY</div>
+      <div id="aimq2"><span id="aimnum2">--</span><div id="aimlamp2" class="lamp off"></div></div>
+      <button id="gofire" class="lookbtn">▲ FIRE FROM THE<br>OVERHEAD DECK</button>
     </div>
   </section>
 
@@ -144,7 +198,11 @@
     </div>
     <div class="offline hidden" id="scanoff">NO POWER</div>
   </section>
+  </div>
+</div>
 
+  <div id="fatigue"></div>
+  <div id="blink"></div>
   <div id="winscreen" class="hidden">
     <div class="wincard">
       <div class="small">THE BEACON HAS STRUCK</div>
@@ -158,9 +216,9 @@
     <div class="wincard">
       <h1>THE LAST WATCH</h1>
       <p>Somewhere in this frozen sea drifts <b>Elgarz</b>, the glacier that swallowed Citadel Coldsteel.</p>
-      <p>Find it. Prove it. Mark it with a beacon.</p>
+      <p>Find it. Prove it. Mark it with a green beacon.</p>
       <button id="begin">TAKE THE WATCH</button>
-      <p class="small">Sound recommended · M to mute · Manual holders: open the Operations Manual</p>
+      <p class="small">Sound recommended · M to mute · ▲ LOOK UP for the launcher, rune board and repair bay</p>
       <p class="small" id="introseed"></p>
     </div>
   </div>

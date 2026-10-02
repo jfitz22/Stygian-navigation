@@ -18,6 +18,8 @@ npx http-server -p 8080
 # then open http://localhost:8080
 ```
 
+Use the **▲ LOOK UP** button (or the up arrow key) to reach the overhead deck: the beacon launcher, the rune board, the wire service ticker and the repair bay.
+
 Open `gm.html` in a **separate browser window** (not a background tab of the game's window: browsers pause hidden tabs, and the game would freeze). Both must be in the same browser.
 
 ## Host it
@@ -32,7 +34,7 @@ node tools/check.mjs        # 40 seeds; pass a number for more or fewer
 
 Runs whole sessions headless across many seeds and verifies the guarantees: Elgarz arrives at 3:00 and is seen on camera at least twice, it never enters the Tomb's ring or leaves reach, ice crosses several chart squares, storms white out cameras, the furnace, shark, keypad and radio rules, and that a careful green shot wins while careless ones miss.
 
-`node tools/tune-cameras.mjs` searches for camera posts that best catch Elgarz's possible routes. Use it if you change the currents.
+`node tools/tune-cameras.mjs` searches for the bearing each of the evenly spaced camera posts should start at, so Elgarz's possible routes pass through camera view. Use it if you change the currents.
 
 ## Tuning
 

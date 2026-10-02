@@ -22,6 +22,11 @@
   .el { color: #5cff9d; font-weight: 600; }
   .box { border: 1px solid #333; padding: 8px; font-size: 12px; line-height: 1.5; }
   .box b { color: var(--brass); }
+  .tools { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  .tools button.on { background: var(--brass); color: #000; }
+  .lev { display: grid; grid-template-columns: 120px 1fr 44px; gap: 6px; align-items: center; font-size: 12px; }
+  .lev input { width: 100%; }
+  .row2 { display: flex; gap: 6px; align-items: center; font-size: 12px; }
   #gate { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; z-index: 9; }
   @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
 </style>
@@ -35,7 +40,12 @@
 </div>
 <header><h1>THE LAST WATCH · GM TRUTH VIEW</h1><span id="status">waiting for the game tab...</span></header>
 <main>
-  <canvas id="map" width="900" height="900"></canvas>
+  <div>
+    <div class="tools"><b style="align-self:center;color:var(--brass)">CLICK THE MAP TO:</b>
+      <button data-tool="">look only</button><button data-tool="place-elgarz">place / move Elgarz</button><button data-tool="storm">drop a storm</button><button data-tool="shark-to">send the shark</button>
+    </div>
+    <canvas id="map" width="900" height="900"></canvas>
+  </div>
   <aside>
     <div class="box" id="elgarz">Elgarz: waiting...</div>
     <div class="grid">
@@ -47,7 +57,11 @@
       <button data-cmd="calibrate">Calibrate scanner</button>
       <button data-cmd="spawn">Bring Elgarz in now</button>
       <button data-cmd="win">Force win</button>
+      <button data-cmd="clear-storms">Clear storms</button>
+      <button data-cmd="flip">Flip the rune board</button>
+      <button data-cmd="coffee">Fresh coffee</button>
     </div>
+    <div class="box"><b>LEVERS</b> (1 = as designed)<div id="levers"></div></div>
     <div class="grid">
       <input id="seed" placeholder="seed (blank = new)">
       <button id="reset">Reset game</button>
@@ -63,7 +77,9 @@
       <button data-note="Feed the fire, officer, but not too much. Two shovels, never three.">Hint: furnace</button>
     </div>
     <textarea id="custom" placeholder="Write your own note..."></textarea>
-    <button id="sendnote">Send note</button>
+    <div class="row2"><label><input type="radio" name="dest" value="note" checked> pneumatic tube note (rotates round the chart corners)</label></div>
+    <div class="row2"><label><input type="radio" name="dest" value="ticker"> wire service ticker (overhead deck)</label></div>
+    <button id="sendnote">Send</button>
     <table id="roster"></table>
   </aside>
 </main>
@@ -77,12 +93,32 @@ document.getElementById('pw').onkeydown = e => { if (e.key === 'Enter') document
 
 const ch = new BroadcastChannel('lastwatch-gm:' + location.pathname.replace(/[^/]*$/, ''));
 document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => ch.postMessage({ cmd: b.dataset.cmd }));
+let tool = '';
+const toolBtns = document.querySelectorAll('[data-tool]');
+toolBtns.forEach(b => b.onclick = () => { tool = b.dataset.tool; toolBtns.forEach(x => x.classList.toggle('on', x === b)); });
+toolBtns[0].classList.add('on');
+document.getElementById('map').addEventListener('click', e => {
+  if (!tool) return;
+  const r = e.target.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * MAP, y = (e.clientY - r.top) / r.height * MAP;
+  ch.postMessage({ cmd: tool, arg: { x, y } });
+});
+const LEVERS = [['drift', 'World drift speed', 0, 3], ['tomb', 'Tomb speed', 0, 3], ['elgarz', 'Elgarz speed', 0, 3], ['shark', 'Grindmaw speed', 0, 3],
+  ['burn', 'Furnace burn rate', 0, 3], ['remorhaz', 'Remorhaz aggression', 0, 3], ['aim', 'Beacon forgiveness', 0.5, 4], ['fatigue', 'Operator fatigue rate', 0, 3]];
+document.getElementById('levers').innerHTML = LEVERS.map(([k, label, lo, hi]) => `<div class="lev"><span>${label}</span><input type="range" min="${lo}" max="${hi}" step="0.1" value="1" data-lever="${k}"><span id="lv-${k}">1.0</span></div>`).join('');
+document.querySelectorAll('[data-lever]').forEach(inp => inp.oninput = () => {
+  document.getElementById('lv-' + inp.dataset.lever).textContent = Number(inp.value).toFixed(1);
+  ch.postMessage({ cmd: 'lever', arg: { name: inp.dataset.lever, value: Number(inp.value) } });
+});
 document.getElementById('reset').onclick = () => {
   const seed = Number(document.getElementById('seed').value) || null;
   if (confirm(seed ? `Reset the game with seed ${seed}?` : 'Reset the game with a new random seed?')) ch.postMessage({ cmd: 'reset', seed });
 };
-document.querySelectorAll('[data-note]').forEach(b => b.onclick = () => ch.postMessage({ note: b.dataset.note }));
-document.getElementById('sendnote').onclick = () => { const v = document.getElementById('custom').value.trim(); if (v) ch.postMessage({ note: v }); };
+document.querySelectorAll('[data-note]').forEach(b => b.onclick = () => { const dest = document.querySelector('[name=dest]:checked').value; ch.postMessage(dest === 'ticker' ? { ticker: b.dataset.note } : { note: b.dataset.note }); });
+document.getElementById('sendnote').onclick = () => {
+  const v = document.getElementById('custom').value.trim(); if (!v) return;
+  const dest = document.querySelector('[name=dest]:checked').value;
+  ch.postMessage(dest === 'ticker' ? { ticker: v } : { note: v });
+};
 
 const cv = document.getElementById('map'), ctx = cv.getContext('2d');
 const z = cv.width / MAP;
@@ -93,7 +129,7 @@ const ref = (x, y) => COLS[Math.max(0, Math.min(11, Math.floor(x / CELL)))] + (M
 const lampName = s => s ? [...s].map(c => ({ R: 'red', W: 'white', B: 'blue' })[c]).join('-') : '';
 ch.onmessage = ev => {
   const s = ev.data && ev.data.snap; if (!s) return;
-  document.getElementById('status').textContent = `seed ${s.seed} · watch ${fmt(s.t)}${s.paused ? ' · PAUSED' : ''}${s.won ? ' · ELGARZ MARKED' : ''} · furnace ${s.furnace.lit ? Math.round(s.furnace.heat) + '°' : 'OUT'} · beacons ${s.beacons} + green ${s.green} · scanner ${s.calibrated ? 'calibrated' : 'not calibrated'} · music ${s.music ? 'ON' : 'off'}`;
+  document.getElementById('status').textContent = `seed ${s.seed} · watch ${fmt(s.t)}${s.paused ? ' · PAUSED' : ''}${s.won ? ' · ELGARZ MARKED' : ''} · furnace ${s.furnace.lit ? Math.round(s.furnace.heat) + '°' : 'OUT'}, chute ${s.furnace.chute} · fatigue ${Math.round(s.fatigue * 100)}% · beacons ${s.beacons} + green ${s.green} · scanner ${s.calibrated ? 'calibrated' : 'not calibrated'} · music ${s.music ? 'ON' : 'off'}`;
   document.getElementById('seed').placeholder = `seed (now ${s.seed})`;
   ctx.fillStyle = '#0d1b22'; ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.strokeStyle = 'rgba(160,200,200,.08)';
@@ -132,10 +168,13 @@ ch.onmessage = ev => {
     : `<b>Elgarz</b> is not in the sea yet. It slips in at ${fmt(s.elgarzAt || 0)}.`;
   document.getElementById('tools').innerHTML =
     `<b>Scanner code now</b> (from the latest buoy reading): ${s.code ? s.code.map(i => RUNES[i].name).join(' → ') : 'no reading yet'}<br>` +
-    `<b>Cabin wireless</b> (music on only): ${s.stations.map(st => `${st.freq} ${st.band}`).join(', ')}`;
+    `<b>Cabin wireless</b> (music on only): ${s.stations.map(st => `${st.freq} ${st.band}`).join(', ')}<br>` +
+    `<b>Rune board</b> page ${s.board.page}: ${s.board.fns.join(' · ')}<br>` +
+    `<b>Broken</b>: ${s.broken.length ? s.broken.join(', ') : 'nothing'}`;
+  for (const [k, v] of Object.entries(s.levers)) { const inp = document.querySelector(`[data-lever=${k}]`); if (inp && document.activeElement !== inp) { inp.value = v; document.getElementById('lv-' + k).textContent = Number(v).toFixed(1); } }
   const notable = s.bergs.filter(b => b.notable).sort((a, b) => b.elgarz - a.elgarz);
   document.getElementById('roster').innerHTML = '<tr><th>#</th><th>Name</th><th>Hol</th><th>Met</th><th>Radio</th><th>Tag</th></tr>' +
-    notable.map(b => `<tr class="${b.elgarz ? 'el' : ''}"><td>${b.num}</td><td>${b.name}</td><td>${b.hollow ? 'yes' : '-'}</td><td>${b.metal ? 'yes' : '-'}</td><td>${b.radio ? b.radio.freq + ' ' + b.radio.carrier[0] + ' ' + b.radio.shown : '-'}</td><td>${b.tag || ''}</td></tr>`).join('') +
+    notable.map(b => `<tr class="${b.elgarz ? 'el' : ''}"><td>${b.num}</td><td>${b.name}</td><td>${b.hollow ? 'yes' : '-'}</td><td>${b.metal ? 'yes' : '-'}</td><td>${b.radio ? b.radio.freq + ' ' + b.radio.carrier[0] + ' ' + b.radio.shown + (b.radio.decoded === 'BRW' && b.radio.band === 'MID' ? ' ★TRIAD' : '') : '-'}${b.tombDrawn ? ' (drawn to Tomb)' : ''}</td><td>${b.tag || ''}</td></tr>`).join('') +
     (s.pending.length ? `<tr><td colspan="6" style="color:var(--dim)">Still to arrive: ${s.pending.map(b => b.name).join(', ')}</td></tr>` : '');
 };
 </script>
