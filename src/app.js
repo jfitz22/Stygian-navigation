@@ -666,7 +666,7 @@ const WAVE = {
 };
 function drawRadio() {
   const up = isUp(world, 'radio'), sig = radioSignal(world), t = world.t, ctx = rctx;
-  $('radiooff').classList.toggle('hidden', up); $('radiooff').innerHTML = world.broken.fuse ? 'FUSE BLOWN<br><small style="font-size:12px;letter-spacing:2px">REPAIR IT ON THE OVERHEAD DECK ▲</small>' : world.power.radio.on ? 'WARMING UP' : 'NO POWER';
+  $('radiooff').classList.toggle('hidden', up); $('radiooff').innerHTML = world.broken.fuse ? 'FUSE BLOWN<br><small style="font-size:12px;letter-spacing:2px">REPAIR IT IN THE REPAIR BAY →</small>' : world.power.radio.on ? 'WARMING UP' : 'NO POWER';
   $('freq').textContent = world.radio.freq.toFixed(1);
   if (document.activeElement !== $('freqslider')) $('freqslider').value = world.radio.freq;
   if (document.activeElement !== $('gain')) $('gain').value = world.radio.gain;
@@ -911,8 +911,8 @@ function drawCases() {
 
 // ---------- Jerry's notes (and GM handouts) ----------
 const NOTE_AT = {   // positions on the rig, chosen to sit on empty space rather than controls
-  checklist: [1120, 822], orbs: [40, 1080], orbctl: [360, 1452], sonar: [1384, 1128], furnace: [26, 1580], scanner: [1380, 1712],
-  radio: [250, 404], runes: [880, 500], case: [1560, 290], chart: [1100, 900], launcher: [430, 70], currents: [1700, 1460],
+  checklist: [1120, 822], orbs: [40, 1080], orbctl: [360, 1452], sonar: [1384, 1128], furnace: [26, 1580], scanner: [1730, 610],
+  radio: [250, 404], runes: [880, 500], case: [1700, 1720], chart: [1100, 900], launcher: [430, 70], currents: [1700, 1460],
 };
 const JERRY = [
   ['checklist', 'Startup list is up on the wire service. Look UP. Do it in order this time, Jerry.'],
@@ -1001,7 +1001,7 @@ function tickerText() {
   if (world.fatigue > 0.6) items.push('THE OPERATOR IS NODDING OFF · COFFEE ADVISED');
   return items.join(' &nbsp;✦&nbsp; ') + ' &nbsp;✦&nbsp; ';
 }
-const CHECKS = [['coffee', 'BREW COFFEE (rune board)'], ['fuel', 'FILL THE FUEL CHUTE (rune board)'], ['sonar', 'POWER THE SONAR'], ['buoy', 'DROP A BUOY'], ['ping', 'PING THE SONAR']];
+const CHECKS = [['coffee', 'BREW COFFEE (rune board)'], ['fuel', 'FILL THE FUEL CHUTE (rune board)'], ['sonar', 'POWER THE SONAR'], ['buoy', 'DROP A BUOY'], ['orbs', 'POWER THE SCRYING ORBS']];
 let checkKey = '';
 function drawTicker(dt) {
   const el = $('tickertext'), ck = world.checklist, done = Object.values(ck).every(Boolean);

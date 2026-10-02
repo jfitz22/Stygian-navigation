@@ -268,7 +268,7 @@ export function createWorld(seed = newSeed()) {
     sweep: { bergId: null, bins: [] },
     tom: { x: 0, y: 0, heading: 0, mode: 'asleep', patrolR: 0, target: null },
     lastSplash: null,   // Old Tom swims to where the last buoy came down
-    checklist: { coffee: false, fuel: false, sonar: false, buoy: false, ping: false },
+    checklist: { coffee: false, fuel: false, sonar: false, buoy: false, orbs: false },
     pressure: false,
     beacons: { stock: T.beaconStock, nextAt: 0, green: T.greenStock, flying: [], splashes: [], shots: 0, jamAt: 0, last: null },
     tags: [], events: [],
@@ -314,7 +314,7 @@ export function setPower(w, sys, on) {
   if (on) {
     const used = SYSTEMS.filter(s => w.power[s].on).length;
     if (used >= slotsAvailable(w)) { emit(w, 'deny', { msg: used >= 3 ? 'FURNACE AT CAPACITY · SWITCH SOMETHING OFF' : 'NOT ENOUGH HEAT · STOKE THE FURNACE' }); return false; }
-    p.on = true; p.ready = w.t + SPINUP[sys]; p.since = w.t; if (sys === 'sonar') tick(w, 'sonar'); emit(w, 'power', { sys, on: true });
+    p.on = true; p.ready = w.t + SPINUP[sys]; p.since = w.t; if (sys === 'sonar') tick(w, 'sonar'); if (sys === 'cameras') tick(w, 'orbs'); emit(w, 'power', { sys, on: true });
   } else {
     p.on = false; emit(w, 'power', { sys, on: false });
   }
@@ -388,7 +388,7 @@ export function ping(w) {
     flow.push({ x, y, deep: deepAt(w.field, x, y, w.t), surf: surfaceAt(w.field, x, y, w.t) });
   }
   w.pings.push({ tS: w.t, deliverAt: w.t + T.sonarDelay, at, found, flow });
-  w.lastPing = { x: at.x, y: at.y, t: w.t }; tick(w, 'ping');
+  w.lastPing = { x: at.x, y: at.y, t: w.t };
   if (w.shark.mode !== 'hunt') emit(w, 'sharkhunt');
   w.shark.mode = 'hunt';
   emit(w, 'ping');

@@ -298,7 +298,8 @@ function sharkSetup(seed) {
   const w2 = createWorld(22); light(w2);
   check(Object.values(w2.checklist).every(v => !v), 'The startup checklist starts empty');
   setPower(w2, 'sonar', true); for (let i = 0; i < 20; i++) step(w2, DT); deployBuoy(w2, CENTER.x + 300, CENTER.y); for (let i = 0; i < 50; i++) step(w2, DT); ping(w2);
-  check(w2.checklist.sonar && w2.checklist.buoy && w2.checklist.ping, 'The checklist ticks itself off');
+  setPower(w2, 'cameras', true);
+  check(w2.checklist.sonar && w2.checklist.buoy && w2.checklist.orbs, 'The checklist ticks itself off');
 }
 
 // ---------- Old Tom ----------

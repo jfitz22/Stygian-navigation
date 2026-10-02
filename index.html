@@ -76,15 +76,26 @@
     </section>
 
     <!-- repair bay -->
-    <section class="panel" id="p-repair" style="left:1308px;top:56px;width:596px;height:686px">
+    <section class="panel" id="p-repair" style="left:1308px;top:56px;width:596px;height:392px">
       <h2>REPAIR BAY <small id="repaircount"></small></h2>
       <div id="repairtabs"></div>
       <div id="repairboard"><div class="rb-sub" style="margin-top:20px">Nothing is broken. Long may it last.</div></div>
-      <div id="casebox">
-        <div class="casetitle">CASE BOARD <small>lock ice to look at it · beacon it to keep it</small></div>
-        <div class="caserow head"><span>ICE</span><span>LAST SEEN</span><span>HOLLOW</span><span>METAL</span><span>RADIO</span><span>VERDICT</span></div>
-        <div id="caserows"></div>
+    </section>
+
+  <!-- scanner -->
+    <section class="panel" id="p-scan" style="left:1308px;top:456px;width:596px;height:286px">
+      <h2>METAL SCANNER</h2>
+      <canvas id="aligncanvas" width="200" height="130"></canvas>
+      <div id="scanstat">
+        <div class="lbl">SCAN</div>
+        <div class="meter wide"><div id="scanbar"></div></div>
+        <div id="metallamp" class="lamp off"></div><span id="metaltext">NO RESULT</span>
       </div>
+      <div id="runes">
+        <div class="lbl" id="runelbl">CALIBRATION</div>
+        <div id="runepad"></div>
+      </div>
+      <div class="offline hidden" id="scanoff">NO POWER</div>
     </section>
   </div>
 
@@ -226,20 +237,11 @@
     <div class="offline hidden" id="sonaroff">NO POWER</div>
   </section>
 
-  <!-- scanner -->
-  <section class="panel" id="p-scan" style="left:1364px;top:778px;width:540px;height:286px">
-    <h2>METAL SCANNER</h2>
-    <canvas id="aligncanvas" width="200" height="130"></canvas>
-    <div id="scanstat">
-      <div class="lbl">SCAN</div>
-      <div class="meter wide"><div id="scanbar"></div></div>
-      <div id="metallamp" class="lamp off"></div><span id="metaltext">NO RESULT</span>
-    </div>
-    <div id="runes">
-      <div class="lbl" id="runelbl">CALIBRATION</div>
-      <div id="runepad"></div>
-    </div>
-    <div class="offline hidden" id="scanoff">NO POWER</div>
+  <!-- case board -->
+  <section class="panel" id="p-case" style="left:1364px;top:778px;width:540px;height:286px">
+    <h2>CASE BOARD <small>beacon ice to keep it here</small></h2>
+    <div class="caserow head"><span>ICE</span><span>SEEN</span><span>HOLLOW</span><span>METAL</span><span>RADIO</span><span>VERDICT</span></div>
+    <div id="caserows"></div>
   </section>
   </div>
 </div>

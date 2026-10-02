@@ -45,11 +45,11 @@ The operator has two views and pans between them with **▲ LOOK UP / ▼ LOOK D
 
 ## The case board
 
-Under the repair bay. Locking ice gives it a temporary row; a beacon hit pins it. Columns: number, last-seen square (odometer), HOLLOW T/F (with a tiny echo trace), METAL T/F, RADIO (the lamps as shown, frequency, band, wave shape, and SWEPT once the whole band has been searched), and a verdict (? / SUSPECT / EXCLUDED, undoable; excluded rows are stamped, struck through, sink to the bottom and their beacons dim). Readings fill in automatically; the crew still decodes them. Clicking a row re-locks the ice (live if beaconed, otherwise from where it was last seen).
+On the main board beside the chart (the metal scanner moved up to the deck). Locking ice gives it a temporary row; a beacon hit pins it. Columns: number, last-seen square (odometer), HOLLOW T/F (with a tiny echo trace), METAL T/F, RADIO (the lamps as shown, frequency, band, wave shape, and SWEPT once the whole band has been searched), and a verdict (? / SUSPECT / EXCLUDED, undoable; excluded rows are stamped, struck through, sink to the bottom and their beacons dim). Readings fill in automatically; the crew still decodes them. Clicking a row re-locks the ice (live if beaconed, otherwise from where it was last seen).
 
 ## Onboarding and atmosphere
 
-- The wire service starts as a startup checklist (brew coffee, fill the fuel chute, power the sonar, drop a buoy, ping) that ticks itself off, then becomes the ticker.
+- The wire service starts as a startup checklist (brew coffee, fill the fuel chute, power the sonar, drop a buoy, power the scrying orbs) that ticks itself off, then becomes the ticker.
 - Jerry, the previous operator, left handwritten sticky notes next to the systems; the GM can stick up more.
 - After ten minutes storms come more often (and keep coming for as long as the watch runs) and Old Tom wakes: a second hunter that swims to the last buoy splashdown, eats a buoy there, then circles the Watch the opposite way to the Grindmaw.
 - The cameras are Scrying Orbs.
