@@ -106,6 +106,19 @@ function advanceTomb(w, tomb, t, dt) {
   tomb.x += hx / h * sp * dt; tomb.y += hy / h * sp * dt;
 }
 function advanceBerg(w, b, tomb, t, dt) {
+  const x0 = b.x, y0 = b.y;
+  moveBerg(w, b, tomb, t, dt);
+  b.vx = (b.x - x0) / dt; b.vy = (b.y - y0) / dt;
+}
+function moveBerg(w, b, tomb, t, dt) {
+  if (b.tombDrawn) {
+    // the Gilded Hulk circles the Tomb slowly, always inside its ring
+    const dx = b.x - tomb.x, dy = b.y - tomb.y, d = hyp(dx, dy) || 1;
+    if (d > TOMB_RADIUS * 0.9) { const sp = Math.min(d, (T.tombSpeed * w.levers.tomb * w.levers.drift + T.tombDrawPull) * dt); b.x -= dx / d * sp; b.y -= dy / d * sp; return; }
+    const r = d + (T.hulkOrbitR - d) * Math.min(1, 0.2 * dt), a = Math.atan2(dy, dx) + T.hulkOrbitSpeed * w.levers.drift / Math.max(60, r) * dt;
+    b.x = tomb.x + Math.cos(a) * r; b.y = tomb.y + Math.sin(a) * r;
+    return;
+  }
   const v = driftOf(w.field, b.large, b.x, b.y, t);
   const k = w.levers.drift * (b.elgarz ? w.levers.elgarz : 1);
   v.x *= k; v.y *= k;
@@ -114,9 +127,6 @@ function advanceBerg(w, b, tomb, t, dt) {
     // Elgarz will not go near the Tomb of Levistus. It swerves away.
     const edge = TOMB_RADIUS + T.tombRepelBand;
     if (d < edge) { const f = 1.8 * (1 - (d - TOMB_RADIUS) / T.tombRepelBand); v.x += dx / d * f; v.y += dy / d * f; }
-  } else if (b.tombDrawn && d > TOMB_RADIUS * 0.5) {
-    // the Gilded Hulk is drawn to the Tomb
-    v.x -= dx / d * T.tombDrawPull; v.y -= dy / d * T.tombDrawPull;
   }
   b.x += v.x * dt; b.y += v.y * dt;
   if (b.elgarz) {
@@ -187,7 +197,7 @@ export function createWorld(seed = newSeed()) {
   let num = 1;
   for (const n of NOTABLES) {
     let p = randomInReach(gen, 300, T.rimHold * REACH);
-    if (n.tombDrawn) { let k = 0; while (dist(p, tombStart) > 700 && k++ < 200) p = randomInReach(gen, 300, T.rimHold * REACH); }
+    if (n.tombDrawn) { const a = gen() * Math.PI * 2; p = { x: tombStart.x + Math.cos(a) * T.hulkOrbitR, y: tombStart.y + Math.sin(a) * T.hulkOrbitR }; }
     const b = {
       id: n.id, name: n.name, num: num++, x: p.x, y: p.y, large: n.large, length: n.length,
       hollow: n.hollow, metal: n.metal, echo: n.echo, radio: n.radio ? makeRadio(gen, n.radio) : null, look: n.look,
@@ -253,6 +263,13 @@ export function createWorld(seed = newSeed()) {
     camUnlocked: {},    // camera id -> time its unlock runs out
     camTurn: 0,         // -1, 0, +1 while an arrow is held
     camPanel: { wind: 'MIDDLE', temp: 'MIDDLE', pressed: [], lockout: 0 },
+    cases: [],          // case board rows {bergId, permanent, verdict, seen:{x,y,t}}
+    obs: {},            // what the crew has measured, per iceberg {hollow, echo, metal, radio, swept}
+    sweep: { bergId: null, bins: [] },
+    tom: { x: 0, y: 0, heading: 0, mode: 'asleep', patrolR: 0, target: null },
+    lastSplash: null,   // Old Tom swims to where the last buoy came down
+    checklist: { coffee: false, fuel: false, sonar: false, buoy: false, orbs: false },
+    pressure: false,
     beacons: { stock: T.beaconStock, nextAt: 0, green: T.greenStock, flying: [], splashes: [], shots: 0, jamAt: 0, last: null },
     tags: [], events: [],
     elgarzPlan: null,
@@ -297,7 +314,7 @@ export function setPower(w, sys, on) {
   if (on) {
     const used = SYSTEMS.filter(s => w.power[s].on).length;
     if (used >= slotsAvailable(w)) { emit(w, 'deny', { msg: used >= 3 ? 'FURNACE AT CAPACITY · SWITCH SOMETHING OFF' : 'NOT ENOUGH HEAT · STOKE THE FURNACE' }); return false; }
-    p.on = true; p.ready = w.t + SPINUP[sys]; p.since = w.t; emit(w, 'power', { sys, on: true });
+    p.on = true; p.ready = w.t + SPINUP[sys]; p.since = w.t; if (sys === 'sonar') tick(w, 'sonar'); if (sys === 'cameras') tick(w, 'orbs'); emit(w, 'power', { sys, on: true });
   } else {
     p.on = false; emit(w, 'power', { sys, on: false });
   }
@@ -314,10 +331,10 @@ export function pressBoard(w, slot) {
   const fn = runeFunction(rid, b.page), f = w.furnace;
   emit(w, 'board', { fn });
   const needFire = () => { if (!f.lit) { emit(w, 'deny', { msg: 'THAT NEEDS THE FURNACE LIT' }); return false; } return true; };
-  if (fn === 'FUEL') { if (f.chute >= T.chuteMax) emit(w, 'deny', { msg: 'THE FUEL CHUTE IS FULL' }); else { f.chute++; emit(w, 'fuel'); } }
+  if (fn === 'FUEL') { if (f.chute >= T.chuteMax) emit(w, 'deny', { msg: 'THE FUEL CHUTE IS FULL' }); else { f.chute++; tick(w, 'fuel'); emit(w, 'fuel'); } }
   if (fn === 'COFFEE') {
     if (w.coffee.sips > 0 || w.t < w.coffee.brewUntil) emit(w, 'deny', { msg: 'THE POT IS ALREADY FULL' });
-    else if (needFire()) { spendHeat(w, T.coffeeHeat); w.coffee.brewUntil = w.t + T.coffeeBrew; emit(w, 'brew'); }
+    else if (needFire()) { spendHeat(w, T.coffeeHeat); w.coffee.brewUntil = w.t + T.coffeeBrew; tick(w, 'coffee'); emit(w, 'brew'); }
   }
   if (fn === 'WIPERS') { w.wipe = { cam: w.activeCam, until: w.t + 8 }; emit(w, 'wipers'); }
   if (fn === 'WIRELESS') { w.music = !w.music; emit(w, 'wireless', { on: w.music }); }
@@ -346,6 +363,7 @@ export function deployBuoy(w, x, y) {
   if (w.t < w.buoyRebuildAt) { emit(w, 'deny', { msg: 'NO BUOY ON THE RACK YET' }); return false; }
   if (dist({ x, y }, OBSERVATORY) > T.buoyDeployRange) { emit(w, 'deny', { msg: 'OUT OF LAUNCHER RANGE' }); return false; }
   w.buoy = { x, y, landAt: w.t + 4 }; w.buoyCount++;
+  w.lastSplash = { x, y, t: w.t + 4 }; w.tom.target = w.lastSplash; tick(w, 'buoy');
   emit(w, 'buoy', { x, y });
   return true;
 }
@@ -380,10 +398,16 @@ export function ping(w) {
 // ---------- lock & prediction ----------
 export function lockOn(w, bergId, x, y, t0, source) {
   w.lock = { bergId, x, y, t0, source, trackSince: null, track: null };
+  caseRow(w, bergId, false); seen(w, bergId, x, y, t0);
   emit(w, 'lock', { source });
   return w.bergs.find(b => b.id === bergId);
 }
-export function lockContact(w, c) { return lockOn(w, c.bergId, c.x, c.y, c.tS, 'sonar'); }
+export function lockContact(w, c) {
+  const b = lockOn(w, c.bergId, c.x, c.y, c.tS, 'sonar');
+  // the echo printout says whether it is hollow
+  if (b) record(w, b.id, 'hollow', b.hollow, { echo: b.echo });
+  return b;
+}
 // A camera estimates position from bearing and apparent size, to within a few miles.
 export function lockFromCamera(w, bergId) {
   const b = w.bergs.find(b => b.id === bergId);
@@ -491,7 +515,7 @@ export function radioSignal(w) {
   if (!best || bs < 0.02) return none;
   const amplitude = bs * w.radio.gain / best.need;
   const readable = bs > T.radioReadable && Math.abs(w.radio.gain - best.need) <= T.gainWindow;
-  return { strength: bs, amplitude, clip: amplitude > 1.15, carrier: best.carrier, lamps: readable ? best.shown : null, band: bandOf(w.radio.freq), kind: best.kind, need: best.need };
+  return { strength: bs, amplitude, clip: amplitude > 1.15, carrier: best.carrier, lamps: readable ? best.shown : null, band: bandOf(w.radio.freq), kind: best.kind, need: best.need, srcFreq: best.freq };
 }
 
 // ---------- beacons ----------
@@ -637,8 +661,11 @@ export function gm(w, cmd, arg = {}) {
     w.repairs = {}; w.buoyRebuildAt = 0; w.radio.clipTime = 0;
   }
   if (cmd === 'restock') { w.beacons.stock = T.beaconStock; w.beacons.green = T.greenStock; }
+  if (cmd === 'shark-home' && w.tom.mode !== 'asleep') { const a = Math.atan2(w.tom.y - CENTER.y, w.tom.x - CENTER.x) + Math.PI; w.tom.x = CENTER.x + Math.cos(a) * 1500; w.tom.y = CENTER.y + Math.sin(a) * 1500; w.tom.target = null; w.tom.patrolR = 1500; }
   if (cmd === 'shark-home') { const a = Math.atan2(w.shark.y - CENTER.y, w.shark.x - CENTER.x) + Math.PI; w.shark.x = CENTER.x + Math.cos(a) * 1500; w.shark.y = CENTER.y + Math.sin(a) * 1500; w.lastPing = null; w.shark.mode = 'roam'; }
   if (cmd === 'shark-to') { w.lastPing = { x: arg.x, y: arg.y, t: w.t }; w.shark.mode = 'hunt'; }
+  if (cmd === 'tom-to') { if (w.tom.mode === 'asleep') { w.tom.x = arg.x; w.tom.y = arg.y; emit(w, 'tomwakes'); } w.tom.mode = 'hunt'; w.tom.target = { x: arg.x, y: arg.y, t: w.t }; }
+  if (cmd === 'wake-tom') { if (w.tom.mode === 'asleep') { w.tom.x = CENTER.x; w.tom.y = CENTER.y - REACH * 0.85; w.tom.mode = 'roam'; emit(w, 'tomwakes'); } }
   if (cmd === 'calibrate') { w.scanner.calibrated = true; w.scanner.calCode = null; }
   if (cmd === 'stoke') { const f = w.furnace; w.broken.furnace = false; f.lit = true; f.everLit = true; w.started = true; f.heat = 70; f.pending = 0; f.outUntil = 0; f.chute = T.chuteMax; }
   if (cmd === 'spawn') { for (const b of [...w.reserve].filter(b => b.elgarz)) { w.reserve.splice(w.reserve.indexOf(b), 1); spawnFromReserve(w, b); } }
@@ -697,7 +724,7 @@ export function step(w, dt = DT) {
   for (const p of w.pings) {
     if (!p.delivered && t >= p.deliverAt) {
       p.delivered = true;
-      for (const c of p.found) w.contacts.push({ ...c, tS: p.tS, tD: t, id: 'k' + Math.floor(w.rng() * 1e9) });
+      for (const c of p.found) { w.contacts.push({ ...c, tS: p.tS, tD: t, id: 'k' + Math.floor(w.rng() * 1e9) }); seen(w, c.bergId, c.x, c.y, p.tS); }
       w.flows.push({ t, pts: p.flow });
       emit(w, 'echo', { n: p.found.length });
     }
@@ -723,12 +750,18 @@ export function step(w, dt = DT) {
   const lb = lockedBerg(w);
   if (isUp(w, 'scanner') && lb && s.calibrated && !lb.scanned && alignment(w) > T.alignNeeded) {
     lb.scan += dt / T.scanTime;
-    if (lb.scan >= 1) { lb.scan = 1; lb.scanned = true; emit(w, 'scandone', { metal: lb.metal }); }
+    if (lb.scan >= 1) { lb.scan = 1; lb.scanned = true; record(w, lb.id, 'metal', lb.metal); emit(w, 'scandone', { metal: lb.metal }); }
   }
 
-  // radio fuse
+  // radio fuse, radio readings and band sweeps for the case board
   if (isUp(w, 'radio')) {
     const sig = radioSignal(w);
+    if (lb && sig.lamps && sig.kind === 'ice') record(w, lb.id, 'radio', { freq: lb.radio.freq, band: lb.radio.band, carrier: lb.radio.carrier, shown: lb.radio.shown });
+    if (lb && alignment(w, T.radioAlignRadius) >= T.sweepAlign) {
+      if (w.sweep.bergId !== lb.id) w.sweep = { bergId: lb.id, bins: [] };
+      const bin = Math.floor((w.radio.freq - 100) / T.sweepBin), nBins = Math.ceil(900 / T.sweepBin);
+      if (!w.sweep.bins.includes(bin)) { w.sweep.bins.push(bin); if (w.sweep.bins.length >= nBins) record(w, lb.id, 'swept', true); }
+    }
     const was = w.radio.clipTime;
     w.radio.clipTime = sig.clip ? w.radio.clipTime + dt : Math.max(0, w.radio.clipTime - dt * 2);
     if (was < T.fuseClip * 0.5 && w.radio.clipTime >= T.fuseClip * 0.5) emit(w, 'fusewarn');
@@ -762,6 +795,13 @@ export function step(w, dt = DT) {
   for (const c of w.cams) if (!w.remorhazes.some(r => r.cam === c.id && !r.gone)) c.tremor = 0;
   w.remorhazes = w.remorhazes.filter(r => !r.gone);
 
+  // after ten minutes the sea turns meaner: Old Tom wakes
+  if (!w.pressure && t >= T.pressureAt) { w.pressure = true; emit(w, 'pressure'); }
+  if (w.tom.mode === 'asleep' && t >= T.tomAt) {
+    const a = w.rng() * Math.PI * 2; w.tom.x = CENTER.x + Math.cos(a) * REACH * 0.85; w.tom.y = CENTER.y + Math.sin(a) * REACH * 0.85;
+    w.tom.mode = 'roam'; if (w.lastSplash) w.tom.target = w.lastSplash; emit(w, 'tomwakes');
+  }
+  if (w.tom.mode !== 'asleep') hunterStep(w, w.tom, w.tom.target, -1, dt);
   // the Grindmaw: always swims toward the latest ping, fast when far away
   const sh = w.shark;
   if (w.lastPing && !w.lastPing.reached) {
@@ -790,9 +830,10 @@ export function step(w, dt = DT) {
     sh.x += Math.sin(sh.heading) * T.sharkRoamSpeed * dt; sh.y -= Math.cos(sh.heading) * T.sharkRoamSpeed * dt;
     if (dist(sh, CENTER) > REACH * 0.85) sh.heading += Math.PI * dt * 0.5;
   }
-  if (w.buoy && t >= w.buoy.landAt && dist(sh, w.buoy) < T.sharkKillDist) {
+  for (const [h, who] of [[sh, 'grindmaw'], [w.tom, 'tom']]) {
+    if (h.mode === 'asleep' || !w.buoy || t < w.buoy.landAt || dist(h, w.buoy) >= T.sharkKillDist) continue;
     w.buoy = null; w.buoyRebuildAt = Infinity; w.broken.winch = true;
-    emit(w, 'buoydead'); emit(w, 'broke', { sys: 'winch' });
+    emit(w, 'buoydead', { who }); emit(w, 'broke', { sys: 'winch' });
   }
 
   // beacons
@@ -809,6 +850,7 @@ export function step(w, dt = DT) {
       const target = w.bergs.find(b => b.id === fl.report.bergId);
       if (best) {
         best.tag = fl.color; if (!w.tags.includes(best.id)) w.tags.push(best.id);
+        if (!w.cases.find(c => c.bergId === best.id && c.permanent)) { caseRow(w, best.id, true); emit(w, 'casepinned', { num: best.num }); }
         bc.last = { t, hit: true, num: best.num, intended: best.id === fl.report.bergId, color: fl.color, q: fl.report.q };
         emit(w, 'hit', { berg: best.id, num: best.num, color: fl.color });
         if (fl.color === 'green') {
@@ -826,6 +868,55 @@ export function step(w, dt = DT) {
   bc.flying = bc.flying.filter(fl => !fl.done);
   bc.splashes = bc.splashes.filter(s => t - s.t < 40);
   if (w.reveal && t - w.reveal.t >= T.revealDelay) win(w);
+}
+
+// ---------- Old Tom: swims to the last buoy splashdown, then circles the Watch the other way ----------
+function hunterStep(w, h, tg, dir, dt) {
+  if (tg && !tg.reachedBy?.includes(h)) {
+    const d = dist(h, tg);
+    if (d > 4) {
+      h.mode = 'hunt'; h.heading = Math.atan2(tg.x - h.x, -(tg.y - h.y));
+      const k = Math.min(d, (d > T.sharkNearDist ? T.sharkFastSpeed : T.sharkSpeed) * w.levers.shark * dt);
+      h.x += (tg.x - h.x) / d * k; h.y += (tg.y - h.y) / d * k;
+      return;
+    }
+    (tg.reachedBy = tg.reachedBy || []).push(h);
+    h.patrolR = clamp(dist(h, CENTER), 320, REACH * 0.9);
+  }
+  if (!h.patrolR) h.patrolR = clamp(dist(h, CENTER), 320, REACH * 0.9);
+  h.mode = 'patrol';
+  const a = Math.atan2(h.y - CENTER.y, h.x - CENTER.x) + dir * T.sharkSpeed * w.levers.shark / h.patrolR * dt;
+  const nx = CENTER.x + Math.cos(a) * h.patrolR, ny = CENTER.y + Math.sin(a) * h.patrolR;
+  h.heading = Math.atan2(nx - h.x, -(ny - h.y)); h.x = nx; h.y = ny;
+}
+
+// ---------- case board ----------
+function tick(w, k) { if (!w.checklist[k]) { w.checklist[k] = true; emit(w, 'checklist', { item: k, done: Object.values(w.checklist).every(Boolean) }); } }
+function caseRow(w, bergId, permanent) {
+  // only one temporary row at a time: the ice you are locked on
+  w.cases = w.cases.filter(c => c.permanent || c.bergId === bergId);
+  let row = w.cases.find(c => c.bergId === bergId);
+  if (!row) { row = { bergId, permanent, verdict: '?', seen: null, added: w.t }; w.cases.push(row); }
+  if (permanent) row.permanent = true;
+  return row;
+}
+function seen(w, bergId, x, y, t) {
+  const row = w.cases.find(c => c.bergId === bergId);
+  if (row && (!row.seen || t >= row.seen.t)) row.seen = { x, y, t };
+}
+function record(w, bergId, key, value, extra = {}) {
+  const o = w.obs[bergId] = w.obs[bergId] || { hollow: null, echo: null, metal: null, radio: null, swept: false };
+  const before = JSON.stringify(o);
+  o[key] = value; Object.assign(o, extra);
+  if (JSON.stringify(o) !== before) emit(w, 'observed', { bergId, key });
+}
+export function setVerdict(w, bergId, v) { const row = w.cases.find(c => c.bergId === bergId); if (row) { row.verdict = v; emit(w, 'verdict', { v }); } }
+// Lock onto ice from its case board row: live if it carries a beacon, otherwise from where it was last seen.
+export function relockCase(w, bergId) {
+  const b = w.bergs.find(b => b.id === bergId), row = w.cases.find(c => c.bergId === bergId);
+  if (!b || !row) return;
+  if (b.tag) return lockOn(w, b.id, b.x, b.y, w.t, 'beacon');
+  if (row.seen) return lockOn(w, b.id, row.seen.x, row.seen.y, row.seen.t, 'case board');
 }
 
 // ---------- camera control & tracking ----------
@@ -863,11 +954,10 @@ function trackStep(w, cam, dt) {
   if (l.trackSince == null) l.trackSince = w.t;
   if (w.t - l.trackSince < T.trackTime) return;
   // measured: a fresh fix from the camera and the ice's real drift (to within a few percent)
-  const v = driftOf(w.field, b.large, b.x, b.y, w.t), k = w.levers.drift * (b.elgarz ? w.levers.elgarz : 1);
   if (!l.track || w.t - l.track.t > 1) {
     const n = () => 1 + (w.rng() - 0.5) * 2 * T.trackNoise;
     if (!l.track) emit(w, 'tracked', { num: b.num });
-    l.track = { vx: v.x * k * n(), vy: v.y * k * n(), t: w.t, cam: cam.id };
+    l.track = { vx: (b.vx || 0) * n(), vy: (b.vy || 0) * n(), t: w.t, cam: cam.id };
     const a = w.rng() * Math.PI * 2, e = w.rng() * 2;
     l.x = b.x + Math.cos(a) * e; l.y = b.y + Math.sin(a) * e; l.t0 = w.t;
   }
@@ -906,7 +996,8 @@ export function snapshot(w) {
     lock: w.lock, ghost: ghostAt(w, w.t), power: Object.fromEntries(SYSTEMS.map(s => [s, w.power[s].on])),
     beacons: w.beacons.stock, green: w.beacons.green, calibrated: w.scanner.calibrated, broken: brokenList(w).map(b => b.name),
     furnace: { lit: w.furnace.lit, heat: w.furnace.heat, chute: w.furnace.chute }, music: w.music, fatigue: w.fatigue,
-    camCode: camCode(w), activeCam: w.activeCam, camUnlocked: Object.keys(w.camUnlocked),
+    camCode: camCode(w), activeCam: w.activeCam, tom: { x: w.tom.x, y: w.tom.y, mode: w.tom.mode },
+    cases: w.cases.map(c => ({ num: (w.bergs.find(b => b.id === c.bergId) || {}).num, permanent: c.permanent, verdict: c.verdict, obs: w.obs[c.bergId] || null })), camUnlocked: Object.keys(w.camUnlocked),
     board: { page: BOARD_PAGES[w.board.page], fns: w.board.runes.map(r => runeFunction(r, w.board.page)) },
     stations: w.stations.map(s => ({ freq: s.freq, decoded: s.decoded, band: s.band })),
     code: w.readings ? keypadCode(w.scanner.plate, readingDisplay(w.readings)) : null,

@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Last Watch</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Cinzel:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div id="viewport">
 <div id="stage" class="dark">
 <div id="rig">
+  <div id="jnotes"></div>
 
   <!-- ================= OVERHEAD DECK (look up) ================= -->
   <div id="deck">
@@ -71,14 +72,30 @@
     <!-- ticker -->
     <section class="panel" id="p-ticker" style="left:652px;top:602px;width:640px;height:140px">
       <h2>WIRE SERVICE</h2>
-      <div id="ticker"><div id="tickertext"></div></div>
+      <div id="ticker"><div id="tickertext"></div><div id="checklist"></div></div>
     </section>
 
     <!-- repair bay -->
-    <section class="panel" id="p-repair" style="left:1308px;top:56px;width:596px;height:686px">
+    <section class="panel" id="p-repair" style="left:1308px;top:56px;width:596px;height:392px">
       <h2>REPAIR BAY <small id="repaircount"></small></h2>
       <div id="repairtabs"></div>
       <div id="repairboard"><div class="rb-sub" style="margin-top:20px">Nothing is broken. Long may it last.</div></div>
+    </section>
+
+  <!-- scanner -->
+    <section class="panel" id="p-scan" style="left:1308px;top:456px;width:596px;height:286px">
+      <h2>METAL SCANNER</h2>
+      <canvas id="aligncanvas" width="200" height="130"></canvas>
+      <div id="scanstat">
+        <div class="lbl">SCAN</div>
+        <div class="meter wide"><div id="scanbar"></div></div>
+        <div id="metallamp" class="lamp off"></div><span id="metaltext">NO RESULT</span>
+      </div>
+      <div id="runes">
+        <div class="lbl" id="runelbl">CALIBRATION</div>
+        <div id="runepad"></div>
+      </div>
+      <div class="offline hidden" id="scanoff">NO POWER</div>
     </section>
   </div>
 
@@ -110,20 +127,20 @@
 
   <!-- cameras -->
   <section class="panel" id="p-cams" style="left:16px;top:68px;width:540px;height:470px">
-    <h2>CAMERA POSTS <small id="camname"></small></h2>
+    <h2>SCRYING ORBS <small id="camname"></small></h2>
     <div class="screen crt" id="camscreen">
       <canvas id="camcanvas" width="508" height="300"></canvas>
       <div id="wiper"></div>
-      <div class="offline hidden" id="camdead">CAMERA DESTROYED<br><small>REPAIR IT ON THE OVERHEAD DECK ▲</small></div>
+      <div class="offline hidden" id="camdead">ORB DESTROYED<br><small>REPAIR IT ON THE OVERHEAD DECK ▲</small></div>
       <div class="offline hidden" id="camoff">NO POWER</div>
     </div>
     <div id="camsel"></div>
-    <div class="hint">Click an iceberg in the view to lock onto it. Unlock and turn the camera with CAMERA CONTROL below.</div>
+    <div class="hint">Click an iceberg in the view to lock onto it. Unlock and turn the orb with ORB CONTROL below.</div>
   </section>
 
   <!-- camera control: right under the camera feed -->
   <section class="panel" id="p-camctl" style="left:16px;top:548px;width:540px;height:220px">
-    <h2>CAMERA CONTROL <small id="camctlname"></small></h2>
+    <h2>ORB CONTROL <small id="camctlname"></small></h2>
     <div id="camlocked">
       <div class="lbl">FOCUS LEVERS</div>
       <div id="levers">
@@ -141,7 +158,7 @@
       <button id="turnleft" class="turnbtn">◀</button>
       <div id="camfacing"><div class="nixie big" id="facingnum">000°</div><div class="lbl" id="unlockleft">UNLOCKED</div></div>
       <button id="turnright" class="turnbtn">▶</button>
-      <div id="camopenhint">Hold an arrow (or the left/right keys) to turn the camera.</div>
+      <div id="camopenhint">Hold an arrow (or the left/right keys) to turn the orb.</div>
     </div>
   </section>
 
@@ -171,6 +188,7 @@
     <h2>CHART OF THE FIFTH <small>300 mi squares</small></h2>
     <div class="screen chart">
       <canvas id="mapcanvas" width="744" height="708"></canvas>
+      <div id="cutscene" class="hidden"><canvas id="cutcanvas" width="744" height="708"></canvas></div>
       <div id="maptools">
         <button id="btn-buoy" class="tool">DROP BUOY</button>
         <button id="btn-zin" class="tool sq">+</button>
@@ -188,7 +206,7 @@
     <div id="lockbox">
       <div class="lbl">LOCKED TARGET</div>
       <div class="nixie big" id="locknum">--</div>
-      <div id="lockinfo">No lock. Click a sonar contact or an iceberg on camera.</div>
+      <div id="lockinfo">No lock. Click a sonar contact or an iceberg in a scrying orb.</div>
     </div>
     <div id="driftbox">
       <div class="lbl">PREDICT DRIFT WITH</div>
@@ -219,20 +237,11 @@
     <div class="offline hidden" id="sonaroff">NO POWER</div>
   </section>
 
-  <!-- scanner -->
-  <section class="panel" id="p-scan" style="left:1364px;top:778px;width:540px;height:286px">
-    <h2>METAL SCANNER</h2>
-    <canvas id="aligncanvas" width="200" height="130"></canvas>
-    <div id="scanstat">
-      <div class="lbl">SCAN</div>
-      <div class="meter wide"><div id="scanbar"></div></div>
-      <div id="metallamp" class="lamp off"></div><span id="metaltext">NO RESULT</span>
-    </div>
-    <div id="runes">
-      <div class="lbl" id="runelbl">CALIBRATION</div>
-      <div id="runepad"></div>
-    </div>
-    <div class="offline hidden" id="scanoff">NO POWER</div>
+  <!-- case board -->
+  <section class="panel" id="p-case" style="left:1364px;top:778px;width:540px;height:286px">
+    <h2>CASE BOARD <small>beacon ice to keep it here</small></h2>
+    <div class="caserow head"><span>ICE</span><span>SEEN</span><span>HOLLOW</span><span>METAL</span><span>RADIO</span><span>VERDICT</span></div>
+    <div id="caserows"></div>
   </section>
   </div>
 </div>
@@ -250,8 +259,9 @@
   <div id="winscreen" class="hidden">
     <div class="wincard">
       <div class="small">THE BEACON HAS STRUCK</div>
-      <h1>ELGARZ IS MARKED</h1>
-      <p>Blue light poured out of the ice where the green beacon struck. Coldsteel answered. A thread of green fire now burns between the Last Watch and Elgarz. Wherever it drifts, you can follow.</p>
+      <h1>ELGARZ IDENTIFIED</h1>
+      <div class="small" style="color:var(--phos);letter-spacing:4px">CONNECTION ESTABLISHED</div>
+      <p>Blue light poured out of the ice where the green beacon struck, and something beneath it answered. A thread of green fire now burns between the Last Watch and Elgarz. Wherever it drifts, you can follow.</p>
       <p class="small" id="wintime"></p>
       <button id="wincontinue">KEEP WATCHING</button>
     </div>

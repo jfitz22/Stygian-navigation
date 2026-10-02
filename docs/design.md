@@ -13,7 +13,7 @@ Elgarz is the only iceberg with all four signs, and **no single sign is proof**:
 | Hollow inside | Sonar echo printout | several named decoys |
 | Worked metal | Metal scanner (after keypad calibration) | named decoys and some plain ice with wreckage |
 | The Triad on the radio | Radio tuning, gain and decoding | 3 named decoys and 2 plain bergs, plus one cabin wireless station |
-| Shuns the Tomb of Levistus | It swerves away from the Tomb's 300 mi ring | The Gilded Hulk has the other three signs but is *drawn into* the ring |
+| Never near the Tomb of Levistus | Anything inside the Tomb's 300 mi ring is not Elgarz | The Gilded Hulk has the other three signs but slowly circles the Tomb, always inside the ring |
 
 About a third of all ice rings hollow (ice caves), about half transmits something, and at least a dozen icebergs per seed show metal or the Triad. The easy echo test can't rule out the field on its own.
 
@@ -42,6 +42,18 @@ The operator has two views and pans between them with **▲ LOOK UP / ▼ LOOK D
 - **Rune board:** a KTANE-style flip calendar of 12 unlabelled runes.
 - **Wire service:** a ticker with the weather, storms, shark, board timer, breakdowns and GM messages.
 - **Repair bay.** (Its lower half is reserved for a future tracking board.)
+
+## The case board
+
+On the main board beside the chart (the metal scanner moved up to the deck). Locking ice gives it a temporary row; a beacon hit pins it. Columns: number, last-seen square (odometer), HOLLOW T/F (with a tiny echo trace), METAL T/F, RADIO (the lamps as shown, frequency, band, wave shape, and SWEPT once the whole band has been searched), and a verdict (? / SUSPECT / EXCLUDED, undoable; excluded rows are stamped, struck through, sink to the bottom and their beacons dim). Readings fill in automatically; the crew still decodes them. Clicking a row re-locks the ice (live if beaconed, otherwise from where it was last seen).
+
+## Onboarding and atmosphere
+
+- The wire service starts as a startup checklist (brew coffee, fill the fuel chute, power the sonar, drop a buoy, power the scrying orbs) that ticks itself off, then becomes the ticker.
+- Jerry, the previous operator, left handwritten sticky notes next to the systems; the GM can stick up more.
+- After ten minutes storms come more often (and keep coming for as long as the watch runs) and Old Tom wakes: a second hunter that swims to the last buoy splashdown, eats a buoy there, then circles the Watch the opposite way to the Grindmaw.
+- The cameras are Scrying Orbs.
+- Ending: the chart becomes a feed of Geryon's silhouette ("My humble servants. Through persistence, you have found me. My gates await thee."), then a sonar section of the keep inside the glacier, then ELGARZ IDENTIFIED · CONNECTION ESTABLISHED. Placeholder art for the later art pass.
 
 ## Mechanics
 
