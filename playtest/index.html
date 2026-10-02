@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Last Watch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="viewport">
+<div id="stage" class="dark">
+
+  <!-- top bar -->
+  <header id="topbar">
+    <div class="plate title">THE LAST WATCH <span>· OBSERVATORY OF THE FIFTH ·</span></div>
+    <div id="cabin" class="cabin">
+      <div class="cabin-label">CABIN</div>
+      <div id="comforts"></div>
+      <div id="mug" title="coffee"><div id="mugfill"></div><div class="steam"></div></div>
+    </div>
+    <div class="clockwrap">
+      <div class="nixie" id="clock">00:00</div>
+      <div id="watchno" class="lbl"></div>
+      <button id="mute" class="small-btn" title="Mute all sound (M)">SOUND ON</button>
+    </div>
+  </header>
+
+  <!-- cameras -->
+  <section class="panel" id="p-cams" style="left:16px;top:68px;width:540px;height:470px">
+    <h2>CAMERA POSTS <small id="camname"></small></h2>
+    <div class="screen crt" id="camscreen">
+      <canvas id="camcanvas" width="508" height="300"></canvas>
+      <div id="wiper"></div>
+      <div id="repairboard" class="hidden"></div>
+      <div class="offline hidden" id="camoff">NO POWER</div>
+    </div>
+    <div id="camsel"></div>
+    <div class="hint">Click an iceberg in the view to lock onto it.</div>
+  </section>
+
+  <!-- currents -->
+  <section class="panel" id="p-cur" style="left:16px;top:548px;width:540px;height:220px">
+    <h2>CURRENTS &amp; WIND <small id="curage"></small></h2>
+    <canvas id="curcanvas" width="508" height="160"></canvas>
+    <div class="offline hidden" id="curoff">NO POWER</div>
+  </section>
+
+  <!-- power -->
+  <section class="panel" id="p-pow" style="left:16px;top:778px;width:540px;height:286px">
+    <h2>FURNACE &amp; POWER <small id="powcount"></small></h2>
+    <div id="furnace">
+      <div id="furnacedoor"><div id="flames"></div></div>
+      <div id="furnacebtns"><button id="ignite">LIGHT</button><button id="stoke">STOKE</button></div>
+    </div>
+    <div id="heatgauge"><div id="heatzone"></div><div id="heatfill"></div></div><div id="heatlbl">HEAT</div>
+    <div id="furnacestat"></div>
+    <div id="switches"></div>
+  </section>
+
+  <!-- map -->
+  <section class="panel" id="p-map" style="left:572px;top:68px;width:776px;height:772px">
+    <h2>CHART OF THE FIFTH <small>300 mi squares</small></h2>
+    <div class="screen chart">
+      <canvas id="mapcanvas" width="744" height="708"></canvas>
+      <div id="maptools">
+        <button id="btn-buoy" class="tool">DROP BUOY</button>
+        <button id="btn-zin" class="tool sq">+</button>
+        <button id="btn-zout" class="tool sq">−</button>
+        <button id="btn-home" class="tool">RESET VIEW</button>
+      </div>
+      <div id="toast"></div>
+      <div id="note" class="hidden"></div>
+    </div>
+  </section>
+
+  <!-- lock & beacon -->
+  <section class="panel" id="p-beacon" style="left:572px;top:850px;width:776px;height:214px">
+    <h2>TARGET LOCK &amp; BEACON LAUNCHER</h2>
+    <div id="lockbox">
+      <div class="lbl">LOCKED TARGET</div>
+      <div class="nixie big" id="locknum">--</div>
+      <div id="lockinfo">No lock. Click a sonar contact or an iceberg on camera.</div>
+    </div>
+    <div id="driftbox">
+      <div class="lbl">PREDICT DRIFT WITH</div>
+      <div class="toggle2" id="drift">
+        <button data-v="surface">SURFACE<br><small>small ice</small></button>
+        <button data-v="deep">DEEP<br><small>large ice</small></button>
+      </div>
+      <div id="driftinfo"></div>
+    </div>
+    <div id="firebox">
+      <div class="lbl">BEACON COLOUR</div>
+      <div id="colors"></div>
+      <button id="fire">FIRE<br>BEACON</button>
+      <div id="rack"></div>
+    </div>
+  </section>
+
+  <!-- sonar -->
+  <section class="panel" id="p-sonar" style="left:1364px;top:68px;width:540px;height:420px">
+    <h2>SONAR <small id="sonarstat"></small></h2>
+    <div class="screen round"><canvas id="sonarcanvas" width="300" height="300"></canvas></div>
+    <div id="sonarside">
+      <button id="ping" class="bigbtn">PING</button>
+      <div class="lbl">ECHO PRINTOUT</div>
+      <div class="paper"><canvas id="echocanvas" width="176" height="110"></canvas></div>
+      <div id="echoinfo">Select a contact.</div>
+    </div>
+    <div class="offline hidden" id="sonaroff">NO POWER</div>
+  </section>
+
+  <!-- radio -->
+  <section class="panel" id="p-radio" style="left:1364px;top:498px;width:540px;height:270px">
+    <h2>RADIO <small id="radiosrc">tuned to the locked target</small></h2>
+    <div class="screen"><canvas id="radiocanvas" width="300" height="110"></canvas></div>
+    <div id="songlamps"><span></span><span></span><span></span></div>
+    <div id="cliplamp"><div class="lamp off"></div>CLIP</div>
+    <div id="radioreadout">
+      <div class="nixie" id="freq">300.0</div>
+      <div class="fine"><button data-d="-5">◀◀</button><button data-d="-0.5">◀</button><button data-d="0.5">▶</button><button data-d="5">▶▶</button></div>
+      <div class="meter"><div id="strength"></div></div>
+      <div class="lbl sig">SIGNAL</div>
+      <div id="gainrow"><span class="lbl">GAIN</span><input type="range" id="gain" min="0" max="10" step="0.1" value="5"><span id="gainval">5.0</span></div>
+    </div>
+    <div id="freqrow"><input type="range" id="freqslider" min="100" max="999.9" step="0.1" value="300"><div id="bandticks"><span>100</span><span>· LOW ·</span><span>400</span><span>· MID ·</span><span>700</span><span>· HIGH ·</span><span>999</span></div></div>
+    <div class="offline hidden" id="radiooff">NO POWER</div>
+  </section>
+
+  <!-- scanner -->
+  <section class="panel" id="p-scan" style="left:1364px;top:778px;width:540px;height:286px">
+    <h2>METAL SCANNER</h2>
+    <canvas id="aligncanvas" width="200" height="130"></canvas>
+    <div id="scanstat">
+      <div class="lbl">SCAN</div>
+      <div class="meter wide"><div id="scanbar"></div></div>
+      <div id="metallamp" class="lamp off"></div><span id="metaltext">NO RESULT</span>
+    </div>
+    <div id="runes">
+      <div class="lbl" id="runelbl">CALIBRATION</div>
+      <div id="runepad"></div>
+    </div>
+    <div class="offline hidden" id="scanoff">NO POWER</div>
+  </section>
+
+  <div id="winscreen" class="hidden">
+    <div class="wincard">
+      <div class="small">THE BEACON HAS STRUCK</div>
+      <h1>ELGARZ IS MARKED</h1>
+      <p>Blue light poured out of the ice where the green beacon struck. Coldsteel answered. A thread of green fire now burns between the Last Watch and Elgarz. Wherever it drifts, you can follow.</p>
+      <p class="small" id="wintime"></p>
+      <button id="wincontinue">KEEP WATCHING</button>
+    </div>
+  </div>
+  <div id="intro">
+    <div class="wincard">
+      <h1>THE LAST WATCH</h1>
+      <p>Somewhere in this frozen sea drifts <b>Elgarz</b>, the glacier that swallowed Citadel Coldsteel.</p>
+      <p>Find it. Prove it. Mark it with a beacon.</p>
+      <button id="begin">TAKE THE WATCH</button>
+      <p class="small">Sound recommended · M to mute · Manual holders: open the Operations Manual</p>
+      <p class="small" id="introseed"></p>
+    </div>
+  </div>
+</div>
+</div>
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
