@@ -1,7 +1,7 @@
 // The Last Watch simulation. Pure logic, no DOM. Runs in the browser and in Node.
 import {
   MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, TOMB_RADIUS, TUNING as T, CAMERAS, NOTABLES,
-  GENERIC_COUNT, GENERIC_TRANSMIT, GENERIC_METAL, GENERIC_TRIAD,
+  GENERIC_COUNT, GENERIC_TRANSMIT, GENERIC_METAL, GENERIC_TRIAD, GENERIC_HOLLOW, PLATE_ORDER, windLever, tempLever,
   makeField, vortexAt, windAt, tempAt, makeStorms, stormThrough, bandOf, BAND_RANGE, CARRIERS, encodeLamps, NOISE_SIGNALS, STATIONS,
   BOARD_GRID, BOARD_PAGES,
 } from './scenario.js';
@@ -158,7 +158,7 @@ export function runeFunction(runeId, page) {
   const r = RUNES[runeId];
   return BOARD_GRID[r.house][(r.weight - 1 + page) % 4];
 }
-const MUST_HAVE = ['FUEL', 'TURN LEFT', 'TURN RIGHT', 'COFFEE', 'WIPERS'];
+const MUST_HAVE = ['FUEL', 'COFFEE', 'WIPERS'];
 function dealBoard(w, rng) {
   const b = w.board;
   b.page = Math.floor(rng() * 4);
@@ -199,13 +199,13 @@ export function createWorld(seed = newSeed()) {
   for (let i = 0; i < GENERIC_COUNT; i++) {
     const large = gen() < 0.35;
     const p = randomInReach(gen, 250, T.rimHold * REACH + 80);
-    const tx = gen() < GENERIC_TRANSMIT, metal = gen() < GENERIC_METAL;
+    const tx = gen() < GENERIC_TRANSMIT, metal = gen() < GENERIC_METAL, hollow = gen() < GENERIC_HOLLOW, humps = 1 + Math.floor(gen() * 2);
     let ns = NOISE_SIGNALS[Math.floor(gen() * NOISE_SIGNALS.length)];
     if (tx && triads < GENERIC_TRIAD && !metal) { ns = ['BRW', 'MID']; triads++; }
     bergs.push({
-      id: 'g' + i, name: metal ? 'Ice with wreckage' : 'Unremarkable ice', num: num++, x: p.x, y: p.y, large,
+      id: 'g' + i, name: metal ? 'Ice with wreckage' : hollow ? 'Ice caves' : 'Unremarkable ice', num: num++, x: p.x, y: p.y, large,
       length: large ? 9.5 + gen() * 9 : 1.5 + gen() * 4,
-      hollow: false, metal, echo: { humps: 0, tail: gen() < 0.5 ? 'flat' : 'fuzzflat' },
+      hollow, metal, echo: hollow ? { humps, tail: 'ring' } : { humps: 0, tail: gen() < 0.5 ? 'flat' : 'fuzzflat' },
       radio: tx ? makeRadio(gen, { decoded: ns[0], band: ns[1] }) : null, look: 'plain', elgarz: false, notable: false,
       shape: makeShape(gen, 'plain', large), tag: null, scan: 0, scanned: false,
     });
@@ -250,6 +250,9 @@ export function createWorld(seed = newSeed()) {
     coffee: { brewUntil: 0, sips: 0 }, fatigue: 0,
     board: { page: 0, runes: [], presses: 0, nextFlip: 0, flippedAt: -99 },
     color: 'red',
+    camUnlocked: {},    // camera id -> time its unlock runs out
+    camTurn: 0,         // -1, 0, +1 while an arrow is held
+    camPanel: { wind: 'MIDDLE', temp: 'MIDDLE', pressed: [], lockout: 0 },
     beacons: { stock: T.beaconStock, nextAt: 0, green: T.greenStock, flying: [], splashes: [], shots: 0, jamAt: 0, last: null },
     tags: [], events: [],
     elgarzPlan: null,
@@ -312,13 +315,6 @@ export function pressBoard(w, slot) {
   emit(w, 'board', { fn });
   const needFire = () => { if (!f.lit) { emit(w, 'deny', { msg: 'THAT NEEDS THE FURNACE LIT' }); return false; } return true; };
   if (fn === 'FUEL') { if (f.chute >= T.chuteMax) emit(w, 'deny', { msg: 'THE FUEL CHUTE IS FULL' }); else { f.chute++; emit(w, 'fuel'); } }
-  if (fn === 'TURN LEFT' || fn === 'TURN RIGHT') {
-    if (needFire()) {
-      const c = w.cams.find(c => c.id === w.activeCam);
-      c.facing = (c.facing + (fn === 'TURN LEFT' ? -T.turnStep : T.turnStep) + 360) % 360;
-      spendHeat(w, T.turnHeat); emit(w, 'turn', { cam: c.id, facing: c.facing });
-    }
-  }
   if (fn === 'COFFEE') {
     if (w.coffee.sips > 0 || w.t < w.coffee.brewUntil) emit(w, 'deny', { msg: 'THE POT IS ALREADY FULL' });
     else if (needFire()) { spendHeat(w, T.coffeeHeat); w.coffee.brewUntil = w.t + T.coffeeBrew; emit(w, 'brew'); }
@@ -383,7 +379,7 @@ export function ping(w) {
 
 // ---------- lock & prediction ----------
 export function lockOn(w, bergId, x, y, t0, source) {
-  w.lock = { bergId, x, y, t0, source };
+  w.lock = { bergId, x, y, t0, source, trackSince: null, track: null };
   emit(w, 'lock', { source });
   return w.bergs.find(b => b.id === bergId);
 }
@@ -398,6 +394,7 @@ export function setDrift(w, mode) { w.drift = mode; emit(w, 'click'); }
 
 // Predicted ("ghost") position of the locked target, using only what the observatory measured.
 export function modelVelocity(w) {
+  if (w.lock && w.lock.track) return { x: w.lock.track.vx, y: w.lock.track.vy };
   const r = w.readings;
   if (!r) return { x: 0, y: 0 };
   const k = w.levers.drift;
@@ -421,6 +418,11 @@ export function aimQuality(w) {
   const g = ghostAt(w, w.t);
   const fixAge = w.t - l.t0, readAge = r ? w.t - r.t : null, readDist = r ? dist(r, g) : null;
   const fFix = clamp(1 - (fixAge - 12) / 60, 0, 1);
+  if (l.track) {
+    // the camera measured the drift itself: no buoy needed
+    const trackAge = w.t - l.track.t, fTrack = clamp(1 - (trackAge - 10) / 50, 0, 1);
+    return { q: Math.round(100 * fFix * fTrack), fixAge, readAge, readDist, drift: 'camera', tracked: true, trackAge, cam: l.track.cam, flight: dist(OBSERVATORY, g) / T.beaconSpeed, fFix, fTrack, fRead: 1, fDist: 1 };
+  }
   const fRead = r ? clamp(1 - (readAge - 10) / 50, 0, 1) : 0;
   const fDist = r ? clamp(1 - (readDist - 90) / 330, 0, 1) : 0;
   const q = Math.round(100 * fFix * fRead * fDist);
@@ -507,7 +509,7 @@ export function fireBeacon(w, color) {
   const target = lockedBerg(w);
   w.beacons.flying.push({
     x0: OBSERVATORY.x, y0: OBSERVATORY.y, x1: aim.x, y1: aim.y, t0: w.t, t1: w.t + tf, color,
-    report: { bergId: target.id, num: target.num, large: target.large, fixAge: aq.fixAge, readAge: aq.readAge, readDist: aq.readDist, drift: aq.drift, q: aq.q },
+    report: { bergId: target.id, num: target.num, large: target.large, fixAge: aq.fixAge, readAge: aq.readAge, readDist: aq.readDist, drift: aq.drift, q: aq.q, tracked: !!aq.tracked, trackAge: aq.trackAge },
   });
   emit(w, 'launch', { color });
   const bc = w.beacons;
@@ -517,6 +519,12 @@ export function fireBeacon(w, color) {
 // Why a shot missed, in words the crew can act on.
 function missReasons(rep, berg) {
   const out = [];
+  if (rep.tracked) {
+    if (rep.fixAge > 25) out.push(`the fix was ${Math.round(rep.fixAge)} s old`);
+    if (rep.trackAge > 20) out.push(`the camera last measured its drift ${Math.round(rep.trackAge)} s before the shot`);
+    if (!out.length) out.push('the ice turned in the current after the camera lost sight of it');
+    return out;
+  }
   if (rep.drift === 'surface' && berg.large) out.push('the drift switch was on SURFACE, but this ice is large and rides the DEEP current');
   if (rep.drift === 'deep' && !berg.large) out.push('the drift switch was on DEEP, but this ice is small and rides the SURFACE');
   if (rep.fixAge > 25) out.push(`the fix was ${Math.round(rep.fixAge)} s old`);
@@ -621,7 +629,8 @@ export function spawnDue(w) {
 
 // ---------- GM commands ----------
 export function gm(w, cmd, arg = {}) {
-  if (cmd === 'pause') w.paused = !w.paused;
+  if (cmd === 'pause') { w.paused = !w.paused; emit(w, w.paused ? 'paused' : 'resumed'); }
+  if (cmd === 'camunlock') { w.camUnlocked[w.activeCam] = w.t + T.camUnlockTime; }
   if (cmd === 'repair') {
     w.cams.forEach(c => { c.broken = false; c.heat = 0; }); w.remorhazes = [];
     for (const k of Object.keys(w.broken)) w.broken[k] = false;
@@ -735,6 +744,11 @@ export function step(w, dt = DT) {
       emit(w, 'remorhaz', { cam: c.id });
     }
   }
+  // turning the unlocked camera
+  const ac = w.cams.find(c => c.id === w.activeCam);
+  if (w.camTurn && camIsUnlocked(w, ac.id)) ac.facing = (ac.facing + w.camTurn * T.camTurnRate * dt + 360) % 360;
+  // a camera watching the locked ice measures its drift
+  trackStep(w, ac, dt);
   for (const r of w.remorhazes) {
     const c = w.cams.find(c => c.id === r.cam), d = dist(r, c);
     c.tremor = clamp(1 - d / T.remorhazSpawnDist, 0, 1);
@@ -805,6 +819,43 @@ export function step(w, dt = DT) {
   if (w.reveal && t - w.reveal.t >= T.revealDelay) win(w);
 }
 
+// ---------- camera control & tracking ----------
+export const camIsUnlocked = (w, id) => (w.camUnlocked[id] || 0) > w.t;
+export function setCamTurn(w, dir) { w.camTurn = dir; }
+export function camCode(w) {
+  const D = readingDisplay(w.readings);
+  return { order: PLATE_ORDER[w.board.page], wind: D ? windLever(D.windKn) : 'MIDDLE', temp: D ? tempLever(D.temp) : 'MIDDLE' };
+}
+export function setLever(w, name, pos) { w.camPanel[name] = pos; emit(w, 'lever'); }
+export function pressPlate(w, shape) {
+  const p = w.camPanel;
+  if (w.t < p.lockout || camIsUnlocked(w, w.activeCam)) return;
+  p.pressed.push(shape); emit(w, 'plate');
+  if (p.pressed.length < 3) return;
+  const code = camCode(w);
+  const ok = p.pressed.join() === code.order.join() && p.wind === code.wind && p.temp === code.temp;
+  p.pressed = [];
+  if (ok) { w.camUnlocked[w.activeCam] = w.t + T.camUnlockTime; emit(w, 'camunlocked', { cam: w.activeCam }); }
+  else { p.lockout = w.t + T.plateLockout; emit(w, 'camfail'); }
+}
+function trackStep(w, cam, dt) {
+  const l = w.lock; if (!l) return;
+  const b = w.bergs.find(b => b.id === l.bergId); if (!b) return;
+  const seeing = isUp(w, 'cameras') && !cam.broken && camSees(cam, b) && snowAt(w, cam.x, cam.y, w.t) < 0.5;
+  if (!seeing) { l.trackSince = null; return; }
+  if (l.trackSince == null) l.trackSince = w.t;
+  if (w.t - l.trackSince < T.trackTime) return;
+  // measured: a fresh fix from the camera and the ice's real drift (to within a few percent)
+  const v = driftOf(w.field, b.large, b.x, b.y, w.t), k = w.levers.drift * (b.elgarz ? w.levers.elgarz : 1);
+  if (!l.track || w.t - l.track.t > 1) {
+    const n = () => 1 + (w.rng() - 0.5) * 2 * T.trackNoise;
+    if (!l.track) emit(w, 'tracked', { num: b.num });
+    l.track = { vx: v.x * k * n(), vy: v.y * k * n(), t: w.t, cam: cam.id };
+    const a = w.rng() * Math.PI * 2, e = w.rng() * 2;
+    l.x = b.x + Math.cos(a) * e; l.y = b.y + Math.sin(a) * e; l.t0 = w.t;
+  }
+}
+
 // What a camera sees: bergs and remorhazes inside its view, sorted far to near.
 export function cameraView(w, cam) {
   const items = [];
@@ -838,6 +889,7 @@ export function snapshot(w) {
     lock: w.lock, ghost: ghostAt(w, w.t), power: Object.fromEntries(SYSTEMS.map(s => [s, w.power[s].on])),
     beacons: w.beacons.stock, green: w.beacons.green, calibrated: w.scanner.calibrated, broken: brokenList(w).map(b => b.name),
     furnace: { lit: w.furnace.lit, heat: w.furnace.heat, chute: w.furnace.chute }, music: w.music, fatigue: w.fatigue,
+    camCode: camCode(w), activeCam: w.activeCam, camUnlocked: Object.fromEntries(Object.entries(w.camUnlocked).filter(([, u]) => u > w.t).map(([k, u]) => [k, Math.ceil(u - w.t)])),
     board: { page: BOARD_PAGES[w.board.page], fns: w.board.runes.map(r => runeFunction(r, w.board.page)) },
     stations: w.stations.map(s => ({ freq: s.freq, decoded: s.decoded, band: s.band })),
     code: w.readings ? keypadCode(w.scanner.plate, readingDisplay(w.readings)) : null,

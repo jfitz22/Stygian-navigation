@@ -77,11 +77,11 @@
     <tr><td><b>The Triad</b> on the radio</td><td>Radio tuning and decoding</td><td>7</td></tr>
     <tr><td><b>It shuns the Tomb of Levistus</b></td><td>The Tomb drifts, with a dashed ring <b><span data-v="TOMB_RADIUS"></span> miles</b> round it. Elgarz turns away before it touches the ring. Anything you see <b>inside</b> the ring is <b>not</b> Elgarz.</td><td>-</td></tr>
   </table>
-  <div class="warn"><b>No single sign is proof.</b> Several icebergs sing the Triad: Geryon's herd left relics all over this sea. Plenty of ice has metal frozen inside. At least one iceberg has the first three signs and is <b>drawn toward</b> the Tomb. Elgarz may not even be in the sea when your watch begins.</div>
+  <div class="warn"><b>No single sign is proof.</b> About a third of all ice is riddled with caves and rings hollow. Several icebergs sing the Triad: Geryon's herd left relics all over this sea. Plenty of ice has metal frozen inside. At least one iceberg has the first three signs and is <b>drawn toward</b> the Tomb. Elgarz may not even be in the sea when your watch begins.</div>
   <h3>The machine in one minute</h3>
   <ol>
     <li><b>Light the furnace</b> and keep it fed (page 3). It runs <b>at most three systems</b>: Cameras, Sonar, Radio, Scanner, Currents.</li>
-    <li>Find ice with the <b>cameras</b> or the <b>sonar</b>. Click a contact or an iceberg on camera to <b>lock</b> onto it.</li>
+    <li>Find ice with the <b>cameras</b> or the <b>sonar</b>. Click a contact or an iceberg on camera to <b>lock</b> onto it. A camera that keeps locked ice in view <b>measures its drift</b>, so you can hit it without a buoy.</li>
     <li>Test the locked iceberg with the echo printout, radio and scanner.</li>
     <li><b>Look up</b> to the overhead deck to fire a beacon. Tagged ice stays marked on the chart, so you can watch it drift.</li>
   </ol>
@@ -98,13 +98,14 @@
 
 <section class="page" data-n="2">
   <h2>The cockpit</h2>
-  <p>The operator sits at the <b>main board</b>: cameras, chart, sonar, radio, scanner and furnace. Above it is the <b>overhead deck</b>. Press <span class="mono">▲ LOOK UP</span> to see it and <span class="mono">▼ LOOK DOWN</span> to come back. The arrow keys work too.</p>
+  <p>The operator sits at the <b>main board</b>: cameras, chart, sonar, radio, scanner and furnace. Above it is the <b>overhead deck</b>. The buttons <span class="mono">▲ LOOK UP</span> and <span class="mono">▼ LOOK DOWN</span> sit side by side on the top bar (the up and down arrow keys work too). Next to them is <span class="mono">❚❚ PAUSE</span>: anyone at the table, or the GM, can pause and resume the watch (key P).</p>
   <table>
     <tr><th>ON THE OVERHEAD DECK</th><th>WHAT IT DOES</th></tr>
     <tr><td><b>Beacon launcher</b></td><td>Pick a colour and fire. Shows <b>aim quality</b> and a report on every shot (page 6).</td></tr>
-    <tr><td><b>Rune board</b></td><td>Twelve unlabelled rune buttons: fuel, camera turning, coffee, wipers and more. Only this book says which is which (page 4).</td></tr>
+    <tr><td><b>Camera control</b></td><td>Unlock the camera on screen and turn it by hand (page 10). It sits just above the camera feed.</td></tr>
+    <tr><td><b>Rune board</b></td><td>Twelve unlabelled rune buttons: fuel, coffee, wipers and more. Only this book says which is which (page 4).</td></tr>
     <tr><td><b>Wire service</b></td><td>A ticker with the buoy weather, storms, the Grindmaw and messages from the shore.</td></tr>
-    <tr><td><b>Repair bay</b></td><td>Everything that breaks is fixed here (page 10).</td></tr>
+    <tr><td><b>Repair bay</b></td><td>Everything that breaks is fixed here (page 11).</td></tr>
   </table>
   <h3>The operator gets tired</h3>
   <p>As the watch goes on, the screens darken in from the edges, blur and sway, and the operator starts to <b>blink off</b>. The <b>eye</b> on the top bar shows how tired they are (ALERT, TIRED, DROWSY, NODDING OFF). <b>Coffee</b> fixes it. Brew a pot from the rune board (it costs a little furnace heat), then click the <b>mug</b> on the top bar to drink. Each pot is <span data-t="coffeeSips"></span> sips.</p>
@@ -127,7 +128,6 @@
   <div class="warn">A shovel adds about <span data-t="stokeAmount"></span> heat. <b>Two shovels from the bottom of the green is safe. Three is not.</b> Left alone, the furnace drops out of the green in about two minutes. Too hot? The <b>VENT</b> rune dumps <span data-t="ventHeat"></span> heat.</div>
   <h3>Things that cost heat</h3>
   <ul>
-    <li>Turning a camera: <span data-t="turnHeat"></span> heat per turn.</li>
     <li>Brewing coffee: <span data-t="coffeeHeat"></span> heat.</li>
   </ul>
   <h3>Power</h3>
@@ -146,7 +146,6 @@
   <table>
     <tr><th>FUNCTION</th><th>WHAT IT DOES</th></tr>
     <tr><td class="fn">FUEL</td><td>Puts one shovel of fuel in the chute.</td></tr>
-    <tr><td class="fn">TURN LEFT / RIGHT</td><td>Turns the camera on screen <span data-t="turnStep"></span>° (costs heat).</td></tr>
     <tr><td class="fn">COFFEE</td><td>Brews a pot (costs heat).</td></tr>
     <tr><td class="fn">WIPERS</td><td>Clears snow off the camera on screen.</td></tr>
     <tr><td class="fn">WIRELESS</td><td>Turns the cabin wireless on or off. It puts false stations on the radio band (page 7).</td></tr>
@@ -173,7 +172,7 @@
   <svg class="trace" viewBox="0 0 400 70"><polyline fill="none" stroke="#2a1d0c" stroke-width="2" points="0,60 30,60 40,8 50,60 400,60"/><text x="120" y="40" font-size="13" font-family="IBM Plex Mono">no bumps · flat: SOLID</text></svg>
   <svg class="trace" viewBox="0 0 400 70"><polyline fill="none" stroke="#2a1d0c" stroke-width="2" points="0,60 30,60 40,8 50,60 90,60 100,40 110,30 120,40 130,60 140,60 160,40 170,30 180,40 190,60 200,60 205,52 210,66 215,55 220,64 225,57 230,62 240,59 260,61 400,60"/><text x="270" y="40" font-size="13" font-family="IBM Plex Mono">ringing tail: HOLLOW</text></svg>
   <svg class="trace" viewBox="0 0 400 70"><polyline fill="none" stroke="#2a1d0c" stroke-width="2" points="0,60 30,60 40,8 50,60 90,60 100,40 110,30 120,40 130,60 140,60 160,40 170,30 180,40 190,60 200,60 204,52 207,66 211,50 214,68 218,55 221,63 225,49 229,67 233,56 237,64 241,51 245,66 400,60"/><text x="270" y="40" font-size="13" font-family="IBM Plex Mono">scratchy tail: ALIVE</text></svg>
-  <p>Bumps with a <b>wavy tail that fades</b>: <b>HOLLOW</b>, one bump per chamber. Bumps with a <b>scratchy tail</b>: soft walls, something <b>alive</b>. Not a building. No bumps but scratchy: rotten slush.</p>
+  <p>Bumps with a <b>wavy tail that fades</b>: <b>HOLLOW</b>, one bump per chamber. Many icebergs are hollow, so a hollow echo puts ice on your shortlist; it does not prove anything. Bumps with a <b>scratchy tail</b>: soft walls, something <b>alive</b>. Not a building. No bumps but scratchy: rotten slush.</p>
   <h3>Big ice or small ice?</h3>
   <p>The printout gives the <b>length</b>. <b>Over 8 miles is LARGE</b> and rides the <b>DEEP</b> current. <b>8 or less is SMALL</b> and rides the <b>SURFACE</b> and the wind. Set the drift switch to match.</p>
 </section>
@@ -190,6 +189,8 @@
     <tr><td>READING TAKEN FROM TARGET</td><td>under about 100 mi</td><td>Drop the buoy right next to the ice.</td></tr>
   </table>
   <p>Green lamp (70%+): it should hit. Amber: maybe. Red: save your beacon. <b>Aim quality cannot see the drift switch.</b> If the switch is wrong for the ice's size, even 100% misses.</p>
+  <h3>Camera tracking: aiming without a buoy</h3>
+  <p>Lock onto an iceberg and keep it in the camera on screen. After about <span data-t="trackTime"></span> seconds the feed says <b>TRACKING ✓ DRIFT MEASURED</b>: the camera has measured how the ice is really moving. The prediction then uses that measurement instead of the buoy, so <b>no buoy and no drift switch are needed</b>. Aim quality shows a <b>CAMERA TRACK</b> bar that ages once the ice leaves the view. Snow on the lens stops tracking.</p>
   <h3>When a shot misses</h3>
   <p>The launcher prints <b>how far it missed by and why</b>, and the chart shows a dotted line from the splash to where the target really was. Read it, fix it, fire again.</p>
   <h3>The launcher jams</h3>
@@ -247,9 +248,21 @@
 </section>
 
 <section class="page" data-n="10">
-  <h2>Cameras, burrowers and repairs</h2>
-  <div class="ask"><b>ASK THE OPERATOR FOR:</b> which camera buttons say SHAKING · what is listed in the repair bay</div>
-  <p>Seven camera posts ring the island. Each looks one way, and <b>the rune board turns the camera on screen</b> <span data-t="turnStep"></span>° at a time. Click an iceberg in the view to lock onto it.</p>
+  <h2>Cameras, camera control and burrowers</h2>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> which camera is on screen · the WIND speed and WATER temperature on the Currents panel · the PAGE on the rune board</div>
+  <p>Seven camera posts ring the island. Click an iceberg in the view to lock onto it. Keep it in view and the camera <b>tracks</b> it (page 6).</p>
+  <h3>Camera control (overhead deck)</h3>
+  <p>To turn a camera by hand, unlock it on the <b>camera control</b> panel. An unlock lasts <b>two minutes</b>; then hold <span class="mono">◀</span> or <span class="mono">▶</span> (or the left and right arrow keys) to turn it and follow the ice. Turning is free.</p>
+  <h3><span class="step">1.</span> Set the focus levers</h3>
+  <table>
+    <tr><th>LEVER</th><th>DOWN</th><th>MIDDLE</th><th>UP</th></tr>
+    <tr><td><b>WIND</b> (speed on the Currents panel)</td><td>under 30 kn</td><td>30 to 38 kn</td><td>over 38 kn</td></tr>
+    <tr><td><b>TEMP</b> (water temperature)</td><td>colder than -40°</td><td>-40° to -25°</td><td>warmer than -25°</td></tr>
+  </table>
+  <p>No reading on the Currents panel? Set <b>both levers to MIDDLE</b>.</p>
+  <h3><span class="step">2.</span> Press the servo plates in order</h3>
+  <table id="platetable"></table>
+  <p>Wrong code: the servos reset for a few seconds. Try again.</p>
   <h3>Burrowers (remorhazes)</h3>
   <ul>
     <li>A camera <b>heats up fast while you watch it</b> (heat bar on its button). A hot camera draws a remorhaz; the button says <b>SHAKING</b>.</li>
@@ -257,22 +270,27 @@
   </ul>
   <h3>Storms</h3>
   <p>Storms cross the sea often. A camera inside one is snowed out. The <b>WIPERS</b> rune clears the lens for a few seconds.</p>
-  <h3>The repair bay (overhead deck)</h3>
-  <p>Cameras, the <b>furnace grate</b>, the <b>beacon launcher</b>, the <b>buoy winch</b> and the <b>radio fuse</b> can all break. Pick the broken thing in the repair bay. It shows five conduits. For each conduit use the <b>first rule that fits</b>:</p>
+</section>
+
+<section class="page" data-n="11">
+  <h2>The repair bay</h2>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> what is broken · for each of the five rows: where the gauge needle points and the colour of the lamp</div>
+  <p>Cameras, the <b>furnace grate</b>, the <b>beacon launcher</b>, the <b>buoy winch</b> and the <b>radio fuse</b> can all break. Pick the broken thing in the repair bay. Each of its five rows has a <b>gauge</b> (needle LOW, MIDDLE, HIGH, or in the RED) and a <b>lamp</b> (RED, WHITE, BLUE, or DARK). Set each row to OPEN, CLOSE or CUT. For each row use the <b>first rule that fits</b>:</p>
   <table>
-    <tr><th>#</th><th>IF THE CONDUIT IS</th><th>SET IT TO</th></tr>
-    <tr><td>1</td><td>its lamp is <b>dark</b> and it is <b>white porcelain</b></td><td><b>CUT</b></td></tr>
-    <tr><td>2</td><td>it has <b>frost</b> and a <b>star</b></td><td><b>SHUT</b></td></tr>
-    <tr><td>3</td><td>it is <b>grey iron</b> with <b>no frost</b></td><td><b>OPEN</b></td></tr>
-    <tr><td>4</td><td>it is <b>brass</b></td><td><b>OPEN</b> if its lamp is lit, otherwise <b>SHUT</b></td></tr>
-    <tr><td>5</td><td>anything else</td><td><b>SHUT</b></td></tr>
+    <tr><th>#</th><th>IF THE ROW SHOWS</th><th>SET IT TO</th></tr>
+    <tr><td>1</td><td>the needle is in the <b>RED</b></td><td><b>CUT</b></td></tr>
+    <tr><td>2</td><td>the lamp is <b>DARK</b></td><td><b>CLOSE</b></td></tr>
+    <tr><td>3</td><td>the lamp is <b>BLUE</b> and the needle is <b>LOW</b></td><td><b>OPEN</b></td></tr>
+    <tr><td>4</td><td>the lamp is <b>WHITE</b> and the needle is <b>LOW</b> or <b>MIDDLE</b></td><td><b>OPEN</b></td></tr>
+    <tr><td>5</td><td>the lamp is <b>RED</b> and the needle is <b>LOW</b></td><td><b>OPEN</b></td></tr>
+    <tr><td>-</td><td>nothing above fits</td><td><b>CLOSE</b></td></tr>
   </table>
-  <p>Then <span class="mono">SEND THE REPAIR CREW</span>. Wrong conduits spark and reset. A camera takes <span data-t="repairTime"></span> seconds; everything else <span data-t="minorRepairTime"></span>.</p>
+  <p>Then <span class="mono">SEND THE REPAIR CREW</span>. Wrong rows spark and reset. A camera takes <span data-t="repairTime"></span> seconds; everything else <span data-t="minorRepairTime"></span>.</p>
 </section>
 
 <script type="module">
 import { RUNES, glyphSVG, HOUSES } from './src/glyphs.js';
-import { RADIO_TABLE, TUNING, TOMB_RADIUS, CELL, BOARD_GRID } from './src/scenario.js';
+import { RADIO_TABLE, TUNING, TOMB_RADIUS, CELL, BOARD_GRID, BOARD_PAGES, PLATE_ORDER } from './src/scenario.js';
 const V = { TOMB_RADIUS, CELL };
 document.querySelectorAll('[data-t]').forEach(e => { e.textContent = TUNING[e.dataset.t]; });
 document.querySelectorAll('[data-v]').forEach(e => { e.textContent = V[e.dataset.v]; });
@@ -282,6 +300,9 @@ document.getElementById('radiotable').innerHTML = '<tr><th>LAMPS (AFTER STEP 4)<
   '<tr><td colspan="4">Any other pattern: noise. No meaning.</td></tr>';
 document.getElementById('boardgrid').innerHTML = '<tr><th>HOUSE</th><th>WEIGHT 1</th><th>WEIGHT 2</th><th>WEIGHT 3</th><th>WEIGHT 4</th></tr>' +
   HOUSES.map(h => `<tr><td>${h.toUpperCase()}</td>${BOARD_GRID[h].map(f => `<td class="fn">${f}</td>`).join('')}</tr>`).join('');
+const shapeName = { CIRCLE: '● circle', TRIANGLE: '▲ triangle', SQUARE: '■ square' };
+document.getElementById('platetable').innerHTML = '<tr><th>RUNE BOARD PAGE</th><th>FIRST</th><th>SECOND</th><th>THIRD</th></tr>' +
+  PLATE_ORDER.map((o, i) => `<tr><td><b>${BOARD_PAGES[i]}</b></td>${o.map(sh => `<td>${shapeName[sh]}</td>`).join('')}</tr>`).join('');
 const order = [...RUNES.keys()].sort((a, b) => HOUSES.indexOf(RUNES[a].house) - HOUSES.indexOf(RUNES[b].house) || RUNES[a].weight - RUNES[b].weight);
 document.getElementById('runes').innerHTML = order.map(i => `<div class="rune">${glyphSVG(i, 46, '#2a1d0c', 1)}<b>${RUNES[i].name}</b><br>${RUNES[i].house.toUpperCase()} · weight ${RUNES[i].weight}<br><i>${RUNES[i].looks}</i></div>`).join('');
 </script>

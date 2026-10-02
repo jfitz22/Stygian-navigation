@@ -33,8 +33,13 @@ export const TUNING = {
   // rune board
   boardFlipEvery: 60,      // seconds between flips
   boardFlipPresses: 4,     // presses that also flip it
-  turnStep: 15,            // degrees a camera turns per press
-  turnHeat: 2,             // heat each turn costs
+  // camera control (overhead deck)
+  camUnlockTime: 120,      // seconds an unlocked camera can be turned
+  camTurnRate: 24,         // degrees per second while an arrow is held
+  plateLockout: 4,         // seconds the plates lock after a wrong code
+  // camera tracking
+  trackTime: 4,            // seconds a locked iceberg must stay in the camera's view to measure its drift
+  trackNoise: 0.03,        // the camera's drift measurement is good to about 3%
   coffeeHeat: 6,           // heat brewing coffee costs
   coffeeBrew: 12,          // seconds to brew
   coffeeSips: 3,
@@ -216,6 +221,7 @@ export const NOTABLES = [
 export const GENERIC_COUNT = 48;
 export const GENERIC_TRANSMIT = 0.5;     // share of plain ice that hums something
 export const GENERIC_METAL = 0.15;       // share of plain ice with wreckage frozen inside
+export const GENERIC_HOLLOW = 0.27;      // share of plain ice riddled with caves (it rings hollow)
 export const GENERIC_TRIAD = 2;          // plain bergs that also carry the Triad (relics of Geryon's herd)
 
 // ---------- radio ----------
@@ -254,9 +260,22 @@ export const STATIONS = [
 // Each rune's house and weight pick a function from this grid. On page N, count the rune's weight
 // forward N-1 steps (4 wraps round to 1) before reading the grid.
 export const BOARD_GRID = {
-  Ice: ['WIPERS', 'TURN LEFT', 'TURN RIGHT', 'NOTHING'],
+  Ice: ['WIPERS', 'FUEL', 'LAMPS', 'NOTHING'],
   Iron: ['LAUNCH', 'FUEL', 'VENT', 'NOTHING'],
   Ember: ['COFFEE', 'FUEL', 'LAMPS', 'BELL'],
-  Bone: ['WIRELESS', 'TURN LEFT', 'TURN RIGHT', 'NOTHING'],
+  Bone: ['WIRELESS', 'COFFEE', 'BELL', 'NOTHING'],
 };
 export const BOARD_PAGES = ['I', 'II', 'III', 'IV'];
+
+// ---------- camera unlock panel ----------
+// Shape plates: the order depends on the rune board page.
+export const PLATES = ['CIRCLE', 'TRIANGLE', 'SQUARE'];
+export const PLATE_ORDER = [
+  ['CIRCLE', 'TRIANGLE', 'SQUARE'],   // page I
+  ['TRIANGLE', 'SQUARE', 'CIRCLE'],   // page II
+  ['SQUARE', 'CIRCLE', 'TRIANGLE'],   // page III
+  ['CIRCLE', 'SQUARE', 'TRIANGLE'],   // page IV
+];
+// Levers: set from the latest buoy reading (wind in knots, water temperature in degrees as displayed).
+export function windLever(kn) { return kn < 30 ? 'DOWN' : kn <= 38 ? 'MIDDLE' : 'UP'; }
+export function tempLever(deg) { return deg < -40 ? 'DOWN' : deg <= -25 ? 'MIDDLE' : 'UP'; }

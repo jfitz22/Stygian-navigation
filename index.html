@@ -17,11 +17,10 @@
   <div id="deck">
     <header id="deckbar">
       <div class="plate title">OVERHEAD DECK <span>· LAUNCHER · RUNE BOARD · REPAIR BAY ·</span></div>
-      <button id="lookdown" class="lookbtn">▼ LOOK DOWN</button>
     </header>
 
     <!-- beacon launcher -->
-    <section class="panel" id="p-launch" style="left:16px;top:56px;width:620px;height:532px">
+    <section class="panel" id="p-launch" style="left:16px;top:56px;width:620px;height:446px">
       <h2>BEACON LAUNCHER <small id="launchstat"></small></h2>
       <div id="aimbox">
         <div class="lbl">LOCKED TARGET</div>
@@ -42,8 +41,32 @@
       <div class="offline hidden" id="jammed">LAUNCHER JAMMED<br><small>REPAIR IT IN THE REPAIR BAY →</small></div>
     </section>
 
+    <!-- camera control: sits right above the main camera feed -->
+    <section class="panel" id="p-camctl" style="left:16px;top:510px;width:620px;height:232px">
+      <h2>CAMERA CONTROL <small id="camctlname"></small></h2>
+      <div id="camlocked">
+        <div class="lbl">FOCUS LEVERS</div>
+        <div id="levers">
+          <div class="lever" data-lever="wind"><span>WIND</span><button data-pos="UP">UP</button><button data-pos="MIDDLE">MID</button><button data-pos="DOWN">DOWN</button></div>
+          <div class="lever" data-lever="temp"><span>TEMP</span><button data-pos="UP">UP</button><button data-pos="MIDDLE">MID</button><button data-pos="DOWN">DOWN</button></div>
+        </div>
+        <div id="platebox">
+          <div class="lbl">SERVO PLATES</div>
+          <div id="plates"><button data-shape="CIRCLE"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14"/></svg></button><button data-shape="TRIANGLE"><svg viewBox="0 0 40 40"><path d="M20 5 L35 33 L5 33 Z"/></svg></button><button data-shape="SQUARE"><svg viewBox="0 0 40 40"><rect x="7" y="7" width="26" height="26"/></svg></button></div>
+          <div id="platedots"><i></i><i></i><i></i></div>
+          <div id="camctlhint">Set both levers, then press the three plates in order. The manual has the code.</div>
+        </div>
+      </div>
+      <div id="camopen" class="hidden">
+        <button id="turnleft" class="turnbtn">◀</button>
+        <div id="camfacing"><div class="nixie big" id="facingnum">000°</div><div class="lbl" id="unlockleft">UNLOCKED</div></div>
+        <button id="turnright" class="turnbtn">▶</button>
+        <div id="camopenhint">Hold an arrow to turn the camera. Watch the feed below.</div>
+      </div>
+    </section>
+
     <!-- rune board -->
-    <section class="panel" id="p-board" style="left:652px;top:56px;width:640px;height:384px">
+    <section class="panel" id="p-board" style="left:652px;top:56px;width:640px;height:534px">
       <h2>RUNE BOARD <small>the Operations Manual says what each rune does</small></h2>
       <div id="flipcard"><div class="lbl">PAGE</div><div id="flippage">I</div><div id="flipbar"><div></div></div></div>
       <div id="boardpad"></div>
@@ -51,13 +74,13 @@
     </section>
 
     <!-- ticker -->
-    <section class="panel" id="p-ticker" style="left:652px;top:448px;width:640px;height:140px">
+    <section class="panel" id="p-ticker" style="left:652px;top:602px;width:640px;height:140px">
       <h2>WIRE SERVICE</h2>
       <div id="ticker"><div id="tickertext"></div></div>
     </section>
 
     <!-- repair bay -->
-    <section class="panel" id="p-repair" style="left:1308px;top:56px;width:596px;height:532px">
+    <section class="panel" id="p-repair" style="left:1308px;top:56px;width:596px;height:686px">
       <h2>REPAIR BAY <small id="repaircount"></small></h2>
       <div id="repairtabs"></div>
       <div id="repairboard"><div class="rb-sub" style="margin-top:20px">Nothing is broken. Long may it last.</div></div>
@@ -69,7 +92,7 @@
   <!-- top bar -->
   <header id="topbar">
     <div class="plate title">THE LAST WATCH <span>· OBSERVATORY OF THE FIFTH ·</span></div>
-    <button id="lookup" class="lookbtn">▲ LOOK UP</button>
+    <div id="lookpair"><button id="lookup" class="lookbtn">▲ LOOK UP</button><button id="lookdown" class="lookbtn">▼ LOOK DOWN</button><button id="pausebtn" class="lookbtn">❚❚ PAUSE</button></div>
     <div id="cabin" class="cabin">
       <div class="cabin-label">COFFEE</div>
       <div id="mug" title="click to drink"><div id="mugfill"></div><div class="steam"></div></div>
@@ -100,7 +123,7 @@
       <div class="offline hidden" id="camoff">NO POWER</div>
     </div>
     <div id="camsel"></div>
-    <div class="hint">Click an iceberg in the view to lock onto it. Turn cameras from the rune board ▲</div>
+    <div class="hint">Click an iceberg in the view to lock onto it. Unlock and turn cameras from CAMERA CONTROL ▲</div>
   </section>
 
   <!-- currents -->
@@ -213,6 +236,14 @@
 
   <div id="fatigue"></div>
   <div id="blink"></div>
+  <div id="pausecard" class="hidden">
+    <div class="wincard">
+      <div class="small">THE WATCH IS PAUSED</div>
+      <h1>PAUSED</h1>
+      <p>The sea holds still until someone resumes.</p>
+      <button id="resume">RESUME THE WATCH</button>
+    </div>
+  </div>
   <div id="winscreen" class="hidden">
     <div class="wincard">
       <div class="small">THE BEACON HAS STRUCK</div>
