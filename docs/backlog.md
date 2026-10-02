@@ -9,12 +9,14 @@ Case board, the echo → metal → radio → Tomb funnel (Hulk circles the Tomb)
 - **Probes**: red = radio relay, orange = metal sensor, blue = ? (decide alongside 4b).
 - Ending card art and the Geryon feed: improve in the art pass.
 
-## Manual redesign (revision 4b)
-- **Keep the current manual and its link.** Build the redesign as a separate page (e.g. manual2.html) linked alongside, so the two can be compared side by side before anything is replaced.
-- Lean into a **submarine operations diagram book**: section codes, FIG. captions, stamps, typewriter layout. Generate every diagram from the game's own numbers.
-- Replace dry tables with things to *read*: a nomogram for the camera levers, a plotted temperature curve for the scanner, a radio spectrum strip, a furnace burn-down chart, a repair wiring schematic.
-- No ciphers (boring, and AI reads them). Role cards: skipped for now.
-- Probes discussion happens alongside 4b.
+## Done in revision 5
+Second-edition diagram manual (manual2.html, US Letter) alongside the first edition; radio via beacons; scanner on the buoy; payload beacons (orange sounding charge, blue drift log); green down to 4; slower aim-quality decay.
+
+## Ideas for later
+- Obra Dinn-style soft confirmation (e.g. a GM-sent "getting warmer" note after correct exclusions).
+- GM difficulty presets (Easy / Standard / Hard lever bundles).
+- Stream legibility pass on small text before the art pass; sound pass alongside the art pass.
+- Decide whether beaconed ice should give a live aim fix (currently aim quality still needs a reading or an orb track).
 
 ## Manual and the four crew (parked)
 - **Role cards** for the four manual holders, each owning part of the loop (e.g. Navigator: chart, currents, aiming; Sonar officer: echo, buoy, shark; Wireless officer: radio; Engineer: scanner, rune board, repairs, camera unlock).

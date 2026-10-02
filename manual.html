@@ -89,9 +89,9 @@
   <p>The Last Watch stands on an island in the middle of the sea. Squares are lettered <span class="gridref">A</span>–<span class="gridref">L</span> across and numbered <span class="gridref">1</span>–<span class="gridref">12</span> down; each is <span data-v="CELL"></span> miles. Call positions by square. The shaded corners are beyond your reach.</p>
   <h3>Beacons</h3>
   <table>
-    <tr><td style="background:#ff4b3a;width:110px"><b>RED</b></td><td rowspan="3">Use as you like (red for ruled out, amber for check again). A shared rack of <span data-t="beaconStock"></span>, rebuilding one every <span data-t="beaconRebuild"></span> seconds.</td></tr>
-    <tr><td style="background:#ffb347"><b>AMBER</b></td></tr>
-    <tr><td style="background:#6fa8ff"><b>BLUE</b></td></tr>
+    <tr><td style="background:#ff4b3a;width:110px"><b>RED</b><br>plain</td><td>A plain marker. A shared rack of <span data-t="beaconStock"></span>, rebuilding one every <span data-t="beaconRebuild"></span> seconds.</td></tr>
+    <tr><td style="background:#ffb347"><b>ORANGE</b><br>sounding charge</td><td>Bursts on impact and prints an echo: fills <b>HOLLOW</b> on the case board <b>without a ping</b>, so the Grindmaw does not hear it. <b><span data-t="orangeStock"></span>, never rebuilt.</b></td></tr>
+    <tr><td style="background:#6fa8ff"><b>BLUE</b><br>drift log</td><td>Records the ice's path from the moment it hits. Select the ice on the case board to see the path as a faint dashed line. <b><span data-t="blueStock"></span>, never rebuilt.</b></td></tr>
     <tr><td style="background:#5cff9d"><b>GREEN<br>"THIS IS ELGARZ"</b></td><td>Only green can end the watch. <b>You have <span data-t="greenStock"></span> and they never rebuild.</b> If green strikes the wrong ice, nothing answers. No light means you were wrong.</td></tr>
   </table>
 </section>
@@ -153,7 +153,7 @@
     <tr><td class="fn">WIPERS</td><td>Clears snow off the orb on screen.</td></tr>
     <tr><td class="fn">WIRELESS</td><td>Turns the cabin wireless on or off. It puts false stations on the radio band (page 7).</td></tr>
     <tr><td class="fn">LAMPS</td><td>Cycles the cabin lighting (page 2).</td></tr>
-    <tr><td class="fn">LAUNCH</td><td>Fires the selected colour at the locked target, at once. <b>Not green.</b> Careful.</td></tr>
+    <tr><td class="fn">LAUNCH</td><td>Fires a plain <b>red</b> beacon at the locked target, at once. Careful.</td></tr>
     <tr><td class="fn">VENT</td><td>Dumps heat from the furnace.</td></tr>
     <tr><td class="fn">BELL</td><td>Rings the bell.</td></tr>
     <tr><td class="fn">NOTHING</td><td>Nothing at all, but it still counts as a press.</td></tr>
@@ -207,7 +207,7 @@
   <h2>The radio</h2>
   <div class="ask"><b>ASK THE OPERATOR FOR:</b> the frequency · the wave shape · the three lamp colours, left to right · is the wireless on?</div>
   <h3><span class="step">1.</span> Tune</h3>
-  <p>The radio is on the <b>overhead deck</b>. It does not listen for transmitters; it picks up the <b>energies the ice gives off</b>. Lock onto an iceberg, slide the <b>frequency</b> along the band and watch the <b>SIGNAL</b> bar. About half the ice gives off something. What it means is up to this book.</p>
+  <p>The radio is on the <b>overhead deck</b>. It does not listen for transmitters; it picks up the <b>energies the ice gives off</b>, and it can only hear them through a <b>beacon lodged in the ice</b>, which amplifies them. <b>Beacon the ice first</b> (any colour), then select it on the case board or lock onto it, slide the <b>frequency</b> along the band and watch the <b>SIGNAL</b> bar. About half the ice gives off something. What it means is up to this book.</p>
   <h3><span class="step">2.</span> Match the gain</h3>
   <p>Move the <b>GAIN</b> until the wave just touches the dashed brass lines; then three lamps flash. Too little and it drowns in static. Too much and the <b>CLIP</b> lamp lights. <b>Leave it clipping and the FUSE bar fills; when it flashes red the fuse is about to blow</b> (repair bay). Distant ice needs more gain.</p>
   <h3><span class="step">3.</span> Is it the cabin wireless?</h3>
@@ -227,7 +227,7 @@
 <section class="page" data-n="8">
   <h2>Setting the metal scanner</h2>
   <div class="ask"><b>ASK THE OPERATOR FOR:</b> the wind (FROM ...) · the SURFACE and DEEP speeds · the WATER temperature · the nine runes on the scanner plate</div>
-  <p>The scanner finds no metal until it is <b>set for the water at the buoy</b>. Press <b>four</b> of the nine runes, one from each house, in order. A wrong press locks the plate for <span data-t="runeLockout"></span> seconds and shuffles the runes.</p>
+  <p>The scanner <b>rides on the buoy</b>: it can only scan locked ice <b>inside the buoy's range</b> (the green circle round the buoy), and it finds nothing until it is <b>set for the water at the buoy</b>. Press <b>four</b> of the nine runes, one from each house, in order. A wrong press locks the plate for <span data-t="runeLockout"></span> seconds and shuffles the runes.</p>
   <div class="warn"><b>The weather keeps changing.</b> When the buoy's readings no longer match the setting for about <span data-t="detuneAfter"></span> seconds (or you move the buoy somewhere different), the scanner <b>drifts out of tune</b> and must be set again.</div>
   <h3><span class="step">1.</span> Wind picks the first house</h3>
   <table>
@@ -244,7 +244,7 @@
     <tr><td>-40° to -25°</td><td>the <b>lightest</b> rune on the plate</td></tr>
     <tr><td>Warmer than -25°</td><td>the <b>second lightest</b> rune on the plate</td></tr>
   </table>
-  <p>Once set, keep a locked target in the green on the needle. When the bar fills: <b>WORKED METAL FOUND</b> or <b>NO METAL</b>.</p>
+  <p>Once set, lock onto ice inside the buoy's range; the <b>BUOY RANGE</b> needle shows how close it is. When the bar fills: <b>WORKED METAL FOUND</b> or <b>NO METAL</b>.</p>
 </section>
 
 <section class="page" data-n="9">
@@ -304,7 +304,7 @@
     <li><b>Lock</b> onto an iceberg and it gets a <b>dim, temporary row</b>.</li>
     <li><b>Hit it with a beacon</b> (any colour) and the row is <b>pinned</b>. Readings taken earlier are kept.</li>
     <li><b>Click a row</b> to lock onto that ice again: from its live position if it carries a beacon, otherwise from where it was last seen.</li>
-    <li>The row of the ice you are locked on <b>glows</b>.</li>
+    <li>The row of the ice you are locked on <b>glows</b>. If it carries a <b>blue</b> beacon, its drift log shows on the chart.</li>
   </ul>
   <table>
     <tr><th>COLUMN</th><th>WHAT IT SHOWS</th></tr>
@@ -331,7 +331,7 @@ document.getElementById('radiotable').innerHTML = '<tr><th>LAMPS (AFTER STEP 4)<
 document.getElementById('boardgrid').innerHTML = '<tr><th>HOUSE</th><th>WEIGHT 1</th><th>WEIGHT 2</th><th>WEIGHT 3</th><th>WEIGHT 4</th></tr>' +
   HOUSES.map(h => `<tr><td>${h.toUpperCase()}</td>${BOARD_GRID[h].map(f => `<td class="fn">${f}</td>`).join('')}</tr>`).join('');
 document.getElementById('gauges').innerHTML = [['LOW', 'L (low)'], ['MIDDLE', 'M (middle)'], ['HIGH', 'H (high)'], ['RED', 'in the red']]
-  .map(([g, t]) => `<div style="text-align:center;font-size:12px">${gaugeSVG(g, '#2a1d0c', '#9c8f70').replace('class="gauge"', 'width="110" height="62"')}<br>${t}</div>`).join('');
+  .map(([g, t]) => `<div style="text-align:center;font-size:12px">${gaugeSVG(g, '#2a1d0c', '#9c8f70').replace('class="gauge"', 'width="110" height="68"')}<br>${t}</div>`).join('');
 const shapeName = { CIRCLE: '● circle', TRIANGLE: '▲ triangle', SQUARE: '■ square' };
 document.getElementById('platetable').innerHTML = '<tr><th>RUNE BOARD PAGE</th><th>FIRST</th><th>SECOND</th><th>THIRD</th></tr>' +
   PLATE_ORDER.map((o, i) => `<tr><td><b>${BOARD_PAGES[i]}</b></td>${o.map(sh => `<td>${shapeName[sh]}</td>`).join('')}</tr>`).join('');

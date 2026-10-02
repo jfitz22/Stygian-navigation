@@ -5,7 +5,7 @@
 A 20-minute observatory minigame for a D&D session in Stygia. One player works the machine on stream; four players hold the Operations Manual and decode what it says. Find Elgarz, prove it, mark it with a green beacon.
 
 - **Play:** `index.html` (add `?seed=1234` to replay a particular sea; without it every watch is a fresh one)
-- **Operations Manual** (print or save as PDF for the four viewers): `manual.html`
+- **Operations Manual** (save as PDF for the crew): `manual.html` (first edition) and `manual2.html` (second edition: the diagram book, US Letter)
 - **GM truth view** (your screen only, passphrase `geryon`): `gm.html`
 - **Design:** [docs/design.md](docs/design.md)
 

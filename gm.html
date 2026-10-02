@@ -38,7 +38,7 @@
   <button id="enter">ENTER</button>
   <div style="color:var(--dim);font-size:12px">Default passphrase: geryon (change it in gm.html)</div>
 </div>
-<header><h1>THE LAST WATCH · GM TRUTH VIEW</h1><span id="status">waiting for the game tab...</span></header>
+<header><h1>THE LAST WATCH · GM TRUTH VIEW</h1><a href="manual.html" target="_blank" style="color:var(--brass)">manual</a> <a href="manual2.html" target="_blank" style="color:var(--brass)">manual · 2nd edition</a><span id="status">waiting for the game tab...</span></header>
 <main>
   <div>
     <div class="tools"><b style="align-self:center;color:var(--brass)">CLICK THE MAP TO:</b>
@@ -127,13 +127,13 @@ document.getElementById('sendnote').onclick = () => {
 const cv = document.getElementById('map'), ctx = cv.getContext('2d');
 const z = cv.width / MAP;
 const fmt = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(Math.floor(s % 60)).padStart(2, '0');
-const COLORS = { red: '#ff4b3a', amber: '#ffb347', green: '#5cff9d', blue: '#6fa8ff' };
+const COLORS = { red: '#ff4b3a', orange: '#ffb347', green: '#5cff9d', blue: '#6fa8ff' };
 const COLS = 'ABCDEFGHIJKL';
 const ref = (x, y) => COLS[Math.max(0, Math.min(11, Math.floor(x / CELL)))] + (Math.max(0, Math.min(11, Math.floor(y / CELL))) + 1);
 const lampName = s => s ? [...s].map(c => ({ R: 'red', W: 'white', B: 'blue' })[c]).join('-') : '';
 ch.onmessage = ev => {
   const s = ev.data && ev.data.snap; if (!s) return;
-  document.getElementById('status').textContent = `seed ${s.seed} · watch ${fmt(s.t)}${s.paused ? ' · PAUSED' : ''}${s.won ? ' · ELGARZ MARKED' : ''} · furnace ${s.furnace.lit ? Math.round(s.furnace.heat) + '°' : 'OUT'}, chute ${s.furnace.chute} · fatigue ${Math.round(s.fatigue * 100)}% · beacons ${s.beacons} + green ${s.green} · scanner ${s.calibrated ? 'calibrated' : 'not calibrated'} · music ${s.music ? 'ON' : 'off'}`;
+  document.getElementById('status').textContent = `seed ${s.seed} · watch ${fmt(s.t)}${s.paused ? ' · PAUSED' : ''}${s.won ? ' · ELGARZ MARKED' : ''} · furnace ${s.furnace.lit ? Math.round(s.furnace.heat) + '°' : 'OUT'}, chute ${s.furnace.chute} · fatigue ${Math.round(s.fatigue * 100)}% · beacons red ${s.beacons} orange ${s.orange} blue ${s.blue} green ${s.green} · scanner ${s.calibrated ? 'calibrated' : 'not calibrated'} · music ${s.music ? 'ON' : 'off'}`;
   document.getElementById('seed').placeholder = `seed (now ${s.seed})`;
   ctx.fillStyle = '#0d1b22'; ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.strokeStyle = 'rgba(160,200,200,.08)';
