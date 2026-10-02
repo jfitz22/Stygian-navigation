@@ -127,6 +127,18 @@ function sharkSetup(seed) {
   deployBuoy(w2, CENTER.x, CENTER.y + 1200);
   for (let i = 0; i < 3000; i++) { step(w2, DT); if (i % 50 === 0) keepFurnace(w2); }
   check(!!w2.buoy, 'A buoy moved away before the Grindmaw arrives survives');
+  const r0 = dist(w2.shark, CENTER), p0 = { x: w2.shark.x, y: w2.shark.y };
+  for (let i = 0; i < 600; i++) { step(w2, DT); if (i % 50 === 0) keepFurnace(w2); }
+  check(w2.shark.mode === 'patrol' && Math.abs(dist(w2.shark, CENTER) - r0) < 5 && dist(w2.shark, p0) > 100, 'With no buoy at the ping, the Grindmaw circles the Watch at that distance');
+  // camera posts disagree about the wind
+  let distinct = 0;
+  for (const seed of SEEDS.slice(0, 20)) {
+    const wc = createWorld(seed); light(wc); for (let i = 0; i < 3000; i++) { keepFurnace(wc); step(wc, DT); }
+    const codes = new Set(wc.cams.map(c => { selectCam(wc, c.id); const k = camCode(wc); return k.wind + k.temp; }));
+    distinct += codes.size;
+  }
+  console.log(`Different lever settings across the 7 cameras: ${(distinct / 20).toFixed(1)} on average`);
+  check(distinct / 20 >= 3, 'Cameras usually need different lever settings');
 }
 
 // ---------- scanner keypad ----------

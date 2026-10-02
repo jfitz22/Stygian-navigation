@@ -68,7 +68,7 @@ export const TUNING = {
   radioReadable: 0.7,      // signal strength needed to read the lamps
   gainWindow: 1.3,         // how far the gain can be off and still read the lamps
   stationGain: 3,          // gain the cabin wireless stations need
-  fuseClip: 6,             // seconds of clipping before the radio fuse blows
+  fuseClip: 12,            // seconds of clipping before the radio fuse blows (a warning shows from halfway)
   // cameras
   camRange: 680,
   camFov: 90 * Math.PI / 180,

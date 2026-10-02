@@ -117,7 +117,8 @@ function makeBoard() {
       rows.push({ gauge, lamp: LAMPS[Math.floor(r() * 4)], set: null });
     }
     // at least two rows must need closing or cutting, and at least one stays open
-  } while (rows.filter(x => correctAction(x) !== 'OPEN').length < 2 || rows.every(x => correctAction(x) !== 'OPEN'));
+    // every board has at least one CUT and at least one CLOSE
+  } while (!rows.some(x => correctAction(x) === 'CUT') || !rows.some(x => correctAction(x) === 'CLOSE'));
   return { rows, lockUntil: 0 };
 }
 // The manual's repair rules: first rule that fits; if none fits, leave it OPEN.
@@ -365,7 +366,7 @@ function drawMap() {
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(s.heading); ctx.fillStyle = '#ff4b3a'; ctx.shadowColor = '#ff4b3a'; ctx.shadowBlur = s.mode === 'roam' ? 4 : 14;
     ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(6, 7); ctx.lineTo(-6, 7); ctx.closePath(); ctx.fill(); ctx.restore();
     ctx.fillStyle = '#ff8a7a'; ctx.font = '600 10px IBM Plex Mono'; ctx.textAlign = 'center';
-    ctx.fillText(s.mode === 'hunt' ? 'THE GRINDMAW · SWIMMING TO THE PING' : s.mode === 'circle' ? 'THE GRINDMAW · CIRCLING' : 'THE GRINDMAW', p.x, p.y + 20); }
+    ctx.fillText(s.mode === 'hunt' ? 'THE GRINDMAW · SWIMMING TO THE PING' : s.mode === 'patrol' ? 'THE GRINDMAW · CIRCLING THE WATCH' : 'THE GRINDMAW', p.x, p.y + 20); }
   // grid labels pinned to the chart edges
   ctx.font = '600 11px IBM Plex Mono'; ctx.fillStyle = 'rgba(232,207,152,.85)';
   ctx.fillStyle = 'rgba(10,20,24,.75)'; ctx.fillRect(0, 0, Wd, 16); ctx.fillRect(0, 0, 20, Ht);
@@ -448,7 +449,13 @@ function drawCamera() {
   ctx.fillStyle = 'rgba(255,255,255,.05)';
   for (let i = 0; i < 300; i++) ctx.fillRect(Math.random() * Wd, Math.random() * Ht, 1, 1);
   ctx.fillStyle = 'rgba(232,207,152,.8)'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'center';
-  for (let k = -40; k <= 40; k += 10) { const x = Wd / 2 + (k * Math.PI / 180 / hf) * Wd / 2; ctx.fillRect(x, 0, 1, 6); ctx.fillText(String((cam.facing + k + 360) % 360).padStart(3, '0'), x, 17); }
+  // bearing tape: fixed marks every 10 degrees that slide as the camera turns
+  for (let b = Math.ceil((cam.facing - 50) / 10) * 10; b <= cam.facing + 50; b += 10) {
+    const x = Wd / 2 + ((b - cam.facing) * Math.PI / 180 / hf) * Wd / 2;
+    if (x < 10 || x > Wd - 10) continue;
+    ctx.fillRect(x, 0, 1, 6); ctx.fillText(String(((b % 360) + 360) % 360).padStart(3, '0'), x, 17);
+  }
+  ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.moveTo(Wd / 2 - 5, 0); ctx.lineTo(Wd / 2 + 5, 0); ctx.lineTo(Wd / 2, 7); ctx.fill(); ctx.fillStyle = 'rgba(232,207,152,.8)';
   ctx.textAlign = 'left'; ctx.fillText('● REC ' + fmt(t), 8, Ht - 8);
   // weather station on the post: what the camera control levers are set from
   { const wx = camWeather(world, cam);
@@ -648,7 +655,10 @@ function drawRadio() {
   if (document.activeElement !== $('gain')) $('gain').value = world.radio.gain;
   $('gainval').textContent = world.radio.gain.toFixed(1);
   $('radiosrc').textContent = world.music ? 'cabin wireless is ON' : 'tuned to the locked target';
-  $('p-radio').classList.toggle('fusehot', world.radio.clipTime > 1.5);
+  const fuse = world.radio.clipTime / T.fuseClip;
+  $('p-radio').classList.toggle('fusehot', fuse > 0.5);
+  $('fusefill').style.width = Math.min(100, fuse * 100) + '%';
+  $('fusemeter').classList.toggle('hot', fuse > 0.5);
   $('strength').style.width = (sig.strength * 100).toFixed(0) + '%';
   $('cliplamp').firstElementChild.className = 'lamp ' + (sig.clip ? 'on' : 'off');
   ctx.fillStyle = 'rgba(3,8,6,.6)'; ctx.fillRect(0, 0, 300, 110);
@@ -667,7 +677,7 @@ function drawRadio() {
     }
     ctx.stroke(); ctx.lineWidth = 1;
     ctx.fillStyle = 'rgba(232,207,152,.7)'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left';
-    ctx.fillText(sig.clip ? (world.radio.clipTime > 1.5 ? 'FUSE HOT · LOWER THE GAIN NOW' : 'CLIPPING · LOWER THE GAIN') : sig.strength > 0.75 && !sig.lamps ? 'MATCH THE GAIN TO THE BRASS LINES' : !lockedBerg(world) && !world.music ? 'NO TARGET LOCKED' : '', 6, 12);
+    ctx.fillText(sig.clip ? (world.radio.clipTime > T.fuseClip * 0.5 ? 'FUSE HOT · LOWER THE GAIN NOW' : 'CLIPPING · LOWER THE GAIN') : sig.strength > 0.75 && !sig.lamps ? 'MATCH THE GAIN TO THE BRASS LINES' : !lockedBerg(world) && !world.music ? 'NO TARGET LOCKED' : '', 6, 12);
     ctx.textAlign = 'right'; ctx.fillText(sig.band, 294, 106);
   }
   const lamps = document.querySelectorAll('#songlamps span');
@@ -848,7 +858,7 @@ function tickerText() {
   items.push(D ? `BUOY ${gridRef(world.readings.x, world.readings.y)}: WIND FROM ${D.windOct} ${D.windKn} KN · WATER ${D.temp}° · SURFACE ${D.surfKn.toFixed(1)} KN · DEEP ${D.deepKn.toFixed(1)} KN` : 'NO BUOY READING · DROP A BUOY AND POWER THE CURRENTS');
   const storms = stormsAt(world, world.t);
   items.push(storms.length ? storms.map(st => 'STORM OVER ' + gridRef(st.x, st.y)).join(' · ') : 'SKIES CLEAR OVER THE FIFTH');
-  items.push(world.shark.mode === 'hunt' ? 'THE GRINDMAW IS SWIMMING FOR ' + gridRef(world.lastPing.x, world.lastPing.y) : 'THE GRINDMAW IS IN ' + gridRef(world.shark.x, world.shark.y));
+  items.push(world.shark.mode === 'hunt' ? 'THE GRINDMAW IS SWIMMING FOR ' + gridRef(world.lastPing.x, world.lastPing.y) : world.shark.mode === 'patrol' ? 'THE GRINDMAW IS CIRCLING THE WATCH, NOW IN ' + gridRef(world.shark.x, world.shark.y) : 'THE GRINDMAW IS IN ' + gridRef(world.shark.x, world.shark.y));
   items.push(`RUNE BOARD PAGE ${BOARD_PAGES[world.board.page]} · FLIPS IN ${Math.max(0, Math.ceil(world.board.nextFlip - world.t))} S`);
   const br = brokenList(world); if (br.length) items.push('BROKEN: ' + br.map(x => x.name).join(', '));
   if (world.fatigue > 0.6) items.push('THE OPERATOR IS NODDING OFF · COFFEE ADVISED');
@@ -947,6 +957,7 @@ function handleEvents() {
       case 'broke': audio.sfx.camdead(); if (e.sys === 'launcher') toast('THE BEACON LAUNCHER JAMMED · REPAIR BAY ▲'); if (e.sys === 'fuse') toast('THE RADIO FUSE BLEW · REPAIR BAY ▲'); if (e.sys === 'winch') toast('THE GRINDMAW TORE THE WINCH CABLE · REPAIR BAY ▲'); if (e.sys === 'furnace') toast('THE GRATE CRACKED · REPAIR BAY ▲'); break;
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
+      case 'fusewarn': audio.sfx.alarm(); toast('RADIO FUSE OVERHEATING · LOWER THE GAIN'); break;
       case 'tracked': audio.sfx.lock(); toast(`CAMERA TRACKING #${e.num} · DRIFT MEASURED · NO BUOY NEEDED`, 'info'); break;
       case 'camunlocked': audio.sfx.calibrated(); toast(camName(e.cam) + ' CAMERA UNLOCKED FOR 2 MINUTES', 'info'); break;
       case 'camfail': audio.sfx.runefail(); break;

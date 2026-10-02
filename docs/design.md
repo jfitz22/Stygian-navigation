@@ -52,9 +52,9 @@ The operator has two views and pans between them with **▲ LOOK UP / ▼ LOOK D
 - **Furnace.** Stoking draws from a fuel chute (4 shovels) that only the FUEL rune fills. Low heat cuts power slots. Overfeeding blows the furnace out and cracks the grate.
 - **Fatigue.** Over about 7 minutes the screens vignette, blur and sway, and the operator blinks off. Coffee (brew, then click the mug) clears it.
 - **Scanner.** A 3×3 rune keypad. Wind picks the first house, deep vs surface speed picks the direction round the wheel, and temperature picks heaviest, lightest or second lightest. The setting drifts out of tune once the buoy's conditions have disagreed with it for 50 s, about 3–5 times a watch.
-- **Radio.** A long slider with a wide, forgiving peak, plus gain matching. Carrier shape transforms the lamps, and band plus lamps give the meaning. The wireless adds three false stations. Clipping for 6 s blows the fuse.
-- **Grindmaw.** Always on the chart. After every ping it swims for the ping spot: fast (9 mi/s) when more than 1.5 squares away, steady (3.5 mi/s) when close. If it finds the buoy there, it eats it and tears the winch.
-- **Breakdowns.** Every breakdown goes through the same repair board: five rows, each a gauge (low/middle/high/red) and a lamp (red/white/blue/dark); rules say what to CLOSE or CUT, otherwise leave it OPEN; every board needs at least two rows changed:
+- **Radio.** A long slider with a wide, forgiving peak, plus gain matching. Carrier shape transforms the lamps, and band plus lamps give the meaning. The wireless adds three false stations. Clipping for 12 s blows the fuse; a FUSE bar flashes from halfway.
+- **Grindmaw.** Always on the chart. After every ping it swims for the ping spot: fast (9 mi/s) when more than 1.5 squares away, steady (3.5 mi/s) when close. If it finds the buoy there, it eats it and tears the winch; either way it then circles the Watch at that distance until the next ping.
+- **Breakdowns.** Every breakdown goes through the same repair board: five rows, each a gauge (low/middle/high/red) and a lamp (red/white/blue/dark); rules say what to CLOSE or CUT, otherwise leave it OPEN; every board has at least one CUT and one CLOSE:
   - cameras (remorhazes, now faster)
   - the furnace grate (blowout)
   - the launcher (jams every 4–7 shots)

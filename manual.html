@@ -166,7 +166,7 @@
     <li>Every echo also draws <b>current arrows</b> round the buoy for a while: <b style="color:#6a4fc9">purple for DEEP</b>, <b style="color:#2a8fc0">blue for SURFACE</b>.</li>
   </ol>
   <h3>The Grindmaw</h3>
-  <p>A colossal Styx shark, always on the chart. <b>Every ping calls it</b> to the spot where you pinged. While it is far away it races; within about one and a half squares it slows to a steady swim. If the buoy is still there when it arrives, it <b>eats the buoy and tears the winch cable</b>. Repair the <b>buoy winch</b> before you can launch another buoy. <b>Ping, then move the buoy.</b></p>
+  <p>A colossal Styx shark, always on the chart. <b>Every ping calls it</b> to the spot where you pinged. While it is far away it races; within about one and a half squares it slows to a steady swim. If the buoy is still there when it arrives, it <b>eats the buoy and tears the winch cable</b>. Repair the <b>buoy winch</b> before you can launch another buoy. Once it reaches the spot, it <b>circles the Last Watch</b> at that distance until the next ping, so watch for it crossing your buoy. <b>Ping, then move the buoy.</b></p>
   <h3>Reading the echo printout</h3>
   <p>Ignore the first <b>tall spike</b> (the surface). Count the rounded <b>bumps</b> after it, then look at the <b>tail</b>.</p>
   <svg class="trace" viewBox="0 0 400 70"><polyline fill="none" stroke="#2a1d0c" stroke-width="2" points="0,60 30,60 40,8 50,60 400,60"/><text x="120" y="40" font-size="13" font-family="IBM Plex Mono">no bumps · flat: SOLID</text></svg>
@@ -203,7 +203,7 @@
   <h3><span class="step">1.</span> Tune</h3>
   <p>The radio is on the <b>overhead deck</b>. Lock onto an iceberg. Slide the <b>frequency</b> along the band and watch the <b>SIGNAL</b> bar. About half the ice makes some sound.</p>
   <h3><span class="step">2.</span> Match the gain</h3>
-  <p>Move the <b>GAIN</b> until the wave just touches the dashed brass lines; then three lamps flash. Too little and it drowns in static. Too much and the <b>CLIP</b> lamp lights. <b>Leave it clipping for a few seconds and the fuse blows</b> (repair bay). Distant ice needs more gain.</p>
+  <p>Move the <b>GAIN</b> until the wave just touches the dashed brass lines; then three lamps flash. Too little and it drowns in static. Too much and the <b>CLIP</b> lamp lights. <b>Leave it clipping and the FUSE bar fills; when it flashes red the fuse is about to blow</b> (repair bay). Distant ice needs more gain.</p>
   <h3><span class="step">3.</span> Is it the cabin wireless?</h3>
   <div class="warn">While the <b>WIRELESS</b> rune has it playing, <b>three stations from Dis</b> are on the band. They sound just like ice, and one sounds like the Triad. <b>Turn the wireless off. If the signal stays, it is real.</b></div>
   <h3><span class="step">4.</span> Read the lamps by the wave shape</h3>
@@ -259,7 +259,7 @@
     <tr><td><b>WIND</b> (WIND on the camera feed)</td><td>under 30 kn</td><td>30 to 38 kn</td><td>over 38 kn</td></tr>
     <tr><td><b>TEMP</b> (AIR on the camera feed)</td><td>colder than -40°</td><td>-40° to -25°</td><td>warmer than -25°</td></tr>
   </table>
-  <p>Every camera post has its own weather station, so each camera can need different lever settings. No buoy needed.</p>
+  <p>Every camera post has its own weather station and its own gusts, so <b>each camera usually needs different lever settings</b>, and they change as the weather moves. No buoy needed.</p>
   <h3><span class="step">2.</span> Press the servo plates in order</h3>
   <table id="platetable"></table>
   <p>Wrong code: the servos reset for a few seconds. Try again.</p>
@@ -277,7 +277,7 @@
   <div class="ask"><b>ASK THE OPERATOR FOR:</b> what is broken · for each of the five rows: which section the gauge needle is in (L, M, H or the red) and the colour of the lamp</div>
   <p>Cameras, the <b>furnace grate</b>, the <b>beacon launcher</b>, the <b>buoy winch</b> and the <b>radio fuse</b> can all break. Pick the broken thing in the repair bay. Each of its five rows has a <b>gauge</b> and a <b>lamp</b> (RED, WHITE, BLUE, or DARK). The gauge is split by tick marks into four sections:</p>
   <div id="gauges" style="display:flex;gap:18px;justify-content:center;margin:6px 0 10px"></div>
-  <p>Set each row to OPEN, CLOSE or CUT. For each row use the <b>first rule that fits</b>. <b>If no rule fits, leave it OPEN.</b></p>
+  <p>Set each row to OPEN, CLOSE or CUT. For each row use the <b>first rule that fits</b>. <b>If no rule fits, leave it OPEN.</b> Every board has at least one row to CUT and one to CLOSE.</p>
   <table>
     <tr><th>#</th><th>IF THE ROW SHOWS</th><th>SET IT TO</th></tr>
     <tr><td>1</td><td>the needle is in the <b>RED</b></td><td><b>CUT</b></td></tr>

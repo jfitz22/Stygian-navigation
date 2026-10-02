@@ -729,7 +729,9 @@ export function step(w, dt = DT) {
   // radio fuse
   if (isUp(w, 'radio')) {
     const sig = radioSignal(w);
+    const was = w.radio.clipTime;
     w.radio.clipTime = sig.clip ? w.radio.clipTime + dt : Math.max(0, w.radio.clipTime - dt * 2);
+    if (was < T.fuseClip * 0.5 && w.radio.clipTime >= T.fuseClip * 0.5) emit(w, 'fusewarn');
     if (w.radio.clipTime >= T.fuseClip) { w.broken.fuse = true; w.radio.clipTime = 0; emit(w, 'broke', { sys: 'fuse' }); }
   }
 
@@ -762,7 +764,7 @@ export function step(w, dt = DT) {
 
   // the Grindmaw: always swims toward the latest ping, fast when far away
   const sh = w.shark;
-  if (w.lastPing) {
+  if (w.lastPing && !w.lastPing.reached) {
     const tg = w.lastPing, d = dist(sh, tg);
     if (d > 4) {
       sh.mode = 'hunt';
@@ -771,11 +773,18 @@ export function step(w, dt = DT) {
       const k = Math.min(d, speed * dt);
       sh.x += (tg.x - sh.x) / d * k; sh.y += (tg.y - sh.y) / d * k;
     } else {
-      sh.mode = 'circle';
-      sh.heading += 0.35 * dt;
-      sh.x += Math.sin(sh.heading) * 1.2 * dt; sh.y -= Math.cos(sh.heading) * 1.2 * dt;
+      // reached the ping: from here it circles the Last Watch at this distance until the next ping
+      tg.reached = true;
+      sh.patrolR = clamp(dist(sh, CENTER), 320, REACH * 0.9);
     }
-  } else {
+  }
+  if (w.lastPing && w.lastPing.reached) {
+    sh.mode = 'patrol';
+    const a = Math.atan2(sh.y - CENTER.y, sh.x - CENTER.x) + T.sharkSpeed * w.levers.shark / sh.patrolR * dt;
+    const nx = CENTER.x + Math.cos(a) * sh.patrolR, ny = CENTER.y + Math.sin(a) * sh.patrolR;
+    sh.heading = Math.atan2(nx - sh.x, -(ny - sh.y));
+    sh.x = nx; sh.y = ny;
+  } else if (!w.lastPing) {
     sh.mode = 'roam';
     sh.heading += Math.sin(t / 23) * 0.08 * dt;
     sh.x += Math.sin(sh.heading) * T.sharkRoamSpeed * dt; sh.y -= Math.cos(sh.heading) * T.sharkRoamSpeed * dt;
@@ -825,7 +834,9 @@ export const camIsUnlocked = (w, id) => !!w.camUnlocked[id];
 // The weather readout on a camera's feed: wind speed and the air temperature at that post.
 export function camWeather(w, cam) {
   const wi = windAt(w.t, w.field);
-  return { windKn: Math.round(wi.speed * 3.4), windOct: octantName(wi.from), air: Math.round(tempAt(cam.x, cam.y, w.t, w.field, w.tomb) - 4) };
+  // each post sits in its own gusts: the wind there differs from post to post and drifts over time
+  const local = 9 * Math.sin(cam.x / 410 + cam.y / 530 + w.field.windPh) + 6 * Math.sin(w.t / 75 + cam.x / 290 - cam.y / 370);
+  return { windKn: Math.round(wi.speed * 3.4 + local), windOct: octantName(wi.from), air: Math.round(tempAt(cam.x, cam.y, w.t, w.field, w.tomb) - 4) };
 }
 export function setCamTurn(w, dir) { w.camTurn = dir; }
 export function camCode(w) {
