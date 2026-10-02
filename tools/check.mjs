@@ -3,6 +3,7 @@ import {
   createWorld, step, light, stoke, dist, snapshot, setPower, deployBuoy, ping, lockContact, setDrift, fireBeacon,
   countSightings, camSees, snowAt, slotsAvailable, pressKey, readingDisplay, radioSignal, setFreq, setGain, gainFor, setMusic, lockOn, DT,
   pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip, camCode, setLever, pressPlate, setCamTurn, camIsUnlocked, selectCam, gm,
+  relockCase, setVerdict, isUp,
 } from '../src/sim.js';
 import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RADIO_TABLE, BOARD_GRID } from '../src/scenario.js';
 import { keypadCode, RUNES } from '../src/glyphs.js';
@@ -22,6 +23,7 @@ function run(seed, seconds, each) {
 
 // ---------- world-level properties per seed ----------
 const stats = { spawnT: [], sightings: [], firstSight: [], minTomb: [], tombMove: [], medianPath: [], ruledOut: [], outOfReach: [], transmit: [], stormHits: [] };
+let triadNoMetal = 0, triadNotHollow = 0;
 let elgarzLeft = 0, triadOthers = 0, fullMatch = 0, hulkInRing = 0, oneSign = [], hollowShare = [];
 for (const seed of SEEDS) {
   const w0 = createWorld(seed);
@@ -30,10 +32,12 @@ for (const seed of SEEDS) {
   triadOthers += ice0.filter(b => !b.elgarz && triad(b)).length;
   fullMatch += ice0.filter(b => !b.elgarz && !b.tombDrawn && b.hollow && b.metal && triad(b)).length;
   oneSign.push(ice0.filter(b => !b.elgarz && (b.metal || triad(b))).length);
+  if (ice0.some(b => triad(b) && !b.metal)) triadNoMetal++;
+  if (ice0.some(b => triad(b) && !b.hollow)) triadNotHollow++;
   hollowShare.push(ice0.filter(b => b.hollow).length / ice0.length);
   const track = [], tomb0 = { ...w0.tomb };
   const start = {}, path = {}, prev = {}, entered = new Set();
-  let spawnT = null, tombPath = 0, tombPrev = null;
+  let spawnT = null, tombPath = 0, tombPrev = null, hulkMax = 0;
   const w = run(seed, 1200, (w, i) => {
     const e = w.bergs.find(b => b.elgarz);
     if (e && spawnT == null) spawnT = w.t;
@@ -44,7 +48,7 @@ for (const seed of SEEDS) {
         if (prev[b.id]) path[b.id] = (path[b.id] || 0) + dist(b, prev[b.id]);
         prev[b.id] = { x: b.x, y: b.y };
         if (!b.elgarz && dist(b, w.tomb) < TOMB_RADIUS) entered.add(b.id);
-        if (b.tombDrawn && dist(b, w.tomb) < TOMB_RADIUS && !entered.has('hulk!')) { entered.add('hulk!'); }
+        if (b.tombDrawn) hulkMax = Math.max(hulkMax, dist(b, w.tomb));
       }
     }
   });
@@ -56,10 +60,10 @@ for (const seed of SEEDS) {
   stats.tombMove.push(tombPath);
   const paths = Object.values(path).sort((a, b) => a - b);
   stats.medianPath.push(paths[Math.floor(paths.length / 2)]);
-  if (entered.has('hulk!')) { hulkInRing++; entered.delete('hulk!'); }
+  if (hulkMax < TOMB_RADIUS) hulkInRing++;
   stats.ruledOut.push(entered.size);
   stats.outOfReach.push(w.bergs.filter(b => dist(b, CENTER) > REACH).length);
-  stats.stormHits.push(w.storms.filter(st => { for (let t = st.t0; t < st.t1; t += 5) if (snowAt(w, CAMERAS.find(c => c.id === st.cam).x, CAMERAS.find(c => c.id === st.cam).y, t) > 0.5) return true; return false; }).length);
+  { const early = w.storms.filter(st => st.t1 < 1200); const hit = early.filter(st => { for (let t = st.t0; t < st.t1; t += 5) if (snowAt(w, CAMERAS.find(c => c.id === st.cam).x, CAMERAS.find(c => c.id === st.cam).y, t) > 0.5) return true; return false; }).length; stats.stormHits.push(hit === early.length ? hit : -1); }
 }
 const lo = a => Math.min(...a).toFixed(0), hi = a => Math.max(...a).toFixed(0), av = a => mean(a).toFixed(1);
 console.log(`Seeds: ${SEEDS.length}`);
@@ -81,11 +85,12 @@ check(stats.transmit.every(x => x >= 1 / 3), 'At least a third of the ice transm
 console.log(`Decoys singing the Triad: ${(triadOthers / SEEDS.length).toFixed(1)} per seed · ice with metal or the Triad: ${lo(oneSign)}-${hi(oneSign)}`);
 check(triadOthers / SEEDS.length >= 3, 'Several decoys also sing the Triad, so the radio alone proves nothing');
 check(fullMatch === 0, 'No decoy except the Gilded Hulk is hollow, metal and Triad');
-check(hulkInRing >= SEEDS.length * 0.8, `The Gilded Hulk is drawn into the Tomb ring (${hulkInRing}/${SEEDS.length} seeds)`);
+check(hulkInRing === SEEDS.length, `The Gilded Hulk stays inside the Tomb ring all watch (${hulkInRing}/${SEEDS.length} seeds)`);
+check(triadNoMetal === SEEDS.length && triadNotHollow === SEEDS.length, 'Every seed has Triad ice without metal and Triad ice that is not hollow');
 check(Math.min(...oneSign) >= 12, 'Plenty of ice shows metal or the Triad, not just the echo');
 console.log(`Share of ice that rings hollow: ${pct(Math.min(...hollowShare), 1)}-${pct(Math.max(...hollowShare), 1)}`);
 check(mean(hollowShare) > 0.28 && mean(hollowShare) < 0.4, 'About a third of all ice rings hollow');
-check(stats.stormHits.every(n => n === 5), 'Five storms per watch, each whiting out the camera it is aimed at');
+check(stats.stormHits.every(n => n >= 5), 'At least five storms in twenty minutes, each whiting out the orb it is aimed at');
 
 // ---------- determinism ----------
 const a = run(4321, 300), b = run(4321, 300);
@@ -266,6 +271,62 @@ function sharkSetup(seed) {
   for (let i = 0; i < 600; i++) { step(w, DT); }
   const stale = aimQuality(w).q;
   check(dist(w.lock, b) < 200 && fresh >= 80 && stale < fresh, `Aim quality is high for a fresh close fix and falls as it ages (${fresh} -> ${stale})`);
+}
+
+// ---------- case board ----------
+{
+  const w = createWorld(21); light(w); ['sonar', 'currents', 'radio'].forEach(s => setPower(w, s, true));
+  for (let i = 0; i < 20; i++) step(w, DT);
+  const b = w.bergs.find(b => b.radio && b.large && dist(b, CENTER) < 1300);
+  deployBuoy(w, b.x + 20, b.y); for (let i = 0; i < 60; i++) step(w, DT); ping(w); for (let i = 0; i < 60; i++) step(w, DT);
+  lockContact(w, w.contacts.find(c => c.bergId === b.id));
+  check(w.cases.length === 1 && !w.cases[0].permanent && w.obs[b.id].hollow === b.hollow, 'Locking ice from sonar puts it on the case board (temporarily) with its HOLLOW reading');
+  setDrift(w, 'deep'); fireBeacon(w, 'red'); for (let i = 0; i < 150; i++) step(w, DT);
+  check(w.cases[0].permanent, 'A beacon hit pins the ice to the case board');
+  const other = w.bergs.find(x => x.id !== b.id); lockOn(w, other.id, other.x, other.y, w.t, 'camera');
+  check(w.cases.length === 2 && w.cases.filter(c => !c.permanent).length === 1, 'Locking other ice adds one temporary row');
+  const other2 = w.bergs.find(x => x.id !== b.id && x.id !== other.id); lockOn(w, other2.id, other2.x, other2.y, w.t, 'camera');
+  check(w.cases.length === 2, 'Only the ice you are locked on keeps a temporary row');
+  relockCase(w, b.id);
+  check(w.lock.bergId === b.id && w.lock.source === 'beacon' && dist(w.lock, b) < 1, 'A beaconed row re-locks from its live position');
+  setFreq(w, b.radio.freq); setGain(w, gainFor(dist(b, OBSERVATORY))); for (let i = 0; i < 10; i++) step(w, DT);
+  check(w.obs[b.id].radio && w.obs[b.id].radio.shown === b.radio.shown, 'Reading the radio records the signal on the case board');
+  for (let f = 100; f <= 1000; f += 10) { setFreq(w, f); relockCase(w, b.id); step(w, DT); }
+  check(w.obs[b.id].swept, 'Sweeping the whole band marks the radio SWEPT');
+  setVerdict(w, b.id, 'EXCLUDED'); check(w.cases.find(c => c.bergId === b.id).verdict === 'EXCLUDED', 'Verdicts can be set');
+  setVerdict(w, b.id, '?'); check(w.cases.find(c => c.bergId === b.id).verdict === '?', '...and undone');
+  const w2 = createWorld(22); light(w2);
+  check(Object.values(w2.checklist).every(v => !v), 'The startup checklist starts empty');
+  setPower(w2, 'sonar', true); for (let i = 0; i < 20; i++) step(w2, DT); deployBuoy(w2, CENTER.x + 300, CENTER.y); for (let i = 0; i < 50; i++) step(w2, DT); ping(w2);
+  check(w2.checklist.sonar && w2.checklist.buoy && w2.checklist.ping, 'The checklist ticks itself off');
+}
+
+// ---------- Old Tom ----------
+{
+  const w = createWorld(31); light(w); setPower(w, 'sonar', true);
+  for (let i = 0; i < 5900; i++) { keepFurnace(w); step(w, DT); }
+  check(w.tom.mode === 'asleep', 'Old Tom sleeps for the first ten minutes');
+  for (let i = 0; i < 200; i++) { keepFurnace(w); step(w, DT); }
+  check(w.tom.mode !== 'asleep', 'Old Tom wakes after ten minutes');
+  w.tom.x = CENTER.x + 1400; w.tom.y = CENTER.y;
+  if (!isUp(w, 'sonar')) setPower(w, 'sonar', true); for (let i = 0; i < 30; i++) step(w, DT);
+  w.broken.winch = false; w.buoyRebuildAt = 0; deployBuoy(w, CENTER.x - 500, CENTER.y);
+  const d0 = dist(w.tom, w.buoy); for (let i = 0; i < 100; i++) { keepFurnace(w); step(w, DT); }
+  check(w.tom.mode === 'hunt' && dist(w.tom, w.buoy) < d0 - 50, 'Old Tom swims for the buoy splashdown');
+  for (let i = 0; i < 3000 && w.buoy; i++) { keepFurnace(w); step(w, DT); }
+  check(!w.buoy, 'Old Tom eats a buoy left at the splashdown');
+  const a0 = Math.atan2(w.tom.y - CENTER.y, w.tom.x - CENTER.x); for (let i = 0; i < 100; i++) { keepFurnace(w); step(w, DT); }
+  let da = Math.atan2(w.tom.y - CENTER.y, w.tom.x - CENTER.x) - a0; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+  check(w.tom.mode === 'patrol' && da < 0, 'Then Old Tom circles the Watch the opposite way to the Grindmaw');
+}
+
+// ---------- a long watch ----------
+{
+  const w = createWorld(41); light(w); ['sonar', 'currents', 'cameras'].forEach(s => setPower(w, s, true));
+  let ok = true, snowLate = false;
+  try { for (let i = 0; i < 24000; i++) { keepFurnace(w); step(w, DT); if (w.t > 1300 && w.cams.some(c => snowAt(w, c.x, c.y, w.t) > 0.5)) snowLate = true; if (i % 900 === 0 && isUp(w, 'sonar') && w.buoy) ping(w); } } catch (e) { ok = false; console.log(e); }
+  check(ok && w.t > 2399, 'A 40-minute watch runs without errors');
+  check(snowLate, 'Storms keep coming after twenty minutes');
 }
 
 // ---------- camera tracking: hit without a buoy ----------

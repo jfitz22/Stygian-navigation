@@ -2,7 +2,7 @@ import {
   createWorld, newSeed, step, light, stoke, slotsAvailable, setPower, isUp, selectCam, deployBuoy, ping, lockContact, lockFromCamera,
   setDrift, ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
-  pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather,
+  pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
 } from './sim.js';
 import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES } from './scenario.js';
 import { glyphSVG, gaugeSVG } from './glyphs.js';
@@ -84,7 +84,7 @@ addEventListener('keydown', e => { if ((e.key === 'm' || e.key === 'M') && e.tar
 $('ignite').onclick = () => light(world);
 $('mug').onclick = () => sip(world);
 $('stoke').onclick = () => stoke(world);
-const SYS_LABEL = { cameras: 'CAMERAS', sonar: 'SONAR', radio: 'RADIO', scanner: 'SCANNER', currents: 'CURRENTS' };
+const SYS_LABEL = { cameras: 'ORBS', sonar: 'SONAR', radio: 'RADIO', scanner: 'SCANNER', currents: 'CURRENTS' };
 for (const s of SYSTEMS) {
   const d = document.createElement('div'); d.className = 'sw'; d.id = 'sw-' + s;
   d.innerHTML = `<div class="lamp"></div><div class="slot"><div class="knob"></div></div><div>${SYS_LABEL[s]}</div>`;
@@ -328,14 +328,16 @@ function drawMap() {
     ctx.setLineDash([5, 4]); ctx.strokeStyle = '#f4f1e6'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(pg.x, pg.y, rr, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pg.x - 6, pg.y); ctx.lineTo(pg.x + 6, pg.y); ctx.moveTo(pg.x, pg.y - 6); ctx.lineTo(pg.x, pg.y + 6); ctx.stroke();
     ctx.strokeStyle = '#ffb347'; ctx.beginPath(); ctx.moveTo(p0.x - 4, p0.y - 4); ctx.lineTo(p0.x + 4, p0.y + 4); ctx.moveTo(p0.x + 4, p0.y - 4); ctx.lineTo(p0.x - 4, p0.y + 4); ctx.stroke();
-    ctx.fillStyle = '#f4f1e6'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText(`PREDICTED (${aq.tracked ? 'CAMERA TRACK' : world.drift.toUpperCase()}) · ${gridRef(g.x, g.y)} · AIM ${aq.q}%`, pg.x + rr + 4, pg.y - 4);
+    ctx.fillStyle = '#f4f1e6'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText(`PREDICTED (${aq.tracked ? 'ORB TRACK' : world.drift.toUpperCase()}) · ${gridRef(g.x, g.y)} · AIM ${aq.q}%`, pg.x + rr + 4, pg.y - 4);
   }
-  // tagged bergs (live)
+  // tagged bergs (live); excluded ones dim
   for (const b of world.bergs) {
     if (!b.tag) continue;
-    const p = W2S(b.x, b.y), col = COLORS[b.tag];
-    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.PI / 4); ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 10; ctx.fillRect(-5, -5, 10, 10); ctx.restore();
-    ctx.fillStyle = col; ctx.font = '600 11px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText('#' + b.num, p.x + 9, p.y + 4);
+    const p = W2S(b.x, b.y), col = COLORS[b.tag], row = world.cases.find(c => c.bergId === b.id), ex = row && row.verdict === 'EXCLUDED';
+    ctx.globalAlpha = ex ? 0.3 : 1;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.PI / 4); ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = ex ? 0 : 10; ctx.fillRect(-4, -4, 8, 8); ctx.restore();
+    ctx.fillStyle = 'rgba(232,226,208,.55)'; ctx.font = '9px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText('#' + b.num, p.x + 7, p.y + 3);
+    ctx.globalAlpha = 1;
   }
   // the blue light of Coldsteel
   if (world.reveal) {
@@ -367,6 +369,15 @@ function drawMap() {
     ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(6, 7); ctx.lineTo(-6, 7); ctx.closePath(); ctx.fill(); ctx.restore();
     ctx.fillStyle = '#ff8a7a'; ctx.font = '600 10px IBM Plex Mono'; ctx.textAlign = 'center';
     ctx.fillText(s.mode === 'hunt' ? 'THE GRINDMAW · SWIMMING TO THE PING' : s.mode === 'patrol' ? 'THE GRINDMAW · CIRCLING THE WATCH' : 'THE GRINDMAW', p.x, p.y + 20); }
+  // Old Tom
+  if (world.tom.mode !== 'asleep') {
+    const s = world.tom, p = W2S(s.x, s.y);
+    if (s.mode === 'hunt' && s.target) { const q = W2S(s.target.x, s.target.y); ctx.strokeStyle = 'rgba(255,122,42,.55)'; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(s.heading); ctx.fillStyle = '#ff7a2a'; ctx.shadowColor = '#ff7a2a'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(7, 4); ctx.lineTo(0, 9); ctx.lineTo(-7, 4); ctx.closePath(); ctx.fill(); ctx.restore();
+    ctx.fillStyle = '#ffae7a'; ctx.font = '600 10px IBM Plex Mono'; ctx.textAlign = 'center';
+    ctx.fillText(s.mode === 'hunt' ? 'OLD TOM · SWIMMING TO THE SPLASH' : 'OLD TOM · CIRCLING THE WATCH', p.x, p.y + 21);
+  }
   // grid labels pinned to the chart edges
   ctx.font = '600 11px IBM Plex Mono'; ctx.fillStyle = 'rgba(232,207,152,.85)';
   ctx.fillStyle = 'rgba(10,20,24,.75)'; ctx.fillRect(0, 0, Wd, 16); ctx.fillRect(0, 0, 20, Ht);
@@ -436,7 +447,8 @@ function drawCamera() {
       ctx.moveTo(x0 - 6, base - 4); ctx.lineTo(x0 - 6, base + 6); ctx.lineTo(x0 + 4, base + 6); ctx.moveTo(x1 - 4, base + 6); ctx.lineTo(x1 + 6, base + 6); ctx.lineTo(x1 + 6, base - 4); ctx.stroke(); ctx.lineWidth = 1;
       ctx.fillStyle = '#ffb347'; ctx.font = '11px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText('LOCKED', x0 + width / 2, yy - 4);
     }
-    if (b.tag) { ctx.fillStyle = COLORS[b.tag]; ctx.shadowColor = COLORS[b.tag]; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(x0 + width / 2, base - hScale * 0.6, 3 + (1 - fog) * 3, 0, 7); ctx.fill(); ctx.shadowBlur = 0; }
+    if (world.cases.some(c => c.bergId === b.id && c.permanent) || (world.lock && world.lock.bergId === b.id)) { ctx.fillStyle = 'rgba(232,226,208,.6)'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText('#' + b.num, x0 + width / 2, base + 14); }
+    if (b.tag) { const row = world.cases.find(c => c.bergId === b.id); ctx.globalAlpha = row && row.verdict === 'EXCLUDED' ? 0.3 : 1; ctx.fillStyle = COLORS[b.tag]; ctx.shadowColor = COLORS[b.tag]; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(x0 + width / 2, base - hScale * 0.6, 3 + (1 - fog) * 3, 0, 7); ctx.fill(); ctx.shadowBlur = 0; ctx.globalAlpha = 1; }
   }
   const wiped = world.wipe && world.wipe.cam === cam.id && t < world.wipe.until;
   const snow = Math.max(0, snowAt(world, cam.x, cam.y, t) - (wiped ? 0.8 : 0));
@@ -603,6 +615,11 @@ function drawSonar() {
     ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
     if (ui.selected === c.id) { ctx.strokeStyle = '#ffb347'; ctx.beginPath(); ctx.arc(q.x, q.y, r + 5, 0, 7); ctx.stroke(); }
   }
+  if (world.tom.mode !== 'asleep' && dist(world.tom, world.buoy) < T.buoyRadius) {
+    const q = sonarXY(world.tom.x, world.tom.y);
+    ctx.fillStyle = `rgba(255,122,42,${0.6 + 0.4 * Math.sin(t * 5)})`; ctx.beginPath(); ctx.arc(q.x, q.y, 6, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ffae7a'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText('OLD TOM', q.x, q.y - 10);
+  }
   if (dist(world.shark, world.buoy) < T.buoyRadius) {
     const q = sonarXY(world.shark.x, world.shark.y);
     ctx.fillStyle = `rgba(255,75,58,${0.6 + 0.4 * Math.sin(t * 6)})`; ctx.shadowColor = '#ff4b3a'; ctx.shadowBlur = 12;
@@ -747,33 +764,33 @@ function drawLock() {
   const l = world.lock, b = lockedBerg(world), aq = aimQuality(world);
   $('locknum').textContent = $('locknum2').textContent = b ? '#' + b.num : '--';
   const g = l && ghostAt(world, world.t);
-  $('lockinfo').innerHTML = !l ? 'No lock. Click a sonar contact or an iceberg on camera.' :
+  $('lockinfo').innerHTML = !l ? 'No lock. Click a sonar contact or an iceberg in a scrying orb.' :
     `Fix from <b>${l.source.toUpperCase()}</b>, <b>${ago(world.t - l.t0)}</b><br>Predicted in <b>${gridRef(g.x, g.y)}</b>${b.tag ? ` · tagged <b style="color:${COLORS[b.tag]}">${b.tag.toUpperCase()}</b>` : ''}`;
   document.querySelectorAll('#drift button').forEach(x => x.classList.toggle('sel', x.dataset.v === world.drift));
   const r = world.readings;
-  $('driftinfo').innerHTML = aq && aq.tracked ? `<b style="color:var(--phos)">CAMERA TRACK</b>: using the drift the ${camName(aq.cam)} camera measured ${ago(aq.trackAge)}. The drift switch is not used.` : !r ? 'No current reading yet. The prediction will not move. Track the ice on a camera, or read the current with a buoy.' : `Predicting with the <b>${world.drift.toUpperCase()}</b> current read at ${gridRef(r.x, r.y)}, ${ago(world.t - r.t)}.`;
+  $('driftinfo').innerHTML = aq && aq.tracked ? `<b style="color:var(--phos)">ORB TRACK</b>: using the drift the ${camName(aq.cam)} orb measured ${ago(aq.trackAge)}. The drift switch is not used.` : !r ? 'No current reading yet. The prediction will not move. Track the ice in an orb, or read the current with a buoy.' : `Predicting with the <b>${world.drift.toUpperCase()}</b> current read at ${gridRef(r.x, r.y)}, ${ago(world.t - r.t)}.`;
   const q = aq ? aq.q : null;
   $('aimnum').textContent = $('aimnum2').textContent = q == null ? '--' : q + '%';
   $('aimlamp').className = $('aimlamp2').className = 'lamp ' + lampClass(q);
   // advice pop-up when aim quality is low
   let tip = '';
   if (aq && q < 50) {
-    if (aq.tracked) tip = aq.fFix < aq.fTrack ? '<b>Low aim quality.</b> The fix is old. Bring the ice back into a camera view to refresh it.' : '<b>Low aim quality.</b> The camera lost sight of the ice a while ago. Find it on a camera again.';
-    else if (!world.buoy || !world.power.currents.on) tip = '<b>Low aim quality.</b> Switch on <b>CURRENTS</b> with a buoy in the water, or <b>track the ice on a camera</b> for a few seconds.';
+    if (aq.tracked) tip = aq.fFix < aq.fTrack ? '<b>Low aim quality.</b> The fix is old. Bring the ice back into an orb\'s view to refresh it.' : '<b>Low aim quality.</b> The orb lost sight of the ice a while ago. Find it in an orb again.';
+    else if (!world.buoy || !world.power.currents.on) tip = '<b>Low aim quality.</b> Switch on <b>CURRENTS</b> with a buoy in the water, or <b>track the ice in a scrying orb</b> for a few seconds.';
     else if (aq.readAge == null) tip = '<b>Low aim quality.</b> Waiting for the first current reading from the buoy.';
     else if (aq.fDist < 0.5) tip = '<b>Low aim quality.</b> The current was read far from the target. Drop the buoy right next to it.';
     else if (aq.fRead < 0.5) tip = '<b>Low aim quality.</b> The current reading is old. Keep <b>CURRENTS</b> powered.';
-    else tip = '<b>Low aim quality.</b> The fix is old. Ping again or click the ice on camera to re-lock.';
+    else tip = '<b>Low aim quality.</b> The fix is old. Ping again or click the ice in an orb to re-lock.';
   }
   for (const id of ['aimtip', 'aimtip2']) { const el = $(id); el.classList.toggle('hidden', !tip); if (el.innerHTML !== tip) el.innerHTML = tip; }
   $('aimfactors').innerHTML = !aq ? '<div class="note2">Lock onto an iceberg to aim.</div>' :
     factorRow('FIX AGE', Math.round(aq.fixAge) + ' s', aq.fFix) +
     (aq.tracked
       ? factorRow('CAMERA TRACK (' + camName(aq.cam) + ')', Math.round(aq.trackAge) + ' s ago', aq.fTrack) +
-        `<div class="note2"><b style="color:var(--phos)">Drift measured by camera.</b> No buoy needed and the drift switch is not used. Flight time about ${Math.round(aq.flight)} s.</div>`
+        `<div class="note2"><b style="color:var(--phos)">Drift measured by the orb.</b> No buoy needed and the drift switch is not used. Flight time about ${Math.round(aq.flight)} s.</div>`
       : factorRow('CURRENT READING AGE', aq.readAge == null ? 'none' : Math.round(aq.readAge) + ' s', aq.fRead) +
         factorRow('READING TAKEN FROM TARGET', aq.readDist == null ? 'none' : Math.round(aq.readDist) + ' mi', aq.fDist) +
-        `<div class="note2">Drift switch: <b>${aq.drift.toUpperCase()}</b>. Flight time about ${Math.round(aq.flight)} s. Aim quality cannot tell if the drift switch is wrong for this ice. Tip: track the ice on a camera to measure its drift directly.</div>`);
+        `<div class="note2">Drift switch: <b>${aq.drift.toUpperCase()}</b>. Flight time about ${Math.round(aq.flight)} s. Aim quality cannot tell if the drift switch is wrong for this ice. Tip: track the ice in a scrying orb to measure its drift directly.</div>`);
   document.querySelectorAll('.col').forEach(x => x.classList.toggle('sel', x.dataset.c === world.color));
   const green = world.color === 'green', bc = world.beacons;
   $('fire').classList.toggle('green', green);
@@ -849,6 +866,125 @@ function drawBoard() {
   if ($('chute2').innerHTML !== pips) { $('chute2').innerHTML = pips; $('chute').innerHTML = pips; }
 }
 
+// ---------- case board ----------
+const CARRIER_GLYPH = { SMOOTH: '∿', STEPPED: '⊓', JAGGED: '⩘' };
+function miniEcho(e) {
+  let pts = '0,10 4,10 6,2 8,10 ';
+  for (let h = 0; h < e.humps; h++) { const x = 11 + h * 7; pts += `${x},10 ${x + 2},5 ${x + 4},10 `; }
+  const x = 12 + e.humps * 7;
+  pts += e.tail === 'ring' ? `${x},10 ${x + 2},8 ${x + 4},12 ${x + 6},9 ${x + 8},11 ${x + 12},10` : e.tail === 'fuzz' || e.tail === 'fuzzflat' ? `${x},10 ${x + 2},6 ${x + 3},13 ${x + 5},7 ${x + 7},12 ${x + 12},10` : `${x + 12},10`;
+  return `<svg class="mini" width="44" height="14" viewBox="0 0 44 14"><polyline points="${pts}" fill="none" stroke="#e8dfc6" stroke-width="1.2"/></svg>`;
+}
+const tf = v => v == null ? '<span class="tile q">?</span>' : v ? '<span class="tile T">T</span>' : '<span class="tile F">F</span>';
+const caseCache = {};
+let caseKey = '';
+function drawCases() {
+  const rows = world.cases.map(c => {
+    const b = world.bergs.find(x => x.id === c.bergId) || {}, o = world.obs[c.bergId] || {};
+    const pos = b.tag ? b : c.seen, sq = pos ? gridRef(pos.x, pos.y) : '--';
+    return { c, b, o, sq };
+  }).sort((a, z) => (a.c.verdict === 'EXCLUDED') - (z.c.verdict === 'EXCLUDED') || (a.c.permanent - z.c.permanent) || a.c.added - z.c.added);
+  const lockId = world.lock && world.lock.bergId;
+  const key = JSON.stringify(rows.map(r => [r.c.bergId, r.c.permanent, r.c.verdict, r.sq, r.o])) + lockId;
+  if (key === caseKey) return;
+  caseKey = key;
+  $('caserows').innerHTML = rows.map(({ c, b, o, sq }) => {
+    const prev = caseCache[c.bergId] || {}, now = { sq, h: o.hollow, m: o.metal, r: JSON.stringify(o.radio) + o.swept, v: c.verdict };
+    const fl = k => prev[k] !== undefined && prev[k] !== now[k] ? ' flip' : '';
+    caseCache[c.bergId] = now;
+    const radio = o.radio ? `<span class="rdots">${[...o.radio.shown].map(x => `<i class="${x}"></i>`).join('')}</span><span class="rtext">${Math.round(o.radio.freq)} ${o.radio.band} ${CARRIER_GLYPH[o.radio.carrier]}${o.swept ? ' · SWEPT' : ''}</span>`
+      : o.swept ? '<span class="tile F">SWEPT</span>' : '<span class="tile q">?</span>';
+    return `<div class="caserow${c.permanent ? '' : ' temp'}${c.verdict === 'EXCLUDED' ? ' excluded' : ''}${lockId === c.bergId ? ' locked' : ''}" data-id="${c.bergId}">
+      <span class="tile">#${b.num}</span><span class="odo${prev.sq !== undefined && prev.sq !== sq ? ' roll' : ''}">${sq}</span>
+      <span class="${fl('h').trim()}">${tf(o.hollow)}${o.echo && o.hollow != null ? miniEcho(o.echo) : ''}</span>
+      <span class="${fl('m').trim()}">${tf(o.metal)}</span>
+      <span class="${fl('r').trim()}">${radio}</span>
+      ${c.permanent ? `<button class="verdict ${c.verdict}">${c.verdict}</button>` : '<span class="keephint">BEACON IT<br>TO KEEP IT</span>'}
+      ${c.verdict === 'EXCLUDED' ? '<div class="stamp">EXCLUDED</div>' : ''}
+    </div>`;
+  }).join('') || '<div class="rb-sub" style="padding:8px">No ice yet. Lock onto an iceberg to look at it here.</div>';
+  $('caserows').querySelectorAll('.caserow').forEach(r => {
+    r.onclick = () => { relockCase(world, r.dataset.id); audio.sfx.lock(); };
+    const vb = r.querySelector('.verdict'); if (vb) vb.onclick = e => { e.stopPropagation(); const v = r.querySelector('.verdict').textContent; setVerdict(world, r.dataset.id, v === '?' ? 'SUSPECT' : v === 'SUSPECT' ? 'EXCLUDED' : '?'); };
+  });
+}
+
+// ---------- Jerry's notes (and GM handouts) ----------
+const NOTE_AT = {   // positions on the rig, chosen to sit on empty space rather than controls
+  checklist: [1120, 822], orbs: [40, 1080], orbctl: [360, 1452], sonar: [1384, 1128], furnace: [26, 1580], scanner: [1380, 1712],
+  radio: [250, 404], runes: [880, 500], case: [1560, 290], chart: [1100, 900], launcher: [430, 70], currents: [1700, 1460],
+};
+const JERRY = [
+  ['checklist', 'Startup list is up on the wire service. Look UP. Do it in order this time, Jerry.'],
+  ['orbs', "Remorhaz smell the heat of the scrying orbs. Look away when you're not using one."],
+  ['orbctl', 'Orb gears freeze solid. Set the levers to the weather ON THE ORB before you turn it.'],
+  ['sonar', "Every ping rings the Grindmaw's dinner bell. Ping, then MOVE the buoy."],
+  ['furnace', 'Two shovels. NEVER three. Fill the chute from the rune board first.'],
+  ['scanner', 'The scanner drifts when the weather turns. It ALWAYS turns.'],
+  ['radio', "JERRY. Turn the GAIN DOWN. You've blown the fuse twice this week."],
+  ['runes', 'Runes change every page. CHECK THE BOOK, Jerry.'],
+  ['case', 'Put a beacon in anything you want to keep on the case board.'],
+];
+function jnote(at, text, gmNote = false) {
+  const [x, y] = NOTE_AT[at] || NOTE_AT.chart;
+  const n = document.createElement('div'); n.className = 'jnote' + (gmNote ? ' gm' : '');
+  n.style.left = (x + (gmNote ? (Math.random() - 0.5) * 60 : 0)) + 'px'; n.style.top = (y + (gmNote ? (Math.random() - 0.5) * 40 : 0)) + 'px';
+  n.style.transform = `rotate(${((Math.random() - 0.5) * 7).toFixed(1)}deg)`;
+  n.innerHTML = '<span class="x">✕</span>' + text.replace(/</g, '&lt;');
+  n.onclick = () => n.remove();
+  $('jnotes').appendChild(n);
+}
+JERRY.forEach(([at, text]) => jnote(at, text));
+
+// ---------- ending cutscene ----------
+let cut = null;
+function startCutscene() { cut = { t0: performance.now() }; $('cutscene').classList.remove('hidden'); audio.sfx.sharkhunt(); }
+const LINES = ['MY HUMBLE SERVANTS.', 'THROUGH PERSISTENCE, YOU HAVE FOUND ME.', 'MY GATES AWAIT THEE.'];
+function drawCut(now) {
+  if (!cut) return;
+  const ctx = $('cutcanvas').getContext('2d'), W = 744, H = 708, k = (now - cut.t0) / 1000;
+  ctx.fillStyle = '#020604'; ctx.fillRect(0, 0, W, H);
+  if (k < 8) {
+    // a flickering feed: Geryon's silhouette
+    const fl = 0.75 + 0.25 * Math.sin(k * 23) * Math.sin(k * 7);
+    for (let i = 0; i < 900; i++) { ctx.fillStyle = `rgba(120,200,160,${Math.random() * 0.12})`; ctx.fillRect(Math.random() * W, Math.random() * H, 2, 2); }
+    ctx.save(); ctx.translate(W / 2, H * 0.47); ctx.globalAlpha = Math.min(1, k / 1.5) * fl;
+    ctx.fillStyle = '#0c1a14'; ctx.strokeStyle = '#7fd8a8'; ctx.lineWidth = 2; ctx.shadowColor = '#5cff9d'; ctx.shadowBlur = 18;
+    ctx.beginPath();   // wings
+    ctx.moveTo(-60, -60); ctx.quadraticCurveTo(-260, -200, -330, 40); ctx.lineTo(-250, 0); ctx.lineTo(-220, 70); ctx.lineTo(-150, 30); ctx.lineTo(-110, 90); ctx.lineTo(-60, 40);
+    ctx.lineTo(60, 40); ctx.lineTo(110, 90); ctx.lineTo(150, 30); ctx.lineTo(220, 70); ctx.lineTo(250, 0); ctx.lineTo(330, 40); ctx.quadraticCurveTo(260, -200, 60, -60); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath();   // body and head with horns
+    ctx.moveTo(-110, 260); ctx.lineTo(-120, 40); ctx.quadraticCurveTo(-100, -40, -48, -70); ctx.lineTo(-40, -120);
+    ctx.quadraticCurveTo(-120, -150, -110, -230); ctx.quadraticCurveTo(-80, -160, -30, -150); ctx.quadraticCurveTo(0, -175, 30, -150);
+    ctx.quadraticCurveTo(80, -160, 110, -230); ctx.quadraticCurveTo(120, -150, 40, -120); ctx.lineTo(48, -70); ctx.quadraticCurveTo(100, -40, 120, 40); ctx.lineTo(110, 260); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#bfffd8'; ctx.shadowBlur = 24; ctx.beginPath(); ctx.arc(-16, -118, 4, 0, 7); ctx.arc(16, -118, 4, 0, 7); ctx.fill();
+    ctx.restore();
+    const chars = Math.floor(Math.max(0, k - 1.2) * 16);
+    let used = 0;
+    ctx.font = '600 22px Cinzel'; ctx.textAlign = 'center'; ctx.fillStyle = '#d8ffe8'; ctx.shadowColor = '#5cff9d'; ctx.shadowBlur = 10;
+    LINES.forEach((line, i) => { const n = Math.max(0, Math.min(line.length, chars - used)); used += line.length; if (n) ctx.fillText(line.slice(0, n), W / 2, H - 110 + i * 32); });
+    ctx.shadowBlur = 0; ctx.font = '11px IBM Plex Mono'; ctx.fillStyle = 'rgba(160,255,200,.6)'; ctx.fillText('INCOMING · SOURCE: ELGARZ · SIGNAL HELD', W / 2, 30);
+    for (let y = 0; y < H; y += 3) { ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(0, y, W, 1); }
+  } else {
+    // a sonar section of the keep buried in the glacier
+    const s = Math.min(1, (k - 8) / 5), cx = W / 2, cy = H * 0.55;
+    ctx.strokeStyle = 'rgba(92,255,157,.15)'; for (let r = 60; r < 420; r += 60) { ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, 2 * Math.PI); ctx.stroke(); }
+    ctx.save(); ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, 500, Math.PI, Math.PI + s * Math.PI); ctx.closePath(); ctx.clip();
+    ctx.strokeStyle = '#7fd8ff'; ctx.lineWidth = 2; ctx.fillStyle = 'rgba(127,216,255,.08)';
+    ctx.beginPath(); ctx.moveTo(60, cy); ctx.lineTo(120, cy - 140); ctx.lineTo(200, cy - 190); ctx.lineTo(290, cy - 170); ctx.lineTo(370, cy - 230); ctx.lineTo(470, cy - 180); ctx.lineTo(560, cy - 200); ctx.lineTo(640, cy - 120); ctx.lineTo(690, cy); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#5cff9d'; ctx.fillStyle = 'rgba(92,255,157,.14)'; ctx.lineWidth = 2;
+    const keep = [[250, 60, 70], [300, 110, 40], [340, 150, 70], [420, 110, 40], [460, 60, 70]];
+    for (const [x, h, w2] of keep) { ctx.fillRect(x - w2 / 2, cy - h, w2, h); ctx.strokeRect(x - w2 / 2, cy - h, w2, h); for (let i = 0; i < w2; i += 12) ctx.strokeRect(x - w2 / 2 + i, cy - h - 8, 6, 8); }
+    ctx.beginPath(); ctx.moveTo(340, cy); ctx.lineTo(340, cy - 40); ctx.arc(355, cy - 40, 15, Math.PI, 0); ctx.lineTo(370, cy); ctx.stroke();
+    ctx.restore();
+    const a = Math.PI + s * Math.PI; ctx.strokeStyle = 'rgba(92,255,157,.8)'; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * 420, cy + Math.sin(a) * 420); ctx.stroke();
+    ctx.font = '12px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(160,255,200,.85)';
+    ctx.fillText('SONAR SECTION · ELGARZ', 20, 30);
+    if (s > 0.6) { ctx.fillText('CITADEL COLDSTEEL', 300, cy - 210 + 30); ctx.fillText('HOLLOW · WORKED METAL · THE TRIAD', 20, H - 30); }
+  }
+  if (k > 16.5 && !cut.done) { cut.done = true; $('wintime').textContent = 'Marked at ' + fmt(world.t) + ' on the watch clock.'; $('winscreen').classList.remove('hidden'); }
+}
+
 // ---------- wire service (ticker) ----------
 let tickX = 0, tickW = 0;
 function tickerText() {
@@ -859,13 +995,22 @@ function tickerText() {
   const storms = stormsAt(world, world.t);
   items.push(storms.length ? storms.map(st => 'STORM OVER ' + gridRef(st.x, st.y)).join(' · ') : 'SKIES CLEAR OVER THE FIFTH');
   items.push(world.shark.mode === 'hunt' ? 'THE GRINDMAW IS SWIMMING FOR ' + gridRef(world.lastPing.x, world.lastPing.y) : world.shark.mode === 'patrol' ? 'THE GRINDMAW IS CIRCLING THE WATCH, NOW IN ' + gridRef(world.shark.x, world.shark.y) : 'THE GRINDMAW IS IN ' + gridRef(world.shark.x, world.shark.y));
+  if (world.tom.mode !== 'asleep') items.push(world.tom.mode === 'hunt' ? 'OLD TOM IS SWIMMING FOR ' + gridRef(world.tom.target.x, world.tom.target.y) : 'OLD TOM IS CIRCLING THE WATCH, NOW IN ' + gridRef(world.tom.x, world.tom.y));
   items.push(`RUNE BOARD PAGE ${BOARD_PAGES[world.board.page]} · FLIPS IN ${Math.max(0, Math.ceil(world.board.nextFlip - world.t))} S`);
   const br = brokenList(world); if (br.length) items.push('BROKEN: ' + br.map(x => x.name).join(', '));
   if (world.fatigue > 0.6) items.push('THE OPERATOR IS NODDING OFF · COFFEE ADVISED');
   return items.join(' &nbsp;✦&nbsp; ') + ' &nbsp;✦&nbsp; ';
 }
+const CHECKS = [['coffee', 'BREW COFFEE (rune board)'], ['fuel', 'FILL THE FUEL CHUTE (rune board)'], ['sonar', 'POWER THE SONAR'], ['buoy', 'DROP A BUOY'], ['ping', 'PING THE SONAR']];
+let checkKey = '';
 function drawTicker(dt) {
-  const el = $('tickertext');
+  const el = $('tickertext'), ck = world.checklist, done = Object.values(ck).every(Boolean);
+  $('checklist').classList.toggle('hidden', done); el.style.visibility = done ? 'visible' : 'hidden';
+  if (!done) {
+    const key = JSON.stringify(ck);
+    if (key !== checkKey) { checkKey = key; $('checklist').innerHTML = '<div class="cktitle">STARTUP CHECKLIST</div>' + CHECKS.map(([k, t]) => `<div class="ck ${ck[k] ? 'done' : ''}">${ck[k] ? '☑' : '☐'} ${t}</div>`).join(''); }
+    return;
+  }
   if (!tickW || tickX < -tickW || ui.tickerQ.length) { el.innerHTML = tickerText(); tickW = el.offsetWidth; tickX = 600; }
   tickX -= 110 * dt; el.style.transform = `translateX(${tickX}px)`;
 }
@@ -949,17 +1094,23 @@ function handleEvents() {
       case 'reveal': audio.sfx.reveal(); toast(`GREEN BEACON STRUCK #${e.num} · THE ICE IS BLAZING BLUE`, 'info'); break;
       case 'miss': audio.sfx.miss(); toast(`MISSED #${e.num}${e.by != null ? ' BY ' + e.by + ' MI' : ''} · SEE THE LAUNCHER REPORT ▲`); break;
       case 'sharkhunt': audio.sfx.sharkhunt(); toast('THE GRINDMAW HEARD THE PING · IT IS COMING'); break;
-      case 'buoydead': audio.sfx.buoydead(); break;
+      case 'buoydead': audio.sfx.buoydead(); toast(e.who === 'tom' ? 'OLD TOM TOOK THE BUOY · REPAIR THE WINCH ▲' : 'THE GRINDMAW TOOK THE BUOY · REPAIR THE WINCH ▲'); break;
       case 'remorhaz': if (world.activeCam === e.cam) audio.sfx.remorhaz(); break;
-      case 'camdead': audio.sfx.camdead(); toast(`${camName(e.cam)} CAMERA DESTROYED`); break;
+      case 'camdead': audio.sfx.camdead(); toast(`${camName(e.cam)} ORB DESTROYED`); break;
       case 'repairstart': audio.sfx.click(); toast('REPAIR CREW SENT', 'info'); break;
-      case 'repaired': audio.sfx.repaired(); toast((world.cams.find(c => c.id === e.id) ? camName(e.id) + ' CAMERA' : BREAKABLE[e.id]) + ' REPAIRED', 'info'); break;
+      case 'repaired': audio.sfx.repaired(); toast((world.cams.find(c => c.id === e.id) ? camName(e.id) + ' ORB' : BREAKABLE[e.id]) + ' REPAIRED', 'info'); break;
       case 'broke': audio.sfx.camdead(); if (e.sys === 'launcher') toast('THE BEACON LAUNCHER JAMMED · REPAIR BAY ▲'); if (e.sys === 'fuse') toast('THE RADIO FUSE BLEW · REPAIR BAY ▲'); if (e.sys === 'winch') toast('THE GRINDMAW TORE THE WINCH CABLE · REPAIR BAY ▲'); if (e.sys === 'furnace') toast('THE GRATE CRACKED · REPAIR BAY ▲'); break;
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
+      case 'casepinned': audio.sfx.flip(); toast(`#${e.num} IS PINNED TO THE CASE BOARD`, 'info'); break;
+      case 'observed': audio.sfx.flip(); break;
+      case 'verdict': if (e.v === 'EXCLUDED') audio.sfx.stamp(); else audio.sfx.click(); break;
+      case 'checklist': audio.sfx.lamps(); if (e.done) toast('STARTUP COMPLETE · THE WIRE SERVICE IS LIVE', 'info'); break;
+      case 'pressure': audio.sfx.alarm(); toast('THE WIND IS RISING · STORMS WILL COME MORE OFTEN'); break;
+      case 'tomwakes': audio.sfx.sharkhunt(); toast('SOMETHING ELSE IS IN THE WATER · OLD TOM HAS WOKEN'); break;
       case 'fusewarn': audio.sfx.alarm(); toast('RADIO FUSE OVERHEATING · LOWER THE GAIN'); break;
-      case 'tracked': audio.sfx.lock(); toast(`CAMERA TRACKING #${e.num} · DRIFT MEASURED · NO BUOY NEEDED`, 'info'); break;
-      case 'camunlocked': audio.sfx.calibrated(); toast(camName(e.cam) + ' CAMERA UNLOCKED FOR 2 MINUTES', 'info'); break;
+      case 'tracked': audio.sfx.lock(); toast(`ORB TRACKING #${e.num} · DRIFT MEASURED · NO BUOY NEEDED`, 'info'); break;
+      case 'camunlocked': audio.sfx.calibrated(); toast(camName(e.cam) + ' ORB UNLOCKED', 'info'); break;
       case 'camfail': audio.sfx.runefail(); break;
       case 'plate': case 'lever': audio.sfx.click(); break;
       case 'paused': audio.sfx.bell(); break;
@@ -976,12 +1127,12 @@ function handleEvents() {
       case 'bell': audio.sfx.bell(); break;
       case 'dud': audio.sfx.clunk(); break;
       case 'spark': audio.sfx.spark(); break;
-      case 'win': audio.sfx.win(); $('wintime').textContent = 'Marked at ' + fmt(world.t) + ' on the watch clock.'; $('winscreen').classList.remove('hidden'); break;
+      case 'win': audio.sfx.win(); look(false); startCutscene(); break;
     }
   }
   world.events.length = 0;
 }
-$('wincontinue').onclick = () => $('winscreen').classList.add('hidden');
+$('wincontinue').onclick = () => { $('winscreen').classList.add('hidden'); $('cutscene').classList.add('hidden'); cut = null; };
 $('ping').onclick = () => ping(world);
 
 // ---------- GM link ----------
@@ -991,6 +1142,7 @@ if (gmChan) gmChan.onmessage = ev => {
   if (m.cmd === 'reset') { const u = new URL(location.href); u.searchParams.set('seed', m.seed || newSeed()); location.href = u.toString(); }
   else if (m.cmd) gm(world, m.cmd, m.arg || {});
   if (m.note) note(m.note);
+  if (m.handout) { jnote(m.handout.at, m.handout.text, true); audio.sfx.buoy(); }
   if (m.ticker) ui.tickerQ.push(String(m.ticker).toUpperCase());
 };
 let lastSnap = 0;
@@ -1001,7 +1153,7 @@ function frame(now) {
   acc += Math.min(0.25, (now - last) / 1000); last = now;
   while (acc >= DT) { step(world, DT); acc -= DT; }
   handleEvents();
-  drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower(); drawBoard(); drawRepairBay(); drawCamCtl(); $('pausecard').classList.toggle('hidden', !world.paused); $('pausebtn').textContent = world.paused ? '▶ RESUME' : '❚❚ PAUSE'; drawTicker(Math.min(0.1, (now - (frame.prev || now)) / 1000)); frame.prev = now;
+  drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower(); drawBoard(); drawRepairBay(); drawCamCtl(); drawCases(); drawCut(now); $('pausecard').classList.toggle('hidden', !world.paused); $('pausebtn').textContent = world.paused ? '▶ RESUME' : '❚❚ PAUSE'; drawTicker(Math.min(0.1, (now - (frame.prev || now)) / 1000)); frame.prev = now;
   if (gmChan && now - lastSnap > 500) { lastSnap = now; gmChan.postMessage({ snap: snapshot(world) }); }
   requestAnimationFrame(frame);
 }

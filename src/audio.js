@@ -82,6 +82,7 @@ export const sfx = {
   fuel: () => { for (let i = 0; i < 6; i++) noise(0.08, 0.22, 500 + Math.random() * 400, i * 0.07, 2); },
   turn: () => { tone(160, 'square', 0.25, 0.08, 0, 120); noise(0.25, 0.12, 800, 0, 1); },
   vent: () => { noise(1.2, 0.35, 3000, 0, 0.4); },
+  stamp: () => { noise(0.12, 0.6, 180, 0, 0.6); tone(70, 'square', 0.15, 0.3); },
   win: () => { [196, 247, 294, 392].forEach((f, i) => tone(f, 'triangle', 2.5, 0.18, i * 0.25)); },
 };
 

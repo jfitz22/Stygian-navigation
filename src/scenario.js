@@ -96,7 +96,15 @@ export const TUNING = {
   rimPull: 0.0045,
   tombSpeed: 1.3,          // miles per second the Tomb travels (GM lever multiplies it)
   tombRepelBand: 160,      // Elgarz starts to swerve this far outside the Tomb's ring
-  tombDrawPull: 1.2,       // how hard the Gilded Hulk is drawn toward the Tomb (mi/s)
+  tombDrawPull: 1.2,       // how hard the Gilded Hulk is drawn back if it ever strays from the Tomb (mi/s)
+  hulkOrbitR: 170,         // the Gilded Hulk circles the Tomb at this distance, always inside the ring
+  hulkOrbitSpeed: 0.7,     // miles per second round the Tomb
+  // pressure
+  pressureAt: 600,         // after 10 minutes: storms come more often and Old Tom wakes
+  tomAt: 600,
+  // case board
+  sweepBin: 30,            // frequency units per sweep cell; covering every cell counts as a full sweep
+  sweepAlign: 0.4,         // the lock must be at least this well aligned for a sweep to count
 };
 
 // ---------- the sea ----------
@@ -141,10 +149,12 @@ export function tempAt(x, y, t, F, tomb) {
 }
 
 // Storms: each one is aimed to pass over a camera post during the session.
+// Two storms in the first ten minutes, then one every two to three minutes for as long as the watch runs.
 export function makeStorms(rng) {
   const cams = [...CAMERAS].sort(() => rng() - 0.5);
-  const windows = [[160, 300], [360, 500], [560, 700], [760, 900], [960, 1100]];
-  return windows.map(([lo, hi], i) => stormThrough(cams[i % cams.length], lo + rng() * (hi - lo), rng() * Math.PI * 2, cams[i % cams.length].id));
+  const times = [160 + rng() * 140, 380 + rng() * 140];
+  for (let t = 600 + rng() * 60; t < 4000; t += 120 + rng() * 60) times.push(t);
+  return times.map((tc, i) => { const c = cams[i % cams.length]; return stormThrough(c, tc, rng() * Math.PI * 2, c.id); });
 }
 // A storm that passes over point p at time tc, travelling at angle ang.
 export function stormThrough(p, tc, ang, cam = null) {
@@ -221,7 +231,7 @@ export const GENERIC_COUNT = 48;
 export const GENERIC_TRANSMIT = 0.5;     // share of plain ice that hums something
 export const GENERIC_METAL = 0.15;       // share of plain ice with wreckage frozen inside
 export const GENERIC_HOLLOW = 0.27;      // share of plain ice riddled with caves (it rings hollow)
-export const GENERIC_TRIAD = 2;          // plain bergs that also carry the Triad (relics of Geryon's herd)
+export const GENERIC_TRIAD = 4;          // plain bergs that also carry the Triad (relics of Geryon's herd)
 
 // ---------- radio ----------
 // band: LOW < 400, MID 400-699, HIGH >= 700

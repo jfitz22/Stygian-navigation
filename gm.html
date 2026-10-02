@@ -42,7 +42,7 @@
 <main>
   <div>
     <div class="tools"><b style="align-self:center;color:var(--brass)">CLICK THE MAP TO:</b>
-      <button data-tool="">look only</button><button data-tool="place-elgarz">place / move Elgarz</button><button data-tool="storm">drop a storm</button><button data-tool="shark-to">send the shark</button>
+      <button data-tool="">look only</button><button data-tool="place-elgarz">place / move Elgarz</button><button data-tool="storm">drop a storm</button><button data-tool="shark-to">send the Grindmaw</button><button data-tool="tom-to">send Old Tom</button>
     </div>
     <canvas id="map" width="900" height="900"></canvas>
   </div>
@@ -53,14 +53,15 @@
       <button data-cmd="stoke">Refuel furnace</button>
       <button data-cmd="repair">Repair everything</button>
       <button data-cmd="restock">Refill all beacons</button>
-      <button data-cmd="shark-home">Send shark away</button>
+      <button data-cmd="shark-home">Send both hunters away</button>
+      <button data-cmd="wake-tom">Wake Old Tom now</button>
       <button data-cmd="calibrate">Calibrate scanner</button>
       <button data-cmd="spawn">Bring Elgarz in now</button>
       <button data-cmd="win">Force win</button>
       <button data-cmd="clear-storms">Clear storms</button>
       <button data-cmd="flip">Flip the rune board</button>
       <button data-cmd="coffee">Fresh coffee</button>
-      <button data-cmd="camunlock">Unlock the camera on screen</button>
+      <button data-cmd="camunlock">Unlock the orb on screen</button>
     </div>
     <div class="box"><b>LEVERS</b> (1 = as designed)<div id="levers"></div></div>
     <div class="grid">
@@ -80,6 +81,8 @@
     <textarea id="custom" placeholder="Write your own note..."></textarea>
     <div class="row2"><label><input type="radio" name="dest" value="note" checked> pneumatic tube note (rotates round the chart corners)</label></div>
     <div class="row2"><label><input type="radio" name="dest" value="ticker"> wire service ticker (overhead deck)</label></div>
+    <div class="row2"><label><input type="radio" name="dest" value="handout"> handwritten note stuck on</label>
+      <select id="handoutAt"><option value="chart">the chart</option><option value="orbs">the scrying orbs</option><option value="orbctl">orb control</option><option value="sonar">the sonar</option><option value="currents">currents &amp; wind</option><option value="furnace">the furnace</option><option value="scanner">the scanner</option><option value="radio">the radio (deck)</option><option value="runes">the rune board (deck)</option><option value="launcher">the launcher (deck)</option><option value="case">the case board (deck)</option></select></div>
     <button id="sendnote">Send</button>
     <table id="roster"></table>
   </aside>
@@ -114,11 +117,11 @@ document.getElementById('reset').onclick = () => {
   const seed = Number(document.getElementById('seed').value) || null;
   if (confirm(seed ? `Reset the game with seed ${seed}?` : 'Reset the game with a new random seed?')) ch.postMessage({ cmd: 'reset', seed });
 };
-document.querySelectorAll('[data-note]').forEach(b => b.onclick = () => { const dest = document.querySelector('[name=dest]:checked').value; ch.postMessage(dest === 'ticker' ? { ticker: b.dataset.note } : { note: b.dataset.note }); });
+document.querySelectorAll('[data-note]').forEach(b => b.onclick = () => { const dest = document.querySelector('[name=dest]:checked').value; ch.postMessage(dest === 'ticker' ? { ticker: b.dataset.note } : dest === 'handout' ? { handout: { text: b.dataset.note, at: document.getElementById('handoutAt').value } } : { note: b.dataset.note }); });
 document.getElementById('sendnote').onclick = () => {
   const v = document.getElementById('custom').value.trim(); if (!v) return;
   const dest = document.querySelector('[name=dest]:checked').value;
-  ch.postMessage(dest === 'ticker' ? { ticker: v } : { note: v });
+  ch.postMessage(dest === 'ticker' ? { ticker: v } : dest === 'handout' ? { handout: { text: v, at: document.getElementById('handoutAt').value } } : { note: v });
 };
 
 const cv = document.getElementById('map'), ctx = cv.getContext('2d');
@@ -152,7 +155,8 @@ ch.onmessage = ev => {
   for (const r of s.remorhazes) { ctx.fillStyle = '#ff7a2a'; ctx.beginPath(); ctx.arc(r.x * z, r.y * z, 4, 0, 7); ctx.fill(); }
   if (s.buoy) { ctx.strokeStyle = 'rgba(92,255,157,.35)'; ctx.beginPath(); ctx.arc(s.buoy.x * z, s.buoy.y * z, T.buoyRadius * z, 0, 7); ctx.stroke(); }
   if (s.lastPing && s.shark.mode === 'hunt') { ctx.strokeStyle = 'rgba(255,75,58,.5)'; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(s.shark.x * z, s.shark.y * z); ctx.lineTo(s.lastPing.x * z, s.lastPing.y * z); ctx.stroke(); ctx.setLineDash([]); }
-  ctx.fillStyle = '#ff4b3a'; ctx.beginPath(); ctx.arc(s.shark.x * z, s.shark.y * z, 5, 0, 7); ctx.fill(); ctx.fillText('shark ' + s.shark.mode, s.shark.x * z + 7, s.shark.y * z);
+  ctx.fillStyle = '#ff4b3a'; ctx.beginPath(); ctx.arc(s.shark.x * z, s.shark.y * z, 5, 0, 7); ctx.fill(); ctx.fillText('Grindmaw ' + s.shark.mode, s.shark.x * z + 7, s.shark.y * z);
+  if (s.tom.mode !== 'asleep') { ctx.fillStyle = '#ff7a2a'; ctx.beginPath(); ctx.arc(s.tom.x * z, s.tom.y * z, 5, 0, 7); ctx.fill(); ctx.fillText('Old Tom ' + s.tom.mode, s.tom.x * z + 7, s.tom.y * z); }
   for (const b of s.bergs) {
     ctx.fillStyle = b.elgarz ? '#5cff9d' : b.notable ? '#ffd27a' : 'rgba(220,235,240,.45)';
     ctx.beginPath(); ctx.arc(b.x * z, b.y * z, b.elgarz ? 7 : b.large ? 3.5 : 2.2, 0, 7); ctx.fill();
@@ -172,7 +176,8 @@ ch.onmessage = ev => {
     `<b>Cabin wireless</b> (music on only): ${s.stations.map(st => `${st.freq} ${st.band}`).join(', ')}<br>` +
     `<b>Rune board</b> page ${s.board.page}: ${s.board.fns.join(' · ')}<br>` +
     `<b>Camera unlock code</b> (for the camera on screen): levers WIND ${s.camCode.wind}, TEMP ${s.camCode.temp}; plates ${s.camCode.order.join(' → ')}${Object.keys(s.camUnlocked).length ? ' · unlocked: ' + Object.entries(s.camUnlocked).map(([k, v]) => k + ' ' + v + 's').join(', ') : ''}<br>` +
-    `<b>Broken</b>: ${s.broken.length ? s.broken.join(', ') : 'nothing'}`;
+    `<b>Broken</b>: ${s.broken.length ? s.broken.join(', ') : 'nothing'}<br>` +
+    `<b>Case board</b>: ${s.cases.length ? s.cases.map(c => `#${c.num}${c.permanent ? '' : ' (temp)'} ${c.verdict}`).join(' · ') : 'empty'}`;
   for (const [k, v] of Object.entries(s.levers)) { const inp = document.querySelector(`[data-lever=${k}]`); if (inp && document.activeElement !== inp) { inp.value = v; document.getElementById('lv-' + k).textContent = Number(v).toFixed(1); } }
   const notable = s.bergs.filter(b => b.notable).sort((a, b) => b.elgarz - a.elgarz);
   document.getElementById('roster').innerHTML = '<tr><th>#</th><th>Name</th><th>Hol</th><th>Met</th><th>Radio</th><th>Tag</th></tr>' +
