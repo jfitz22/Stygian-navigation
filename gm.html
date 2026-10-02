@@ -60,6 +60,7 @@
       <button data-cmd="clear-storms">Clear storms</button>
       <button data-cmd="flip">Flip the rune board</button>
       <button data-cmd="coffee">Fresh coffee</button>
+      <button data-cmd="camunlock">Unlock the camera on screen</button>
     </div>
     <div class="box"><b>LEVERS</b> (1 = as designed)<div id="levers"></div></div>
     <div class="grid">
@@ -170,6 +171,7 @@ ch.onmessage = ev => {
     `<b>Scanner code now</b> (from the latest buoy reading): ${s.code ? s.code.map(i => RUNES[i].name).join(' → ') : 'no reading yet'}<br>` +
     `<b>Cabin wireless</b> (music on only): ${s.stations.map(st => `${st.freq} ${st.band}`).join(', ')}<br>` +
     `<b>Rune board</b> page ${s.board.page}: ${s.board.fns.join(' · ')}<br>` +
+    `<b>Camera unlock code</b> (for the camera on screen): levers WIND ${s.camCode.wind}, TEMP ${s.camCode.temp}; plates ${s.camCode.order.join(' → ')}${Object.keys(s.camUnlocked).length ? ' · unlocked: ' + Object.entries(s.camUnlocked).map(([k, v]) => k + ' ' + v + 's').join(', ') : ''}<br>` +
     `<b>Broken</b>: ${s.broken.length ? s.broken.join(', ') : 'nothing'}`;
   for (const [k, v] of Object.entries(s.levers)) { const inp = document.querySelector(`[data-lever=${k}]`); if (inp && document.activeElement !== inp) { inp.value = v; document.getElementById('lv-' + k).textContent = Number(v).toFixed(1); } }
   const notable = s.bergs.filter(b => b.notable).sort((a, b) => b.elgarz - a.elgarz);

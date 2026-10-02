@@ -2,7 +2,7 @@
 import {
   createWorld, step, light, stoke, dist, snapshot, setPower, deployBuoy, ping, lockContact, setDrift, fireBeacon,
   countSightings, camSees, snowAt, slotsAvailable, pressKey, readingDisplay, radioSignal, setFreq, setGain, gainFor, setMusic, lockOn, DT,
-  pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip,
+  pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip, camCode, setLever, pressPlate, setCamTurn, camIsUnlocked, selectCam, gm,
 } from '../src/sim.js';
 import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RADIO_TABLE, BOARD_GRID } from '../src/scenario.js';
 import { keypadCode, RUNES } from '../src/glyphs.js';
@@ -22,7 +22,7 @@ function run(seed, seconds, each) {
 
 // ---------- world-level properties per seed ----------
 const stats = { spawnT: [], sightings: [], firstSight: [], minTomb: [], tombMove: [], medianPath: [], ruledOut: [], outOfReach: [], transmit: [], stormHits: [] };
-let elgarzLeft = 0, triadOthers = 0, fullMatch = 0, hulkInRing = 0, oneSign = [];
+let elgarzLeft = 0, triadOthers = 0, fullMatch = 0, hulkInRing = 0, oneSign = [], hollowShare = [];
 for (const seed of SEEDS) {
   const w0 = createWorld(seed);
   stats.transmit.push([...w0.bergs, ...w0.reserve].filter(b => b.radio).length / (w0.bergs.length + w0.reserve.length));
@@ -30,6 +30,7 @@ for (const seed of SEEDS) {
   triadOthers += ice0.filter(b => !b.elgarz && triad(b)).length;
   fullMatch += ice0.filter(b => !b.elgarz && !b.tombDrawn && b.hollow && b.metal && triad(b)).length;
   oneSign.push(ice0.filter(b => !b.elgarz && (b.metal || triad(b))).length);
+  hollowShare.push(ice0.filter(b => b.hollow).length / ice0.length);
   const track = [], tomb0 = { ...w0.tomb };
   const start = {}, path = {}, prev = {}, entered = new Set();
   let spawnT = null, tombPath = 0, tombPrev = null;
@@ -82,6 +83,8 @@ check(triadOthers / SEEDS.length >= 3, 'Several decoys also sing the Triad, so t
 check(fullMatch === 0, 'No decoy except the Gilded Hulk is hollow, metal and Triad');
 check(hulkInRing >= SEEDS.length * 0.8, `The Gilded Hulk is drawn into the Tomb ring (${hulkInRing}/${SEEDS.length} seeds)`);
 check(Math.min(...oneSign) >= 12, 'Plenty of ice shows metal or the Triad, not just the echo');
+console.log(`Share of ice that rings hollow: ${pct(Math.min(...hollowShare), 1)}-${pct(Math.max(...hollowShare), 1)}`);
+check(mean(hollowShare) > 0.28 && mean(hollowShare) < 0.4, 'About a third of all ice rings hollow');
 check(stats.stormHits.every(n => n === 5), 'Five storms per watch, each whiting out the camera it is aimed at');
 
 // ---------- determinism ----------
@@ -124,6 +127,18 @@ function sharkSetup(seed) {
   deployBuoy(w2, CENTER.x, CENTER.y + 1200);
   for (let i = 0; i < 3000; i++) { step(w2, DT); if (i % 50 === 0) keepFurnace(w2); }
   check(!!w2.buoy, 'A buoy moved away before the Grindmaw arrives survives');
+  const r0 = dist(w2.shark, CENTER), p0 = { x: w2.shark.x, y: w2.shark.y };
+  for (let i = 0; i < 600; i++) { step(w2, DT); if (i % 50 === 0) keepFurnace(w2); }
+  check(w2.shark.mode === 'patrol' && Math.abs(dist(w2.shark, CENTER) - r0) < 5 && dist(w2.shark, p0) > 100, 'With no buoy at the ping, the Grindmaw circles the Watch at that distance');
+  // camera posts disagree about the wind
+  let distinct = 0;
+  for (const seed of SEEDS.slice(0, 20)) {
+    const wc = createWorld(seed); light(wc); for (let i = 0; i < 3000; i++) { keepFurnace(wc); step(wc, DT); }
+    const codes = new Set(wc.cams.map(c => { selectCam(wc, c.id); const k = camCode(wc); return k.wind + k.temp; }));
+    distinct += codes.size;
+  }
+  console.log(`Different lever settings across the 7 cameras: ${(distinct / 20).toFixed(1)} on average`);
+  check(distinct / 20 >= 3, 'Cameras usually need different lever settings');
 }
 
 // ---------- scanner keypad ----------
@@ -171,17 +186,36 @@ function sharkSetup(seed) {
     const w = createWorld(seed);
     for (let k = 0; k < 6; k++) {
       const fns = w.board.runes.map(r => runeFunction(r, w.board.page));
-      if (!['FUEL', 'TURN LEFT', 'TURN RIGHT', 'COFFEE', 'WIPERS'].every(f => fns.includes(f))) ok = false;
+      if (!['FUEL', 'COFFEE', 'WIPERS'].every(f => fns.includes(f))) ok = false;
       for (let p = 0; p < 4; p++) pressBoard(w, p);
     }
   }
-  check(ok, 'Every rune board page has fuel, both turns, coffee and wipers');
+  check(ok, 'Every rune board page has fuel, coffee and wipers');
   const w = createWorld(3); light(w); const f0 = w.furnace.chute;
   pressBoard(w, w.board.runes.findIndex(r => runeFunction(r, w.board.page) === 'FUEL'));
   check(w.furnace.chute === f0 + 1, 'The FUEL rune fills the chute');
-  const w4 = createWorld(3); light(w4); const c0 = w4.cams[0].facing, h0 = w4.furnace.heat;
-  pressBoard(w4, w4.board.runes.findIndex(r => runeFunction(r, w4.board.page) === 'TURN RIGHT'));
-  check(w4.cams[0].facing === (c0 + T.turnStep) % 360 && w4.furnace.heat < h0, 'Turning a camera moves it 15 degrees and costs heat');
+  // camera control: levers + plates unlock the camera on screen; then it turns freely
+  const w4 = createWorld(3); light(w4); for (let i = 0; i < 10; i++) step(w4, DT);
+  const c0 = w4.cams[0].facing;
+  setCamTurn(w4, 1); for (let i = 0; i < 20; i++) step(w4, DT); setCamTurn(w4, 0);
+  check(w4.cams[0].facing === c0, 'A locked camera does not turn');
+  const code = camCode(w4); setLever(w4, 'wind', code.wind); setLever(w4, 'temp', code.temp);
+  pressPlate(w4, code.order[1]); pressPlate(w4, code.order[0]); pressPlate(w4, code.order[2]);
+  check(!camIsUnlocked(w4, 'c1'), 'The wrong plate order does not unlock');
+  for (let i = 0; i < (T.plateLockout + 1) * 10; i++) step(w4, DT);
+  code.order.forEach(sh => pressPlate(w4, sh));
+  check(camIsUnlocked(w4, 'c1'), 'The right levers and plate order unlock the camera');
+  const h0 = w4.furnace.heat;
+  setCamTurn(w4, 1); for (let i = 0; i < 20; i++) step(w4, DT); setCamTurn(w4, 0);
+  check(Math.abs(((w4.cams[0].facing - c0 + 360) % 360) - 2 * T.camTurnRate) < 1 && h0 - w4.furnace.heat < 1, 'An unlocked camera turns smoothly and costs no heat');
+  for (let i = 0; i < 3000; i++) { keepFurnace(w4); step(w4, DT); }
+  check(camIsUnlocked(w4, 'c1'), 'An unlocked camera stays unlocked');
+  w4.cams[0].heat = 100; selectCam(w4, 'c1'); setPower(w4, 'cameras', true); w4.levers.remorhaz = 1;
+  for (let i = 0; i < 1500 && !w4.cams[0].broken; i++) { keepFurnace(w4); w4.cams[0].heat = 100; step(w4, DT); }
+  check(w4.cams[0].broken && !camIsUnlocked(w4, 'c1'), 'A destroyed camera loses its unlock');
+  const w7 = createWorld(3); light(w7); gm(w7, 'pause'); const tp = w7.t; step(w7, DT);
+  check(w7.paused && w7.t === tp, 'Pausing stops the watch'); gm(w7, 'pause'); step(w7, DT);
+  check(!w7.paused && w7.t > tp, 'Resuming starts it again');
   const w5 = createWorld(3); light(w5); w5.board.nextFlip = 1e9; const pg = w5.board.page;
   for (let i = 0; i < T.boardFlipPresses; i++) pressBoard(w5, w5.board.runes.findIndex(r => runeFunction(r, w5.board.page) === 'NOTHING') >= 0 ? w5.board.runes.findIndex(r => runeFunction(r, w5.board.page) === 'NOTHING') : 0);
   check(w5.board.flippedAt === w5.t, 'The board flips after a few presses');
@@ -232,6 +266,30 @@ function sharkSetup(seed) {
   for (let i = 0; i < 600; i++) { step(w, DT); }
   const stale = aimQuality(w).q;
   check(dist(w.lock, b) < 200 && fresh >= 80 && stale < fresh, `Aim quality is high for a fresh close fix and falls as it ages (${fresh} -> ${stale})`);
+}
+
+// ---------- camera tracking: hit without a buoy ----------
+{
+  let hits = 0, tries = 0;
+  for (const seed of SEEDS.slice(0, 15)) {
+    const w = createWorld(seed); light(w); setPower(w, 'cameras', true);
+    for (let i = 0; i < 20; i++) step(w, DT);
+    let pick = null;
+    for (let k = 0; k < 120 && !pick; k++) {
+      for (const c of w.cams) { const b = w.bergs.find(b => camSees(c, b, -0.25) && dist(b, c) < T.camRange * 0.7); if (b) { pick = { c, b }; break; } }
+      if (!pick) { keepFurnace(w); for (let i = 0; i < 50; i++) step(w, DT); }
+    }
+    if (!pick) continue;
+    tries++;
+    selectCam(w, pick.c.id); lockFromCamera(w, pick.b.id);
+    for (let i = 0; i < (T.trackTime + 2) * 10; i++) step(w, DT);
+    if (!w.lock.track) continue;
+    fireBeacon(w, 'red');
+    for (let i = 0; i < 200; i++) step(w, DT);
+    if (w.beacons.last && w.beacons.last.hit && w.beacons.last.intended) hits++;
+  }
+  console.log(`Camera-tracked shots with no buoy: ${hits}/${tries} hit`);
+  check(tries >= 10 && hits >= tries - 1, 'Tracking ice on a camera lets a beacon hit it without a buoy');
 }
 
 // ---------- shots ----------

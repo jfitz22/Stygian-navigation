@@ -15,7 +15,7 @@ Elgarz is the only iceberg with all four signs, and **no single sign is proof**:
 | The Triad on the radio | Radio tuning, gain and decoding | 3 named decoys and 2 plain bergs, plus one cabin wireless station |
 | Shuns the Tomb of Levistus | It swerves away from the Tomb's 300 mi ring | The Gilded Hulk has the other three signs but is *drawn into* the ring |
 
-About half the ice transmits something, and at least a dozen icebergs per seed show metal or the Triad. The easy echo test can't rule out the field on its own.
+About a third of all ice rings hollow (ice caves), about half transmits something, and at least a dozen icebergs per seed show metal or the Triad. The easy echo test can't rule out the field on its own.
 
 ## The sea
 
@@ -30,27 +30,31 @@ Every watch has a seed (`?seed=`). With no seed a fresh sea is rolled. At 3:00 E
 
 ## The cockpit
 
-The operator has two views and pans between them with **▲ LOOK UP / ▼ LOOK DOWN** (or the arrow keys). When looking up, the top half of the main board is still visible below the deck.
+The operator has two views and pans between them with **▲ LOOK UP / ▼ LOOK DOWN**, side by side on the top bar next to **❚❚ PAUSE** (the operator or the GM can pause; a card shows until someone resumes). When looking up, the top half of the main board is still visible below the deck.
 
-**Main board:** cameras, chart, sonar, currents and weather, furnace, the target lock (drift switch and aim quality), radio and scanner.
+**Main board:** cameras with camera control right underneath, chart, sonar, currents and weather, furnace, the target lock (drift switch and aim quality) and scanner.
+
+**Camera control:** each camera feed shows its post's WIND and AIR temperature. Set two focus levers from those and press three servo plates in the order the rune board page dictates; that camera then stays unlocked (free turning, no heat) until a remorhaz destroys it.
 
 **Overhead deck:**
 - **Beacon launcher:** colour, fire, aim quality and a shot report.
+- **Radio:** tune and decode the locked iceberg.
 - **Rune board:** a KTANE-style flip calendar of 12 unlabelled runes.
 - **Wire service:** a ticker with the weather, storms, shark, board timer, breakdowns and GM messages.
-- **Repair bay.**
+- **Repair bay.** (Its lower half is reserved for a future tracking board.)
 
 ## Mechanics
 
+- **Camera tracking.** Locked ice that stays in the camera on screen for 4 s has its real drift measured; the prediction then uses it instead of the buoy and the drift switch. Aim quality shows a CAMERA TRACK bar.
 - **Aiming.** A beacon flies to the predicted position: last fix + buoy current reading + drift switch. Aim quality (0–100%, with a lamp) is built from fix age, reading age and how far the reading was taken from the target. It can't see whether the drift switch is wrong. Every miss reports the distance and the reasons, and the chart draws a line from the splash to where the target really was. Camera fixes are accurate to 1–3 mi.
 - **Rune board.** Each rune's house and weight index a 4×4 grid of functions. The page numeral on the flip card shifts the weight. The board flips every 60 s and after 4 presses.
-  - Functions: FUEL, TURN LEFT/RIGHT (the active camera, 15° a press, costs heat), COFFEE (costs heat), WIPERS, WIRELESS, LAMPS (normal / night / red), LAUNCH (red, amber or blue only), VENT, BELL, NOTHING.
+  - Functions: FUEL, COFFEE (costs heat), WIPERS, WIRELESS, LAMPS (normal / night / red), LAUNCH (red, amber or blue only), VENT, BELL, NOTHING.
 - **Furnace.** Stoking draws from a fuel chute (4 shovels) that only the FUEL rune fills. Low heat cuts power slots. Overfeeding blows the furnace out and cracks the grate.
 - **Fatigue.** Over about 7 minutes the screens vignette, blur and sway, and the operator blinks off. Coffee (brew, then click the mug) clears it.
 - **Scanner.** A 3×3 rune keypad. Wind picks the first house, deep vs surface speed picks the direction round the wheel, and temperature picks heaviest, lightest or second lightest. The setting drifts out of tune once the buoy's conditions have disagreed with it for 50 s, about 3–5 times a watch.
-- **Radio.** A long slider with a wide, forgiving peak, plus gain matching. Carrier shape transforms the lamps, and band plus lamps give the meaning. The wireless adds three false stations. Clipping for 6 s blows the fuse.
-- **Grindmaw.** Always on the chart. After every ping it swims for the ping spot: fast (9 mi/s) when more than 1.5 squares away, steady (3.5 mi/s) when close. If it finds the buoy there, it eats it and tears the winch.
-- **Breakdowns.** Every breakdown goes through the same five-conduit repair board:
+- **Radio.** A long slider with a wide, forgiving peak, plus gain matching. Carrier shape transforms the lamps, and band plus lamps give the meaning. The wireless adds three false stations. Clipping for 12 s blows the fuse; a FUSE bar flashes from halfway.
+- **Grindmaw.** Always on the chart. After every ping it swims for the ping spot: fast (9 mi/s) when more than 1.5 squares away, steady (3.5 mi/s) when close. If it finds the buoy there, it eats it and tears the winch; either way it then circles the Watch at that distance until the next ping.
+- **Breakdowns.** Every breakdown goes through the same repair board: five rows, each a gauge (low/middle/high/red) and a lamp (red/white/blue/dark); rules say what to CLOSE or CUT, otherwise leave it OPEN; every board has at least one CUT and one CLOSE:
   - cameras (remorhazes, now faster)
   - the furnace grate (blowout)
   - the launcher (jams every 4–7 shots)
@@ -58,7 +62,7 @@ The operator has two views and pans between them with **▲ LOOK UP / ▼ LOOK D
   - the radio fuse (clipping)
 - **Sonar.** Contacts last 90 s, and successive pings of the same ice are joined by a trail. Each echo draws deep and surface current arrows round the buoy for 25 s.
 - **Storms.** Five per watch, each aimed over a camera. The GM can drop more.
-- **Cameras.** Seven, evenly spaced round the island, 620 mi range and 90° wide. Their starting bearings come from `tools/tune-cameras.mjs`.
+- **Cameras.** Seven, evenly spaced round the island, 680 mi range and 90° wide. Their starting bearings come from `tools/tune-cameras.mjs`.
 
 Nothing can end the game early. Every loss is recoverable.
 

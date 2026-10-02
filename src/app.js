@@ -2,10 +2,10 @@ import {
   createWorld, newSeed, step, light, stoke, slotsAvailable, setPower, isUp, selectCam, deployBuoy, ping, lockContact, lockFromCamera,
   setDrift, ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
-  pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE,
+  pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather,
 } from './sim.js';
 import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES } from './scenario.js';
-import { glyphSVG } from './glyphs.js';
+import { glyphSVG, gaugeSVG } from './glyphs.js';
 import * as audio from './audio.js';
 
 const $ = id => document.getElementById(id);
@@ -64,10 +64,14 @@ function look(up) { $('stage').classList.toggle('up', up); audio.sfx.clunk(); }
 $('lookup').onclick = () => look(true);
 $('gofire').onclick = () => look(true);
 $('lookdown').onclick = () => look(false);
+const togglePause = () => gm(world, 'pause');
+$('pausebtn').onclick = togglePause;
+$('resume').onclick = () => { if (world.paused) togglePause(); };
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
   if (e.key === 'ArrowUp') look(true);
   if (e.key === 'ArrowDown') look(false);
+  if (e.key === 'p' || e.key === 'P') togglePause();
 });
 
 // ---------- intro / sound ----------
@@ -102,20 +106,29 @@ $('camcanvas').addEventListener('click', e => {
 });
 
 // ---------- repair bay ----------
+const GAUGES = ['LOW', 'MIDDLE', 'HIGH', 'RED'], LAMPS = ['R', 'W', 'B', 'D'];
 function makeBoard() {
-  const rows = [];
-  for (let i = 0; i < 5; i++) {
-    const r = Math.random;
-    rows.push({ sheath: ['brass', 'iron', 'porcelain'][Math.floor(r() * 3)], frost: r() < 0.4, star: r() < 0.35, lit: r() < 0.55, set: null });
-  }
+  const r = Math.random;
+  let rows;
+  do {
+    rows = [];
+    for (let i = 0; i < 5; i++) {
+      const g = r(), gauge = g < 0.3 ? 'LOW' : g < 0.6 ? 'MIDDLE' : g < 0.85 ? 'HIGH' : 'RED';
+      rows.push({ gauge, lamp: LAMPS[Math.floor(r() * 4)], set: null });
+    }
+    // at least two rows must need closing or cutting, and at least one stays open
+    // every board has at least one CUT and at least one CLOSE
+  } while (!rows.some(x => correctAction(x) === 'CUT') || !rows.some(x => correctAction(x) === 'CLOSE'));
   return { rows, lockUntil: 0 };
 }
+// The manual's repair rules: first rule that fits; if none fits, leave it OPEN.
 function correctAction(row) {
-  if (!row.lit && row.sheath === 'porcelain') return 'CUT';
-  if (row.frost && row.star) return 'SHUT';
-  if (row.sheath === 'iron' && !row.frost) return 'OPEN';
-  if (row.sheath === 'brass') return row.lit ? 'OPEN' : 'SHUT';
-  return 'SHUT';
+  if (row.gauge === 'RED') return 'CUT';
+  if (row.lamp === 'D') return 'CLOSE';
+  if (row.lamp === 'R' && row.gauge === 'HIGH') return 'CUT';
+  if (row.lamp === 'B' && row.gauge !== 'LOW') return 'CLOSE';
+  if (row.lamp === 'W' && row.gauge === 'HIGH') return 'CLOSE';
+  return 'OPEN';
 }
 let repairKey = '';
 function drawRepairBay() {
@@ -149,11 +162,8 @@ function drawRepairBay() {
   el.innerHTML = `<div class="rb-title">${item.name}: BROKEN</div>
     <div class="rb-sub">Set every conduit, then send the repair crew. The Operations Manual knows the rules.</div>
     <div class="rb-rows">${b.rows.map((r, i) => `
-      <div class="rb-row"><b>${i + 1}</b>
-        <div class="sheath ${r.sheath}" style="${r.frost ? 'background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.75) 0 2px,transparent 2px 5px),' + (r.sheath === 'brass' ? 'linear-gradient(#e2c27f,#8b6b3d)' : r.sheath === 'iron' ? 'linear-gradient(#777,#333)' : 'linear-gradient(#fff,#c9c4b8)') : ''}"></div>
-        <span>${r.star ? '★ star' : ''}</span><span>${r.frost ? 'frost' : ''}</span>
-        <span class="lamp ${r.lit ? 'on' : 'off'}" style="width:14px;height:14px"></span>
-        <div class="act">${['OPEN', 'SHUT', 'CUT'].map(a => `<button data-i="${i}" data-a="${a}" class="${r.set === a ? 'sel' : ''}">${a}</button>`).join('')}</div>
+      <div class="rb-row g2"><b>${i + 1}</b>${gaugeSVG(r.gauge)}<span class="rlamp ${r.lamp}"></span>
+        <div class="act">${['OPEN', 'CLOSE', 'CUT'].map(a => `<button data-i="${i}" data-a="${a}" class="${r.set === a ? 'sel' : ''}">${a}</button>`).join('')}</div>
       </div>`).join('')}</div>
     <button class="rb-go">SEND THE REPAIR CREW</button>`;
   el.querySelectorAll('.act button').forEach(btn => btn.onclick = () => { b.rows[+btn.dataset.i].set = btn.dataset.a; b.ver = (b.ver || 0) + 1; audio.sfx.click(); });
@@ -318,7 +328,7 @@ function drawMap() {
     ctx.setLineDash([5, 4]); ctx.strokeStyle = '#f4f1e6'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(pg.x, pg.y, rr, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pg.x - 6, pg.y); ctx.lineTo(pg.x + 6, pg.y); ctx.moveTo(pg.x, pg.y - 6); ctx.lineTo(pg.x, pg.y + 6); ctx.stroke();
     ctx.strokeStyle = '#ffb347'; ctx.beginPath(); ctx.moveTo(p0.x - 4, p0.y - 4); ctx.lineTo(p0.x + 4, p0.y + 4); ctx.moveTo(p0.x + 4, p0.y - 4); ctx.lineTo(p0.x - 4, p0.y + 4); ctx.stroke();
-    ctx.fillStyle = '#f4f1e6'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText(`PREDICTED (${world.drift.toUpperCase()}) · ${gridRef(g.x, g.y)} · AIM ${aq.q}%`, pg.x + rr + 4, pg.y - 4);
+    ctx.fillStyle = '#f4f1e6'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText(`PREDICTED (${aq.tracked ? 'CAMERA TRACK' : world.drift.toUpperCase()}) · ${gridRef(g.x, g.y)} · AIM ${aq.q}%`, pg.x + rr + 4, pg.y - 4);
   }
   // tagged bergs (live)
   for (const b of world.bergs) {
@@ -356,7 +366,7 @@ function drawMap() {
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(s.heading); ctx.fillStyle = '#ff4b3a'; ctx.shadowColor = '#ff4b3a'; ctx.shadowBlur = s.mode === 'roam' ? 4 : 14;
     ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(6, 7); ctx.lineTo(-6, 7); ctx.closePath(); ctx.fill(); ctx.restore();
     ctx.fillStyle = '#ff8a7a'; ctx.font = '600 10px IBM Plex Mono'; ctx.textAlign = 'center';
-    ctx.fillText(s.mode === 'hunt' ? 'THE GRINDMAW · SWIMMING TO THE PING' : s.mode === 'circle' ? 'THE GRINDMAW · CIRCLING' : 'THE GRINDMAW', p.x, p.y + 20); }
+    ctx.fillText(s.mode === 'hunt' ? 'THE GRINDMAW · SWIMMING TO THE PING' : s.mode === 'patrol' ? 'THE GRINDMAW · CIRCLING THE WATCH' : 'THE GRINDMAW', p.x, p.y + 20); }
   // grid labels pinned to the chart edges
   ctx.font = '600 11px IBM Plex Mono'; ctx.fillStyle = 'rgba(232,207,152,.85)';
   ctx.fillStyle = 'rgba(10,20,24,.75)'; ctx.fillRect(0, 0, Wd, 16); ctx.fillRect(0, 0, 20, Ht);
@@ -439,8 +449,26 @@ function drawCamera() {
   ctx.fillStyle = 'rgba(255,255,255,.05)';
   for (let i = 0; i < 300; i++) ctx.fillRect(Math.random() * Wd, Math.random() * Ht, 1, 1);
   ctx.fillStyle = 'rgba(232,207,152,.8)'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'center';
-  for (let k = -40; k <= 40; k += 10) { const x = Wd / 2 + (k * Math.PI / 180 / hf) * Wd / 2; ctx.fillRect(x, 0, 1, 6); ctx.fillText(String((cam.facing + k + 360) % 360).padStart(3, '0'), x, 17); }
+  // bearing tape: fixed marks every 10 degrees that slide as the camera turns
+  for (let b = Math.ceil((cam.facing - 50) / 10) * 10; b <= cam.facing + 50; b += 10) {
+    const x = Wd / 2 + ((b - cam.facing) * Math.PI / 180 / hf) * Wd / 2;
+    if (x < 10 || x > Wd - 10) continue;
+    ctx.fillRect(x, 0, 1, 6); ctx.fillText(String(((b % 360) + 360) % 360).padStart(3, '0'), x, 17);
+  }
+  ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.moveTo(Wd / 2 - 5, 0); ctx.lineTo(Wd / 2 + 5, 0); ctx.lineTo(Wd / 2, 7); ctx.fill(); ctx.fillStyle = 'rgba(232,207,152,.8)';
   ctx.textAlign = 'left'; ctx.fillText('● REC ' + fmt(t), 8, Ht - 8);
+  // weather station on the post: what the camera control levers are set from
+  { const wx = camWeather(world, cam);
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(Wd - 196, 24, 188, 22);
+    ctx.fillStyle = '#9ad0ff'; ctx.font = '600 12px IBM Plex Mono'; ctx.textAlign = 'right';
+    ctx.fillText(`WIND ${wx.windKn} kn · AIR ${wx.air}°`, Wd - 14, 40); ctx.textAlign = 'left'; }
+  const lk = world.lock, lb = lockedBerg(world);
+  if (lk && lb && up && cameraView(world, cam).some(it => it.o === lb)) {
+    const done = lk.track && lk.track.cam === cam.id && t - lk.track.t < 1.5, k = lk.trackSince != null ? Math.min(1, (t - lk.trackSince) / T.trackTime) : 0;
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(8, 24, 250, 22);
+    ctx.fillStyle = done ? '#5cff9d' : '#ffb347'; ctx.font = '600 12px IBM Plex Mono';
+    ctx.fillText(done ? `TRACKING #${lb.num} ✓ DRIFT MEASURED` : `TRACKING #${lb.num} · MEASURING DRIFT ${Math.round(k * 100)}%`, 14, 40);
+  }
 }
 function drawReveal(ctx, sx, base, width, k) {
   const a = Math.min(1, k / 1.2), w = Math.max(30, width * 0.6) * (1 + 0.1 * Math.sin(k * 6));
@@ -627,7 +655,10 @@ function drawRadio() {
   if (document.activeElement !== $('gain')) $('gain').value = world.radio.gain;
   $('gainval').textContent = world.radio.gain.toFixed(1);
   $('radiosrc').textContent = world.music ? 'cabin wireless is ON' : 'tuned to the locked target';
-  $('p-radio').classList.toggle('fusehot', world.radio.clipTime > 1.5);
+  const fuse = world.radio.clipTime / T.fuseClip;
+  $('p-radio').classList.toggle('fusehot', fuse > 0.5);
+  $('fusefill').style.width = Math.min(100, fuse * 100) + '%';
+  $('fusemeter').classList.toggle('hot', fuse > 0.5);
   $('strength').style.width = (sig.strength * 100).toFixed(0) + '%';
   $('cliplamp').firstElementChild.className = 'lamp ' + (sig.clip ? 'on' : 'off');
   ctx.fillStyle = 'rgba(3,8,6,.6)'; ctx.fillRect(0, 0, 300, 110);
@@ -646,7 +677,7 @@ function drawRadio() {
     }
     ctx.stroke(); ctx.lineWidth = 1;
     ctx.fillStyle = 'rgba(232,207,152,.7)'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left';
-    ctx.fillText(sig.clip ? (world.radio.clipTime > 1.5 ? 'FUSE HOT · LOWER THE GAIN NOW' : 'CLIPPING · LOWER THE GAIN') : sig.strength > 0.75 && !sig.lamps ? 'MATCH THE GAIN TO THE BRASS LINES' : !lockedBerg(world) && !world.music ? 'NO TARGET LOCKED' : '', 6, 12);
+    ctx.fillText(sig.clip ? (world.radio.clipTime > T.fuseClip * 0.5 ? 'FUSE HOT · LOWER THE GAIN NOW' : 'CLIPPING · LOWER THE GAIN') : sig.strength > 0.75 && !sig.lamps ? 'MATCH THE GAIN TO THE BRASS LINES' : !lockedBerg(world) && !world.music ? 'NO TARGET LOCKED' : '', 6, 12);
     ctx.textAlign = 'right'; ctx.fillText(sig.band, 294, 106);
   }
   const lamps = document.querySelectorAll('#songlamps span');
@@ -720,14 +751,15 @@ function drawLock() {
     `Fix from <b>${l.source.toUpperCase()}</b>, <b>${ago(world.t - l.t0)}</b><br>Predicted in <b>${gridRef(g.x, g.y)}</b>${b.tag ? ` · tagged <b style="color:${COLORS[b.tag]}">${b.tag.toUpperCase()}</b>` : ''}`;
   document.querySelectorAll('#drift button').forEach(x => x.classList.toggle('sel', x.dataset.v === world.drift));
   const r = world.readings;
-  $('driftinfo').innerHTML = !r ? 'No current reading yet. The prediction will not move.' : `Predicting with the <b>${world.drift.toUpperCase()}</b> current read at ${gridRef(r.x, r.y)}, ${ago(world.t - r.t)}.`;
+  $('driftinfo').innerHTML = aq && aq.tracked ? `<b style="color:var(--phos)">CAMERA TRACK</b>: using the drift the ${camName(aq.cam)} camera measured ${ago(aq.trackAge)}. The drift switch is not used.` : !r ? 'No current reading yet. The prediction will not move. Track the ice on a camera, or read the current with a buoy.' : `Predicting with the <b>${world.drift.toUpperCase()}</b> current read at ${gridRef(r.x, r.y)}, ${ago(world.t - r.t)}.`;
   const q = aq ? aq.q : null;
   $('aimnum').textContent = $('aimnum2').textContent = q == null ? '--' : q + '%';
   $('aimlamp').className = $('aimlamp2').className = 'lamp ' + lampClass(q);
   // advice pop-up when aim quality is low
   let tip = '';
   if (aq && q < 50) {
-    if (!world.buoy || !world.power.currents.on) tip = '<b>Low aim quality.</b> Switch on <b>CURRENTS</b> with a buoy in the water so the prediction knows how the water moves.';
+    if (aq.tracked) tip = aq.fFix < aq.fTrack ? '<b>Low aim quality.</b> The fix is old. Bring the ice back into a camera view to refresh it.' : '<b>Low aim quality.</b> The camera lost sight of the ice a while ago. Find it on a camera again.';
+    else if (!world.buoy || !world.power.currents.on) tip = '<b>Low aim quality.</b> Switch on <b>CURRENTS</b> with a buoy in the water, or <b>track the ice on a camera</b> for a few seconds.';
     else if (aq.readAge == null) tip = '<b>Low aim quality.</b> Waiting for the first current reading from the buoy.';
     else if (aq.fDist < 0.5) tip = '<b>Low aim quality.</b> The current was read far from the target. Drop the buoy right next to it.';
     else if (aq.fRead < 0.5) tip = '<b>Low aim quality.</b> The current reading is old. Keep <b>CURRENTS</b> powered.';
@@ -736,9 +768,12 @@ function drawLock() {
   for (const id of ['aimtip', 'aimtip2']) { const el = $(id); el.classList.toggle('hidden', !tip); if (el.innerHTML !== tip) el.innerHTML = tip; }
   $('aimfactors').innerHTML = !aq ? '<div class="note2">Lock onto an iceberg to aim.</div>' :
     factorRow('FIX AGE', Math.round(aq.fixAge) + ' s', aq.fFix) +
-    factorRow('CURRENT READING AGE', aq.readAge == null ? 'none' : Math.round(aq.readAge) + ' s', aq.fRead) +
-    factorRow('READING TAKEN FROM TARGET', aq.readDist == null ? 'none' : Math.round(aq.readDist) + ' mi', aq.fDist) +
-    `<div class="note2">Drift switch: <b>${aq.drift.toUpperCase()}</b>. Flight time about ${Math.round(aq.flight)} s. Aim quality cannot tell if the drift switch is wrong for this ice.</div>`;
+    (aq.tracked
+      ? factorRow('CAMERA TRACK (' + camName(aq.cam) + ')', Math.round(aq.trackAge) + ' s ago', aq.fTrack) +
+        `<div class="note2"><b style="color:var(--phos)">Drift measured by camera.</b> No buoy needed and the drift switch is not used. Flight time about ${Math.round(aq.flight)} s.</div>`
+      : factorRow('CURRENT READING AGE', aq.readAge == null ? 'none' : Math.round(aq.readAge) + ' s', aq.fRead) +
+        factorRow('READING TAKEN FROM TARGET', aq.readDist == null ? 'none' : Math.round(aq.readDist) + ' mi', aq.fDist) +
+        `<div class="note2">Drift switch: <b>${aq.drift.toUpperCase()}</b>. Flight time about ${Math.round(aq.flight)} s. Aim quality cannot tell if the drift switch is wrong for this ice. Tip: track the ice on a camera to measure its drift directly.</div>`);
   document.querySelectorAll('.col').forEach(x => x.classList.toggle('sel', x.dataset.c === world.color));
   const green = world.color === 'green', bc = world.beacons;
   $('fire').classList.toggle('green', green);
@@ -759,6 +794,38 @@ function drawLock() {
       ? `<b class="hit">HIT #${last.num}</b>${last.intended ? '' : ' (not the iceberg you locked)'} with ${last.color.toUpperCase()}. Aim quality was ${last.q}%.`
       : `<b class="miss">MISSED #${last.num}${last.by != null ? ' BY ' + last.by + ' mi' : ''}</b>. Aim quality was ${last.q}%.<br>Why: ${last.reasons.join('; ')}.`;
   }
+}
+
+// ---------- camera control (overhead deck) ----------
+document.querySelectorAll('.lever button').forEach(b => b.onclick = () => setLever(world, b.parentElement.dataset.lever, b.dataset.pos));
+document.querySelectorAll('#plates button').forEach(b => b.onclick = () => pressPlate(world, b.dataset.shape));
+for (const [id, dir] of [['turnleft', -1], ['turnright', 1]]) {
+  const b = $(id);
+  const start = e => { e.preventDefault(); setCamTurn(world, dir); b.classList.add('held'); audio.sfx.turn(); };
+  const stop = () => { if (world.camTurn === dir) setCamTurn(world, 0); b.classList.remove('held'); };
+  b.addEventListener('mousedown', start); b.addEventListener('touchstart', start, { passive: false });
+  b.addEventListener('mouseup', stop); b.addEventListener('mouseleave', stop); b.addEventListener('touchend', stop);
+}
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.repeat) return;
+  if (e.key === 'ArrowLeft') setCamTurn(world, -1);
+  if (e.key === 'ArrowRight') setCamTurn(world, 1);
+});
+addEventListener('keyup', e => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') setCamTurn(world, 0); });
+function drawCamCtl() {
+  const cam = world.cams.find(c => c.id === world.activeCam), open = camIsUnlocked(world, cam.id), p = world.camPanel;
+  $('camctlname').textContent = cam.name + (open ? ' · UNLOCKED' : ' · LOCKED');
+  $('camlocked').classList.toggle('hidden', open); $('camopen').classList.toggle('hidden', !open);
+  if (open) {
+    $('facingnum').textContent = String(Math.round(cam.facing) % 360).padStart(3, '0') + '°';
+    $('unlockleft').textContent = 'UNLOCKED UNTIL IT BREAKS';
+    return;
+  }
+  document.querySelectorAll('.lever').forEach(l => l.querySelectorAll('button').forEach(b => b.classList.toggle('sel', p[l.dataset.lever] === b.dataset.pos)));
+  document.querySelectorAll('#platedots i').forEach((d, i) => d.classList.toggle('on', i < p.pressed.length));
+  const bad = world.t < p.lockout;
+  $('camctlhint').classList.toggle('bad', bad);
+  $('camctlhint').textContent = bad ? 'WRONG CODE · THE SERVOS ARE RESETTING' : 'Levers: WIND and AIR on the feed. Then the plates, in order.';
 }
 
 // ---------- rune board ----------
@@ -791,7 +858,7 @@ function tickerText() {
   items.push(D ? `BUOY ${gridRef(world.readings.x, world.readings.y)}: WIND FROM ${D.windOct} ${D.windKn} KN · WATER ${D.temp}° · SURFACE ${D.surfKn.toFixed(1)} KN · DEEP ${D.deepKn.toFixed(1)} KN` : 'NO BUOY READING · DROP A BUOY AND POWER THE CURRENTS');
   const storms = stormsAt(world, world.t);
   items.push(storms.length ? storms.map(st => 'STORM OVER ' + gridRef(st.x, st.y)).join(' · ') : 'SKIES CLEAR OVER THE FIFTH');
-  items.push(world.shark.mode === 'hunt' ? 'THE GRINDMAW IS SWIMMING FOR ' + gridRef(world.lastPing.x, world.lastPing.y) : 'THE GRINDMAW IS IN ' + gridRef(world.shark.x, world.shark.y));
+  items.push(world.shark.mode === 'hunt' ? 'THE GRINDMAW IS SWIMMING FOR ' + gridRef(world.lastPing.x, world.lastPing.y) : world.shark.mode === 'patrol' ? 'THE GRINDMAW IS CIRCLING THE WATCH, NOW IN ' + gridRef(world.shark.x, world.shark.y) : 'THE GRINDMAW IS IN ' + gridRef(world.shark.x, world.shark.y));
   items.push(`RUNE BOARD PAGE ${BOARD_PAGES[world.board.page]} · FLIPS IN ${Math.max(0, Math.ceil(world.board.nextFlip - world.t))} S`);
   const br = brokenList(world); if (br.length) items.push('BROKEN: ' + br.map(x => x.name).join(', '));
   if (world.fatigue > 0.6) items.push('THE OPERATOR IS NODDING OFF · COFFEE ADVISED');
@@ -890,6 +957,13 @@ function handleEvents() {
       case 'broke': audio.sfx.camdead(); if (e.sys === 'launcher') toast('THE BEACON LAUNCHER JAMMED · REPAIR BAY ▲'); if (e.sys === 'fuse') toast('THE RADIO FUSE BLEW · REPAIR BAY ▲'); if (e.sys === 'winch') toast('THE GRINDMAW TORE THE WINCH CABLE · REPAIR BAY ▲'); if (e.sys === 'furnace') toast('THE GRATE CRACKED · REPAIR BAY ▲'); break;
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
+      case 'fusewarn': audio.sfx.alarm(); toast('RADIO FUSE OVERHEATING · LOWER THE GAIN'); break;
+      case 'tracked': audio.sfx.lock(); toast(`CAMERA TRACKING #${e.num} · DRIFT MEASURED · NO BUOY NEEDED`, 'info'); break;
+      case 'camunlocked': audio.sfx.calibrated(); toast(camName(e.cam) + ' CAMERA UNLOCKED FOR 2 MINUTES', 'info'); break;
+      case 'camfail': audio.sfx.runefail(); break;
+      case 'plate': case 'lever': audio.sfx.click(); break;
+      case 'paused': audio.sfx.bell(); break;
+      case 'resumed': audio.sfx.click(); break;
       case 'fuel': audio.sfx.fuel(); break;
       case 'turn': audio.sfx.turn(); break;
       case 'brew': audio.sfx.coffee(); toast('THE COFFEE IS ON', 'info'); break;
@@ -927,7 +1001,7 @@ function frame(now) {
   acc += Math.min(0.25, (now - last) / 1000); last = now;
   while (acc >= DT) { step(world, DT); acc -= DT; }
   handleEvents();
-  drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower(); drawBoard(); drawRepairBay(); drawTicker(Math.min(0.1, (now - (frame.prev || now)) / 1000)); frame.prev = now;
+  drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower(); drawBoard(); drawRepairBay(); drawCamCtl(); $('pausecard').classList.toggle('hidden', !world.paused); $('pausebtn').textContent = world.paused ? '▶ RESUME' : '❚❚ PAUSE'; drawTicker(Math.min(0.1, (now - (frame.prev || now)) / 1000)); frame.prev = now;
   if (gmChan && now - lastSnap > 500) { lastSnap = now; gmChan.postMessage({ snap: snapshot(world) }); }
   requestAnimationFrame(frame);
 }
