@@ -11,17 +11,81 @@
 <body>
 <div id="viewport">
 <div id="stage" class="dark">
+<div id="rig">
 
+  <!-- ================= OVERHEAD DECK (look up) ================= -->
+  <div id="deck">
+    <header id="deckbar">
+      <div class="plate title">OVERHEAD DECK <span>· LAUNCHER · RUNE BOARD · REPAIR BAY ·</span></div>
+      <button id="lookdown" class="lookbtn">▼ LOOK DOWN</button>
+    </header>
+
+    <!-- beacon launcher -->
+    <section class="panel" id="p-launch" style="left:16px;top:56px;width:620px;height:532px">
+      <h2>BEACON LAUNCHER <small id="launchstat"></small></h2>
+      <div id="aimbox">
+        <div class="lbl">LOCKED TARGET</div>
+        <div class="nixie big" id="locknum2">--</div>
+        <div class="lbl" style="margin-top:12px">AIM QUALITY</div>
+        <div id="aimq"><span id="aimnum">--</span><div id="aimlamp" class="lamp off"></div></div>
+        <div id="aimfactors"></div>
+      </div>
+      <div id="aimtip" class="aimtip hidden"></div>
+      <div id="firebox">
+        <div class="lbl">BEACON COLOUR</div>
+        <div id="colors"></div>
+        <button id="fire">FIRE BEACON</button>
+        <div id="rack"></div>
+        <div class="lbl" style="margin-top:12px">LAST SHOT</div>
+        <div id="shotreport">No beacons fired yet.</div>
+      </div>
+      <div class="offline hidden" id="jammed">LAUNCHER JAMMED<br><small>REPAIR IT IN THE REPAIR BAY →</small></div>
+    </section>
+
+    <!-- rune board -->
+    <section class="panel" id="p-board" style="left:652px;top:56px;width:640px;height:384px">
+      <h2>RUNE BOARD <small>the Operations Manual says what each rune does</small></h2>
+      <div id="flipcard"><div class="lbl">PAGE</div><div id="flippage">I</div><div id="flipbar"><div></div></div></div>
+      <div id="boardpad"></div>
+      <div id="chutebox"><div class="lbl">FUEL CHUTE</div><div id="chute2"></div></div>
+    </section>
+
+    <!-- ticker -->
+    <section class="panel" id="p-ticker" style="left:652px;top:448px;width:640px;height:140px">
+      <h2>WIRE SERVICE</h2>
+      <div id="ticker"><div id="tickertext"></div></div>
+    </section>
+
+    <!-- repair bay -->
+    <section class="panel" id="p-repair" style="left:1308px;top:56px;width:596px;height:532px">
+      <h2>REPAIR BAY <small id="repaircount"></small></h2>
+      <div id="repairtabs"></div>
+      <div id="repairboard"><div class="rb-sub" style="margin-top:20px">Nothing is broken. Long may it last.</div></div>
+    </section>
+  </div>
+
+  <!-- ================= MAIN BOARD ================= -->
+  <div id="main">
   <!-- top bar -->
   <header id="topbar">
     <div class="plate title">THE LAST WATCH <span>· OBSERVATORY OF THE FIFTH ·</span></div>
+    <button id="lookup" class="lookbtn">▲ LOOK UP</button>
     <div id="cabin" class="cabin">
-      <div class="cabin-label">CABIN</div>
-      <div id="comforts"></div>
-      <div id="mug" title="coffee"><div id="mugfill"></div><div class="steam"></div></div>
+      <div class="cabin-label">COFFEE</div>
+      <div id="mug" title="click to drink"><div id="mugfill"></div><div class="steam"></div></div>
+      <div id="mugstat" class="lbl"></div>
+      <div id="eyebox" title="how tired the operator is">
+        <svg viewBox="0 0 64 34"><defs><clipPath id="eyeclip"><path d="M2 17 Q32 -6 62 17 Q32 40 2 17 Z"/></clipPath></defs>
+          <path d="M2 17 Q32 -6 62 17 Q32 40 2 17 Z" fill="#e8e2d0"/>
+          <g clip-path="url(#eyeclip)"><circle cx="32" cy="17" r="9" fill="#3b7bff"/><circle cx="32" cy="17" r="4" fill="#000"/>
+            <rect id="lidtop" x="0" y="-34" width="64" height="34" fill="#6e5430"/><rect id="lidbot" x="0" y="34" width="64" height="34" fill="#6e5430"/></g>
+          <path d="M2 17 Q32 -6 62 17 Q32 40 2 17 Z" fill="none" stroke="#b08d57" stroke-width="2"/></svg>
+        <div id="eyestat" class="lbl">ALERT</div>
+      </div>
     </div>
     <div class="clockwrap">
       <div class="nixie" id="clock">00:00</div>
+      <div id="watchno" class="lbl"></div>
       <button id="mute" class="small-btn" title="Mute all sound (M)">SOUND ON</button>
     </div>
   </header>
@@ -32,11 +96,11 @@
     <div class="screen crt" id="camscreen">
       <canvas id="camcanvas" width="508" height="300"></canvas>
       <div id="wiper"></div>
-      <div id="repairboard" class="hidden"></div>
+      <div class="offline hidden" id="camdead">CAMERA DESTROYED<br><small>REPAIR IT ON THE OVERHEAD DECK ▲</small></div>
       <div class="offline hidden" id="camoff">NO POWER</div>
     </div>
     <div id="camsel"></div>
-    <div class="hint">Click an iceberg in the view to lock onto it.</div>
+    <div class="hint">Click an iceberg in the view to lock onto it. Turn cameras from the rune board ▲</div>
   </section>
 
   <!-- currents -->
@@ -51,16 +115,19 @@
     <h2>FURNACE &amp; POWER <small id="powcount"></small></h2>
     <div id="furnace">
       <div id="furnacedoor"><div id="flames"></div></div>
-      <button id="ignite">LIGHT<br>FURNACE</button>
+      <div id="chute"></div>
+      <div id="furnacebtns"><button id="ignite">LIGHT</button><button id="stoke">STOKE</button></div>
     </div>
+    <div id="heatgauge"><div id="heatzone"></div><div id="heatfill"></div></div><div id="heatlbl">HEAT</div>
+    <div id="furnacestat"></div>
     <div id="switches"></div>
   </section>
 
   <!-- map -->
-  <section class="panel" id="p-map" style="left:572px;top:68px;width:776px;height:640px">
-    <h2>CHART OF THE FIFTH <small>500 mi grid</small></h2>
+  <section class="panel" id="p-map" style="left:572px;top:68px;width:776px;height:772px">
+    <h2>CHART OF THE FIFTH <small>300 mi squares</small></h2>
     <div class="screen chart">
-      <canvas id="mapcanvas" width="744" height="560"></canvas>
+      <canvas id="mapcanvas" width="744" height="708"></canvas>
       <div id="maptools">
         <button id="btn-buoy" class="tool">DROP BUOY</button>
         <button id="btn-zin" class="tool sq">+</button>
@@ -68,13 +135,13 @@
         <button id="btn-home" class="tool">RESET VIEW</button>
       </div>
       <div id="toast"></div>
-      <div id="note" class="hidden"></div>
+      <div id="notes"></div>
     </div>
   </section>
 
-  <!-- lock & beacon -->
-  <section class="panel" id="p-beacon" style="left:572px;top:718px;width:776px;height:346px">
-    <h2>TARGET LOCK &amp; BEACON LAUNCHER</h2>
+  <!-- target lock -->
+  <section class="panel" id="p-beacon" style="left:572px;top:850px;width:776px;height:214px">
+    <h2>TARGET LOCK</h2>
     <div id="lockbox">
       <div class="lbl">LOCKED TARGET</div>
       <div class="nixie big" id="locknum">--</div>
@@ -88,11 +155,11 @@
       </div>
       <div id="driftinfo"></div>
     </div>
-    <div id="firebox">
-      <div class="lbl">BEACON COLOUR</div>
-      <div id="colors"></div>
-      <button id="fire">FIRE<br>BEACON</button>
-      <div id="rack"></div>
+    <div id="aimmini">
+      <div class="lbl">AIM QUALITY</div>
+      <div id="aimq2"><span id="aimnum2">--</span><div id="aimlamp2" class="lamp off"></div></div>
+      <button id="gofire" class="lookbtn">▲ FIRE FROM THE<br>OVERHEAD DECK</button>
+      <div id="aimtip2" class="aimtip hidden"></div>
     </div>
   </section>
 
@@ -111,16 +178,18 @@
 
   <!-- radio -->
   <section class="panel" id="p-radio" style="left:1364px;top:498px;width:540px;height:270px">
-    <h2>RADIO <small>tuned to the locked target</small></h2>
+    <h2>RADIO <small id="radiosrc">tuned to the locked target</small></h2>
     <div class="screen"><canvas id="radiocanvas" width="300" height="110"></canvas></div>
     <div id="songlamps"><span></span><span></span><span></span></div>
-    <div id="dialwrap"><div id="dial"><div id="dialmark"></div></div><div class="lbl">drag to tune</div></div>
+    <div id="cliplamp"><div class="lamp off"></div>CLIP</div>
     <div id="radioreadout">
       <div class="nixie" id="freq">300.0</div>
-      <div class="fine"><button data-d="-1">◀◀</button><button data-d="-0.1">◀</button><button data-d="0.1">▶</button><button data-d="1">▶▶</button></div>
+      <div class="fine"><button data-d="-5">◀◀</button><button data-d="-0.5">◀</button><button data-d="0.5">▶</button><button data-d="5">▶▶</button></div>
       <div class="meter"><div id="strength"></div></div>
-      <div class="lbl">SIGNAL</div>
+      <div class="lbl sig">SIGNAL</div>
+      <div id="gainrow"><span class="lbl">GAIN</span><input type="range" id="gain" min="0" max="10" step="0.1" value="5"><span id="gainval">5.0</span></div>
     </div>
+    <div id="freqrow"><input type="range" id="freqslider" min="100" max="999.9" step="0.1" value="300"><div id="bandticks"><span>100</span><span>· LOW ·</span><span>400</span><span>· MID ·</span><span>700</span><span>· HIGH ·</span><span>999</span></div></div>
     <div class="offline hidden" id="radiooff">NO POWER</div>
   </section>
 
@@ -139,12 +208,16 @@
     </div>
     <div class="offline hidden" id="scanoff">NO POWER</div>
   </section>
+  </div>
+</div>
 
+  <div id="fatigue"></div>
+  <div id="blink"></div>
   <div id="winscreen" class="hidden">
     <div class="wincard">
       <div class="small">THE BEACON HAS STRUCK</div>
       <h1>ELGARZ IS MARKED</h1>
-      <p>A thread of green fire now burns between the Last Watch and the wandering glacier. Wherever Elgarz drifts, you can follow.</p>
+      <p>Blue light poured out of the ice where the green beacon struck. Coldsteel answered. A thread of green fire now burns between the Last Watch and Elgarz. Wherever it drifts, you can follow.</p>
       <p class="small" id="wintime"></p>
       <button id="wincontinue">KEEP WATCHING</button>
     </div>
@@ -153,9 +226,10 @@
     <div class="wincard">
       <h1>THE LAST WATCH</h1>
       <p>Somewhere in this frozen sea drifts <b>Elgarz</b>, the glacier that swallowed Citadel Coldsteel.</p>
-      <p>Find it. Prove it. Mark it with a beacon.</p>
+      <p>Find it. Prove it. Mark it with a green beacon.</p>
       <button id="begin">TAKE THE WATCH</button>
-      <p class="small">Sound recommended · M to mute · Manual holders: open the Operations Manual</p>
+      <p class="small">Sound recommended · M to mute · ▲ LOOK UP for the launcher, rune board and repair bay</p>
+      <p class="small" id="introseed"></p>
     </div>
   </div>
 </div>

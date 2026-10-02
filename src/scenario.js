@@ -1,153 +1,262 @@
 // Authored scenario for The Last Watch.
 // Coordinates are miles. x grows east, y grows south (screen style).
-// Time is real seconds since the furnace was lit.
+// The map is the square drawn around the observatory's reach. Time is real seconds since the furnace was first lit.
 
-export const MAP_W = 4000;
-export const MAP_H = 2600;
-export const OBSERVATORY = { x: 2000, y: 2480 };
-export const TOMB_RADIUS = 1000;
+export const MAP = 3600;
+export const MAP_W = MAP, MAP_H = MAP;
+export const CENTER = { x: MAP / 2, y: MAP / 2 };
+export const OBSERVATORY = CENTER;           // the Last Watch stands on an island in the middle of the sea
+export const REACH = 1800;                   // radius of the reach circle; only the map corners lie outside it
+export const GRID = 12;                      // chart squares per side
+export const CELL = MAP / GRID;              // 300 mi
+export const ISLAND_R = 90;
+export const TOMB_RADIUS = 300;
 
 export const TUNING = {
-  buoyDeployRange: 1500,   // how far from the observatory a buoy can be dropped
-  buoyRadius: 420,         // sonar reach around the buoy
-  sonarDelay: 6,           // seconds between ping and result
-  contactFade: 50,         // seconds a sonar contact stays on the map
+  buoyDeployRange: 1650,   // how far from the observatory a buoy can be dropped
+  buoyRadius: 360,         // sonar reach around the buoy
+  sonarDelay: 5,           // seconds between ping and result
+  contactFade: 90,         // seconds a sonar contact stays on the chart
+  flowShow: 25,            // seconds the current arrows from a ping stay on the chart
   buoyRebuild: 30,         // seconds to build a new buoy after the shark eats one
   currentRefresh: 4,       // seconds between current readings while powered
-  powerSlots: 3,           // how many systems the furnace can run at once
-  beaconSpeed: 80,         // miles per second
-  beaconStock: 12,
-  beaconRebuild: 60,
-  scanTime: 14,            // seconds of good alignment to finish a metal scan
-  alignRadius: 40,         // miles of prediction error before alignment hits zero
-  radioAlignRadius: 90,
-  radioWidth: 5,           // how sharp the radio peak is (frequency units)
-  camRange: 450,
-  camFov: 70 * Math.PI / 180,
-  camHeatUp: 0.9,          // heat per second while watched
-  camCoolDown: 1.2,
-  remorhazTrigger: 65,
+  // furnace
+  furnaceStartHeat: 62,
+  furnaceBurn: 0.3,        // heat lost per second
+  stokeAmount: 22,         // heat one shovel adds (over stokeRamp seconds)
+  stokeRamp: 2,
+  furnaceBlowout: 100,     // heat at which the furnace blows out
+  furnaceCooldown: 7,      // seconds before a blown-out furnace can be relit (after the grate is repaired)
+  slotHeat: [40, 20, 0.01],// heat needed for 3, 2, 1 power slots
+  chuteMax: 4,             // shovels the fuel chute holds
+  chuteStart: 2,
+  // rune board
+  boardFlipEvery: 60,      // seconds between flips
+  boardFlipPresses: 4,     // presses that also flip it
+  turnStep: 15,            // degrees a camera turns per press
+  turnHeat: 2,             // heat each turn costs
+  coffeeHeat: 6,           // heat brewing coffee costs
+  coffeeBrew: 12,          // seconds to brew
+  coffeeSips: 3,
+  ventHeat: 15,            // heat the VENT rune dumps
+  // operator fatigue
+  fatigueRate: 1 / 420,    // fatigue gained per second (0..1)
+  sipRelief: 0.45,
+  // beacons
+  beaconSpeed: 200,        // miles per second
+  beaconStock: 12,         // red / amber / blue share this rack
+  beaconRebuild: 40,
+  greenStock: 6,           // "this is Elgarz" beacons. They never rebuild.
+  hitLarge: 6,             // beacon hit radius for large ice: hitLarge + length * hitPerMile
+  hitPerMile: 0.45,
+  hitSmall: 8,
+  jamEvery: [4, 7],        // the launcher jams after this many shots (random in range)
+  revealDelay: 3.5,        // seconds between the blue light and the win screen
+  // scanner
+  scanTime: 12,            // seconds of good alignment to finish a metal scan
+  alignRadius: 60,         // miles of prediction error before alignment hits zero
+  alignNeeded: 0.5,
+  runeLockout: 8,
+  detuneAfter: 50,         // seconds the buoy conditions must disagree with the setting before it drifts out of tune
+  // radio
+  radioAlignRadius: 180,
+  radioWidth: 45,          // how wide a signal's peak is on the dial (frequency units)
+  radioReadable: 0.7,      // signal strength needed to read the lamps
+  gainWindow: 1.3,         // how far the gain can be off and still read the lamps
+  stationGain: 3,          // gain the cabin wireless stations need
+  fuseClip: 6,             // seconds of clipping before the radio fuse blows
+  // cameras
+  camRange: 620,
+  camFov: 90 * Math.PI / 180,
+  camHeatUp: 1.8,          // heat per second while watched
+  camCoolDown: 2.6,
+  remorhazTrigger: 65,     // about 36 s of watching
   remorhazGiveUp: 30,
-  remorhazSpeed: 1.5,
+  remorhazSpeed: 3,
   remorhazSpawnDist: 130,
-  repairTime: 15,
-  sharkWindow: 120,        // seconds a ping is remembered
-  sharkTrigger: 3,         // pings in one area within the window that draw the shark
-  sharkNoiseArea: 260,     // pings within this distance count as "the same area"
-  sharkSpeed: 3.2,
+  repairTime: 15,          // camera repair sled
+  minorRepairTime: 8,      // furnace grate, launcher, winch, fuse
+  // the Grindmaw
+  sharkSpeed: 3.5,         // miles per second near its target
+  sharkFastSpeed: 9,       // miles per second while far from its target
+  sharkNearDist: 450,      // 1.5 chart squares
   sharkRoamSpeed: 0.6,
-  sharkKillDist: 18,
+  sharkKillDist: 25,
+  // spawning
+  elgarzSpawnAt: 180,
+  lateDecoys: [360, 660],  // seconds at which two more named bergs drift in
+  spawnRimFrac: 0.86,
+  spawnMinSightings: 2,
+  // drift
+  rimHold: 0.8,            // fraction of REACH where the sea starts pushing ice back inward
+  rimPull: 0.0045,
+  tombSpeed: 1.3,          // miles per second the Tomb travels (GM lever multiplies it)
+  tombRepelBand: 160,      // Elgarz starts to swerve this far outside the Tomb's ring
+  tombDrawPull: 1.2,       // how hard the Gilded Hulk is drawn toward the Tomb (mi/s)
 };
 
-// Drift fields. Each vortex: centre, peak speed (mi/s), radius of peak speed,
-// direction (+1 clockwise on screen, -1 counter-clockwise).
-export const DEEP_VORTICES = [
-  { x: 2950, y: 1250, vmax: 0.70, rpk: 600, dir: 1 },   // the eastern deep gyre (Elgarz rides it)
-  { x: 850, y: 1250, vmax: 0.12, rpk: 220, dir: -1 },   // slow eddy that holds the Tomb
-];
-export const SURFACE_VORTICES = [
-  { x: 1650, y: 1250, vmax: 0.55, rpk: 650, dir: -1 },  // the western surface gyre
-];
-export const SURFACE_DRIFT = { x: 0.06, y: 0 };
+// ---------- the sea ----------
+// Two pairs of gyres. The deep pair sits east and west of the island and drives a jet south past it;
+// the surface pair sits north and south and drives a jet east. Their centres wander slowly, so ice
+// does not ride the same ring forever. Each vortex: centre, peak speed (mi/s), radius of peak speed,
+// direction (+1 clockwise on screen), wander amplitude and period.
+export function makeField(rng) {
+  const g = (cx, cy, vmax, dir) => ({
+    cx: CENTER.x + cx, cy: CENTER.y + cy, vmax: vmax * (0.88 + rng() * 0.24), rpk: 680 + rng() * 80, dir,
+    ax: 140 + rng() * 80, ay: 140 + rng() * 80, ph: rng() * Math.PI * 2, per: 260 + rng() * 140,
+  });
+  return {
+    deep: [g(-780, 0, 2.0, 1), g(780, 0, 2.0, -1)],
+    surface: [g(0, -780, 1.7, -1), g(0, 780, 1.7, 1)],
+    windBase: rng() * 360,            // compass degrees the wind blows FROM at the start
+    windVeer: (rng() < 0.5 ? -1 : 1) * (110 + rng() * 60),
+    windPh: rng() * Math.PI * 2,
+    coldAxis: rng() * Math.PI * 2,    // the cold side of the sea
+    tempPh: rng() * Math.PI * 2,
+  };
+}
+export function vortexAt(v, t) {
+  const k = 2 * Math.PI * t / v.per;
+  return { x: v.cx + v.ax * Math.sin(k + v.ph), y: v.cy + v.ay * Math.cos(k * 0.77 + v.ph), vmax: v.vmax, rpk: v.rpk, dir: v.dir };
+}
 
 // Wind: direction it blows FROM (compass degrees), veering over the session.
-export function windAt(t) {
-  const from = 290 + 60 * Math.min(1, t / 1200) + 8 * Math.sin(t / 70);
+export function windAt(t, F) {
+  const from = F.windBase + F.windVeer * Math.min(1, t / 1200) + 14 * Math.sin(t / 110 + F.windPh);
   const speed = 10 + 3 * Math.sin(t / 110);
   const toward = (from + 180) * Math.PI / 180;
   return { x: Math.sin(toward) * speed, y: -Math.cos(toward) * speed, from: ((from % 360) + 360) % 360, speed };
 }
 
-// Storms move across the map and snow out cameras inside them.
-export const STORMS = [
-  { t0: 120, t1: 520, x0: 2400, y0: 300, x1: 3300, y1: 1300, r: 380 },
-  { t0: 480, t1: 980, x0: 900, y0: 600, x1: 2200, y1: 1700, r: 420 },
-  { t0: 900, t1: 1500, x0: 3600, y0: 700, x1: 2600, y1: 1900, r: 400 },
-];
+// Water temperature (°) at a point. Colder on one side of the sea and much colder near the Tomb.
+export function tempAt(x, y, t, F, tomb) {
+  const ax = Math.cos(F.coldAxis), ay = Math.sin(F.coldAxis);
+  const along = ((x - CENTER.x) * ax + (y - CENTER.y) * ay) / REACH;     // -1..1
+  const d = tomb ? Math.hypot(x - tomb.x, y - tomb.y) : 1e9;
+  return -28 - 13 * along - 20 * Math.exp(-((d / 500) ** 2)) - 8 * Math.min(1, t / 1200) + 4 * Math.sin(t / 170 + F.tempPh);
+}
 
-// Fixed camera posts. `facing` is a compass bearing in degrees.
+// Storms: each one is aimed to pass over a camera post during the session.
+export function makeStorms(rng) {
+  const cams = [...CAMERAS].sort(() => rng() - 0.5);
+  const windows = [[160, 300], [360, 500], [560, 700], [760, 900], [960, 1100]];
+  return windows.map(([lo, hi], i) => stormThrough(cams[i % cams.length], lo + rng() * (hi - lo), rng() * Math.PI * 2, cams[i % cams.length].id));
+}
+// A storm that passes over point p at time tc, travelling at angle ang.
+export function stormThrough(p, tc, ang, cam = null) {
+  const half = 700, dur = 150;
+  return {
+    cam, t0: tc - dur, t1: tc + dur, r: 360,
+    x0: p.x - Math.cos(ang) * half, y0: p.y - Math.sin(ang) * half,
+    x1: p.x + Math.cos(ang) * half, y1: p.y + Math.sin(ang) * half,
+  };
+}
+
+// Camera posts, spaced evenly round the island. `facing` is the compass bearing each one starts at;
+// the operator can turn them from the rune board.
+// Starting bearings found by tools/tune-cameras.mjs.
+const START_FACING = [180, 75, 90, 0, 15, 285, 165];
+const post = (id, name, k) => {
+  const bearing = k * 360 / 7 + 10, a = bearing * Math.PI / 180, r = 1050;
+  return { id, name, x: Math.round(CENTER.x + Math.sin(a) * r), y: Math.round(CENTER.y - Math.cos(a) * r), facing: START_FACING[k] };
+};
 export const CAMERAS = [
-  { id: 'c1', name: 'GALLOWS REACH', x: 3880, y: 1720, facing: 300 },
-  { id: 'c2', name: 'SOUTHEAST POST', x: 3200, y: 2250, facing: 10 },
-  { id: 'c3', name: 'SALTGRAVE', x: 2350, y: 2050, facing: 345 },
-  { id: 'c4', name: 'WESTERN WATCH', x: 900, y: 1950, facing: 35 },
-  { id: 'c5', name: 'MIDSEA PILLAR', x: 2000, y: 1250, facing: 290 },
+  post('c1', 'GALLOWS REACH', 0),
+  post('c2', 'HOARFROST SPIRE', 1),
+  post('c3', 'SALTGRAVE', 2),
+  post('c4', 'SOUTHERN POST', 3),
+  post('c5', 'CHAIN ROCK', 4),
+  post('c6', 'WESTERN WATCH', 5),
+  post('c7', 'MIDSEA PILLAR', 6),
 ];
 
 // Echo signatures: `humps` after the surface spike, and the tail shape.
-// Radio: `freq` and a three-lamp `song` (R, W, B).
+// Radio: `decoded` is what the crew should get after the manual's procedure, in `band`, sent on `carrier`.
 // `large` bergs ride the deep current, small ones ride the surface and wind.
 export const NOTABLES = [
-  {
-    id: 'elgarz', name: 'Elgarz', large: true, length: 26, elgarz: true,
-    orbit: { field: 'deep', v: 0, r: 600, a: null }, // start angle solved below
+  { id: 'elgarz', name: 'Elgarz', large: true, length: 26, elgarz: true, spawn: 'elgarz',
     hollow: true, metal: true, echo: { humps: 3, tail: 'ring' },
-    radio: { freq: 612.0, song: 'BRW' },
-    look: 'elgarz',
-  },
-  {
-    id: 'convoy', name: 'The Drowned Convoy', large: true, length: 14,
-    orbit: { field: 'deep', v: 0, r: 380, a: 2.2 },
-    hollow: true, metal: true, echo: { humps: 2, tail: 'ring' }, radio: null, look: 'convoy',
-  },
-  {
-    id: 'horn', name: "Geryon's Shed Horn", large: true, length: 12,
-    orbit: { field: 'deep', v: 0, r: 880, a: 3.6 },
+    radio: { decoded: 'BRW', band: 'MID', carrier: null }, look: 'elgarz' },
+  { id: 'convoy', name: 'The Drowned Convoy', large: true, length: 14,
+    hollow: true, metal: true, echo: { humps: 2, tail: 'ring' },
+    radio: { decoded: 'BRW', band: 'LOW', carrier: 'JAGGED' }, look: 'convoy' },
+  { id: 'hulk', name: 'The Gilded Hulk', large: true, length: 18,
+    hollow: true, metal: true, echo: { humps: 3, tail: 'ring' },
+    radio: { decoded: 'BRW', band: 'MID', carrier: null }, look: 'hulk', tombDrawn: true },
+  { id: 'shadow', name: "Coldsteel's Shadow", large: true, length: 22, spawn: 'late',
+    hollow: true, metal: true, echo: { humps: 3, tail: 'ring' }, radio: null, look: 'shadow' },
+  { id: 'horn', name: "Geryon's Shed Horn", large: true, length: 12,
     hollow: false, metal: true, echo: { humps: 0, tail: 'flat' },
-    radio: { freq: 255.0, song: 'BRW' }, look: 'horn',
-  },
-  {
-    id: 'cradle', name: "Leviathan's Cradle", large: true, length: 16,
-    orbit: { field: 'deep', v: 0, r: 720, a: 5.3 },
-    hollow: false, metal: false, echo: { humps: 2, tail: 'fuzz' }, radio: null, look: 'cradle',
-  },
-  {
-    id: 'choir', name: 'The Penitent Choir', large: false, length: 7,
-    orbit: { field: 'surface', r: 520, a: 0.4 },
+    radio: { decoded: 'BRW', band: 'MID', carrier: 'STEPPED' }, look: 'horn' },
+  { id: 'cradle', name: "Leviathan's Cradle", large: true, length: 16,
+    hollow: false, metal: false, echo: { humps: 2, tail: 'fuzz' },
+    radio: { decoded: 'WWB', band: 'LOW', carrier: 'SMOOTH' }, look: 'cradle' },
+  { id: 'herald', name: 'The Frozen Herald', large: true, length: 10, spawn: 'late',
     hollow: true, metal: false, echo: { humps: 2, tail: 'ring' },
-    radio: { freq: 781.0, song: 'BRW' }, look: 'choir',
-  },
-  {
-    id: 'sepulcher', name: "Angel's Sepulcher", large: false, length: 5,
-    orbit: { field: 'surface', r: 820, a: 1.9 },
+    radio: { decoded: 'BRW', band: 'MID', carrier: 'JAGGED' }, look: 'plain' },
+  { id: 'choir', name: 'The Penitent Choir', large: false, length: 7,
+    hollow: true, metal: false, echo: { humps: 2, tail: 'ring' },
+    radio: { decoded: 'BRW', band: 'HIGH', carrier: 'STEPPED' }, look: 'choir' },
+  { id: 'sepulcher', name: "Angel's Sepulcher", large: false, length: 5,
     hollow: true, metal: false, echo: { humps: 1, tail: 'ring' },
-    radio: { freq: 488.0, song: 'WWB' }, look: 'sepulcher',
-  },
-  {
-    id: 'cairn', name: 'The Iron Cairn', large: false, length: 4,
-    orbit: { field: 'surface', r: 330, a: 4.4 },
+    radio: { decoded: 'WWB', band: 'MID', carrier: 'JAGGED' }, look: 'sepulcher' },
+  { id: 'cairn', name: 'The Iron Cairn', large: false, length: 4,
     hollow: false, metal: true, echo: { humps: 0, tail: 'flat' },
-    radio: { freq: 846.0, song: 'RRW' }, look: 'cairn',
-  },
-  {
-    id: 'arsenal', name: 'The Broken Arsenal', large: false, length: 5,
-    orbit: { field: 'surface', r: 950, a: 5.6 },
-    hollow: false, metal: true, echo: { humps: 0, tail: 'flat' }, radio: null, look: 'arsenal',
-  },
-  {
-    id: 'tolling', name: 'The Tolling Berg', large: false, length: 4,
-    orbit: { field: 'surface', r: 700, a: 3.1 },
-    hollow: true, metal: false, echo: { humps: 1, tail: 'ring' }, radio: null, look: 'bell',
-  },
+    radio: { decoded: 'RRW', band: 'MID', carrier: 'SMOOTH' }, look: 'cairn' },
+  { id: 'arsenal', name: 'The Broken Arsenal', large: false, length: 5,
+    hollow: false, metal: true, echo: { humps: 0, tail: 'flat' },
+    radio: { decoded: 'WRB', band: 'MID', carrier: 'SMOOTH' }, look: 'arsenal' },
+  { id: 'tolling', name: 'The Tolling Berg', large: false, length: 4,
+    hollow: true, metal: false, echo: { humps: 1, tail: 'ring' },
+    radio: { decoded: 'BBR', band: 'MID', carrier: 'STEPPED' }, look: 'bell' },
+  { id: 'raft', name: "The Pilgrims' Raft", large: false, length: 3,
+    hollow: false, metal: true, echo: { humps: 0, tail: 'fuzzflat' }, radio: { decoded: 'RBW', band: 'MID', carrier: 'STEPPED' }, look: 'plain' },
 ];
 
-// Elgarz's starting angle on the deep gyre, solved by tools/check.mjs so that
-// it crosses into buoy range at about 3:30.
-export const ELGARZ_START_ANGLE = -0.05;
+export const GENERIC_COUNT = 48;
+export const GENERIC_TRANSMIT = 0.5;     // share of plain ice that hums something
+export const GENERIC_METAL = 0.15;       // share of plain ice with wreckage frozen inside
+export const GENERIC_TRIAD = 2;          // plain bergs that also carry the Triad (relics of Geryon's herd)
 
-export const GENERIC_COUNT = 56;
-
-// The Tomb of Levistus. It rides the slow western deep eddy.
-export const TOMB = { x: 760, y: 1180, large: true };
-
-// Radio decoding table (also printed in the manual).
+// ---------- radio ----------
 // band: LOW < 400, MID 400-699, HIGH >= 700
-export const RADIO_TABLE = {
-  BRW: { LOW: 'The Bull alone. A fragment of Geryon.', MID: "THE TRIAD: Glass, Ember and the Bull. Geryon's house.", HIGH: 'A fallen choir: Glass and Ember. No Bull.' },
-  RRW: { LOW: 'Ice settling. No meaning.', MID: 'War drums of a devil legion.', HIGH: 'An infernal armoury humming in its sleep.' },
-  WWB: { LOW: 'Whale-song of the Styx.', MID: 'A celestial lament. Something holy is buried here.', HIGH: 'Frost singing in a crevasse. No meaning.' },
-};
+export function bandOf(freq) { return freq < 400 ? 'LOW' : freq < 700 ? 'MID' : 'HIGH'; }
+export const BAND_RANGE = { LOW: [130, 380], MID: [420, 680], HIGH: [720, 970] };
+export const CARRIERS = ['SMOOTH', 'STEPPED', 'JAGGED'];
 
-export function bandOf(freq) {
-  return freq < 400 ? 'LOW' : freq < 700 ? 'MID' : 'HIGH';
+// The manual's procedure. Shown lamps -> decoded lamps.
+export function decodeLamps(shown, carrier) {
+  if (carrier === 'STEPPED') return [...shown].reverse().join('');
+  if (carrier === 'JAGGED') return [...shown].map(c => c === 'R' ? 'B' : c === 'B' ? 'R' : c).join('');
+  return shown;
 }
+// Every transform is its own inverse, so encoding is the same operation.
+export const encodeLamps = decodeLamps;
+
+export const RADIO_TABLE = {
+  BRW: { LOW: 'The Bull alone. A fragment of Geryon.', MID: 'THE TRIAD: Glass, Ember and the Bull.', HIGH: 'A fallen choir: Glass and Ember. No Bull.' },
+  WRB: { LOW: 'Ice settling. No meaning.', MID: "Geryon's name spoken backwards. A mockery, not the Triad.", HIGH: 'Frost singing in a crevasse. No meaning.' },
+  RBW: { LOW: 'Pack ice grinding. No meaning.', MID: 'A herald calling for a lord who never answers.', HIGH: 'Gulls of the Styx. No meaning.' },
+  RRW: { LOW: 'Echo of an old storm. No meaning.', MID: 'War drums of a devil legion.', HIGH: 'An infernal armoury humming in its sleep.' },
+  WWB: { LOW: 'Whale-song of the Styx.', MID: 'A celestial lament. Something holy is buried here.', HIGH: 'Wind across a chimney of ice. No meaning.' },
+  BBR: { LOW: 'Floes knocking together. No meaning.', MID: 'A drowned bell, ringing in a hollow.', HIGH: 'Static from the Tomb. No meaning.' },
+};
+// Meaningless hums for plain ice (decoded, band).
+export const NOISE_SIGNALS = [['WRB', 'LOW'], ['WRB', 'HIGH'], ['RBW', 'LOW'], ['RBW', 'HIGH'], ['RRW', 'LOW'], ['WWB', 'HIGH'], ['BBR', 'LOW'], ['BBR', 'HIGH'], ['WBW', 'MID'], ['RWR', 'LOW']];
+// The cabin wireless. When MUSIC is on these play on the band and can be tuned like anything else.
+export const STATIONS = [
+  { id: 'st1', decoded: 'BRW', band: 'MID', carrier: 'SMOOTH', name: 'an old recording of a choir' },
+  { id: 'st2', decoded: 'WWB', band: 'LOW', carrier: 'STEPPED', name: 'a dance band from the Bronze Citadel' },
+  { id: 'st3', decoded: 'RRW', band: 'HIGH', carrier: 'JAGGED', name: 'a sermon from Dis' },
+];
+
+// ---------- rune board ----------
+// Each rune's house and weight pick a function from this grid. On page N, count the rune's weight
+// forward N-1 steps (4 wraps round to 1) before reading the grid.
+export const BOARD_GRID = {
+  Ice: ['WIPERS', 'TURN LEFT', 'TURN RIGHT', 'NOTHING'],
+  Iron: ['LAUNCH', 'FUEL', 'VENT', 'NOTHING'],
+  Ember: ['COFFEE', 'FUEL', 'LAMPS', 'BELL'],
+  Bone: ['WIRELESS', 'TURN LEFT', 'TURN RIGHT', 'NOTHING'],
+};
+export const BOARD_PAGES = ['I', 'II', 'III', 'IV'];

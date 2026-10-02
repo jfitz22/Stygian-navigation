@@ -1,107 +1,265 @@
-// Headless scenario checks. Run: node tools/check.mjs
-import { createWorld, step, light, dist, snapshot, setPower, deployBuoy, ping, lockContact, setDrift, fireBeacon } from '../src/sim.js';
-import { OBSERVATORY, TUNING, TOMB_RADIUS, CAMERAS } from '../src/scenario.js';
+// Headless scenario checks across many seeds. Run: node tools/check.mjs [seedCount]
+import {
+  createWorld, step, light, stoke, dist, snapshot, setPower, deployBuoy, ping, lockContact, setDrift, fireBeacon,
+  countSightings, camSees, snowAt, slotsAvailable, pressKey, readingDisplay, radioSignal, setFreq, setGain, gainFor, setMusic, lockOn, DT,
+  pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip,
+} from '../src/sim.js';
+import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RADIO_TABLE, BOARD_GRID } from '../src/scenario.js';
+import { keypadCode, RUNES } from '../src/glyphs.js';
 
-const DT = 0.1;
+const SEEDS = Array.from({ length: Number(process.argv[2]) || 40 }, (_, i) => 1000 + i * 37);
 let failures = 0;
 const check = (ok, msg) => { console.log((ok ? 'PASS ' : 'FAIL ') + msg); if (!ok) failures++; };
+const pct = (a, b) => (100 * a / b).toFixed(0) + '%';
+const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+const keepFurnace = w => { if (w.furnace.heat < 50) { if (!w.furnace.chute) w.furnace.chute = T.chuteMax; stoke(w); } };   // a diligent stoker with a full chute
 
-function run(seconds, w = createWorld(1717)) {
-  light(w);
-  const log = [];
-  for (let i = 0; i < seconds / DT; i++) {
-    step(w, DT);
-    if (i % 10 === 0) log.push(JSON.parse(JSON.stringify(snapshot(w))));
-  }
-  return { w, log };
+function run(seed, seconds, each) {
+  const w = createWorld(seed); light(w);
+  for (let i = 0; i < seconds / DT; i++) { if (i % 50 === 0) keepFurnace(w); step(w, DT); if (each) each(w, i); }
+  return w;
 }
 
-const { log } = run(1800);
-const E = s => s.bergs.find(b => b.elgarz);
-
-// Elgarz arrival: first second inside buoy-reachable water (deploy range + sonar radius)
-const reach = TUNING.buoyDeployRange + TUNING.buoyRadius;
-const arrive = log.find(s => dist(E(s), OBSERVATORY) <= reach);
-console.log('Elgarz enters sonar reach at', arrive ? arrive.t.toFixed(0) + 's' : 'never');
-check(arrive && arrive.t >= 195 && arrive.t <= 240, 'Elgarz arrives between 3:15 and 4:00');
-
-const minTomb = Math.min(...log.map(s => dist(E(s), s.tomb)));
-console.log('Elgarz closest approach to the Tomb:', minTomb.toFixed(0), 'mi');
-check(minTomb >= TOMB_RADIUS + 50, 'Elgarz stays more than 1,050 mi from the Tomb');
-
-const stays = log.filter(s => s.t >= 240 && s.t <= 1500).every(s => dist(E(s), OBSERVATORY) <= reach);
-check(stays, 'Elgarz stays in sonar reach from 4:00 to 25:00');
-
-// how many bergs ever enter the Tomb ring during 20 minutes
-const entered = new Set();
-for (const s of log.filter(s => s.t <= 1200)) for (const b of s.bergs) if (dist(b, s.tomb) < TOMB_RADIUS) entered.add(b.id);
-console.log('Bergs that enter the Tomb ring by 20:00:', entered.size, 'of', log[0].bergs.length);
-check(entered.size >= 10, 'At least 10 bergs can be ruled out with the Tomb ring');
-check(!entered.has('elgarz'), 'Elgarz never enters the ring');
-
-// cameras that see Elgarz at some point
-for (const c of CAMERAS) {
-  const seen = log.filter(s => {
-    const e = E(s); const d = dist(e, c);
-    if (d > TUNING.camRange) return false;
-    const b = Math.atan2(e.x - c.x, -(e.y - c.y)) * 180 / Math.PI;
-    let rel = ((b - c.facing + 540) % 360) - 180;
-    return Math.abs(rel) < 35;
+// ---------- world-level properties per seed ----------
+const stats = { spawnT: [], sightings: [], firstSight: [], minTomb: [], tombMove: [], medianPath: [], ruledOut: [], outOfReach: [], transmit: [], stormHits: [] };
+let elgarzLeft = 0, triadOthers = 0, fullMatch = 0, hulkInRing = 0, oneSign = [];
+for (const seed of SEEDS) {
+  const w0 = createWorld(seed);
+  stats.transmit.push([...w0.bergs, ...w0.reserve].filter(b => b.radio).length / (w0.bergs.length + w0.reserve.length));
+  const ice0 = [...w0.bergs, ...w0.reserve], triad = b => b.radio && b.radio.decoded === 'BRW' && b.radio.band === 'MID';
+  triadOthers += ice0.filter(b => !b.elgarz && triad(b)).length;
+  fullMatch += ice0.filter(b => !b.elgarz && !b.tombDrawn && b.hollow && b.metal && triad(b)).length;
+  oneSign.push(ice0.filter(b => !b.elgarz && (b.metal || triad(b))).length);
+  const track = [], tomb0 = { ...w0.tomb };
+  const start = {}, path = {}, prev = {}, entered = new Set();
+  let spawnT = null, tombPath = 0, tombPrev = null;
+  const w = run(seed, 1200, (w, i) => {
+    const e = w.bergs.find(b => b.elgarz);
+    if (e && spawnT == null) spawnT = w.t;
+    if (i % 10 === 0) {
+      if (e) track.push({ t: w.t, x: e.x, y: e.y, tomb: dist(e, w.tomb) });
+      if (tombPrev) tombPath += dist(w.tomb, tombPrev); tombPrev = { x: w.tomb.x, y: w.tomb.y };
+      for (const b of w.bergs) {
+        if (prev[b.id]) path[b.id] = (path[b.id] || 0) + dist(b, prev[b.id]);
+        prev[b.id] = { x: b.x, y: b.y };
+        if (!b.elgarz && dist(b, w.tomb) < TOMB_RADIUS) entered.add(b.id);
+        if (b.tombDrawn && dist(b, w.tomb) < TOMB_RADIUS && !entered.has('hulk!')) { entered.add('hulk!'); }
+      }
+    }
   });
-  if (seen.length) console.log(`  camera ${c.name} sees Elgarz from ${seen[0].t.toFixed(0)}s to ${seen.at(-1).t.toFixed(0)}s`);
+  stats.spawnT.push(spawnT);
+  const s = countSightings(track);
+  stats.sightings.push(s.n); stats.firstSight.push(s.first ?? 9999);
+  stats.minTomb.push(Math.min(...track.map(p => p.tomb)));
+  if (track.some(p => dist(p, CENTER) > REACH)) elgarzLeft++;
+  stats.tombMove.push(tombPath);
+  const paths = Object.values(path).sort((a, b) => a - b);
+  stats.medianPath.push(paths[Math.floor(paths.length / 2)]);
+  if (entered.has('hulk!')) { hulkInRing++; entered.delete('hulk!'); }
+  stats.ruledOut.push(entered.size);
+  stats.outOfReach.push(w.bergs.filter(b => dist(b, CENTER) > REACH).length);
+  stats.stormHits.push(w.storms.filter(st => { for (let t = st.t0; t < st.t1; t += 5) if (snowAt(w, CAMERAS.find(c => c.id === st.cam).x, CAMERAS.find(c => c.id === st.cam).y, t) > 0.5) return true; return false; }).length);
 }
-for (const c of CAMERAS) {
-  const counts = log.filter((_, i) => i % 60 === 0).map(s => s.bergs.filter(b => {
-    const d = dist(b, c); if (d > TUNING.camRange) return false;
-    const br = Math.atan2(b.x - c.x, -(b.y - c.y)) * 180 / Math.PI;
-    return Math.abs(((br - c.facing + 540) % 360) - 180) < 35;
-  }).length);
-  console.log(`  ${c.name} bergs in view each minute: ${counts.join(' ')}`);
-}
+const lo = a => Math.min(...a).toFixed(0), hi = a => Math.max(...a).toFixed(0), av = a => mean(a).toFixed(1);
+console.log(`Seeds: ${SEEDS.length}`);
+console.log(`Elgarz sightings per session: min ${lo(stats.sightings)} avg ${av(stats.sightings)} max ${hi(stats.sightings)}; first sighting ${lo(stats.firstSight)}-${hi(stats.firstSight)}s`);
+console.log(`Elgarz closest to the Tomb: ${lo(stats.minTomb)} mi (ring ${TOMB_RADIUS})`);
+console.log(`Tomb travel in 20 min: ${lo(stats.tombMove)}-${hi(stats.tombMove)} mi (${(mean(stats.tombMove) / CELL).toFixed(1)} squares avg)`);
+console.log(`Median iceberg travel in 20 min: ${lo(stats.medianPath)}-${hi(stats.medianPath)} mi (${(mean(stats.medianPath) / CELL).toFixed(1)} squares avg)`);
+console.log(`Bergs that enter the Tomb ring: ${lo(stats.ruledOut)}-${hi(stats.ruledOut)} (avg ${av(stats.ruledOut)})`);
+console.log(`Share of ice that transmits: ${pct(Math.min(...stats.transmit), 1)} minimum`);
+check(stats.spawnT.every(t => t != null && Math.abs(t - T.elgarzSpawnAt) < 1), 'Elgarz joins the sea at 3:00 in every seed');
+check(stats.sightings.every(n => n >= 2), 'Elgarz passes through camera view at least twice in every seed');
+check(elgarzLeft === 0, 'Elgarz never leaves reach');
+check(stats.minTomb.every(d => d >= TOMB_RADIUS), 'Elgarz never enters the Tomb ring');
+check(mean(stats.medianPath) >= 4.5 * CELL, 'Typical ice crosses at least 4.5 chart squares in 20 minutes');
+check(mean(stats.tombMove) >= 3.5 * CELL && Math.min(...stats.tombMove) >= 1.2 * CELL, 'The Tomb drifts several squares');
+check(mean(stats.ruledOut) >= 3, 'Some ice wanders into the Tomb ring and can be ruled out');
+check(stats.outOfReach.every(n => n <= 2), 'Ice stays inside reach (at most 2 strays per seed)');
+check(stats.transmit.every(x => x >= 1 / 3), 'At least a third of the ice transmits');
+console.log(`Decoys singing the Triad: ${(triadOthers / SEEDS.length).toFixed(1)} per seed · ice with metal or the Triad: ${lo(oneSign)}-${hi(oneSign)}`);
+check(triadOthers / SEEDS.length >= 3, 'Several decoys also sing the Triad, so the radio alone proves nothing');
+check(fullMatch === 0, 'No decoy except the Gilded Hulk is hollow, metal and Triad');
+check(hulkInRing >= SEEDS.length * 0.8, `The Gilded Hulk is drawn into the Tomb ring (${hulkInRing}/${SEEDS.length} seeds)`);
+check(Math.min(...oneSign) >= 12, 'Plenty of ice shows metal or the Triad, not just the echo');
+check(stats.stormHits.every(n => n === 5), 'Five storms per watch, each whiting out the camera it is aimed at');
 
-// Elgarz path summary
-for (const s of log.filter((_, i) => i % 60 === 0)) {
-  const e = E(s);
-  console.log(`  t=${(s.t / 60).toFixed(0).padStart(2)}m elgarz (${e.x.toFixed(0)}, ${e.y.toFixed(0)}) obs ${dist(e, OBSERVATORY).toFixed(0)} tomb ${dist(e, s.tomb).toFixed(0)} tomb@(${s.tomb.x.toFixed(0)},${s.tomb.y.toFixed(0)})`);
-}
-
-// determinism
-const a = run(300).w, b = run(300).w;
+// ---------- determinism ----------
+const a = run(4321, 300), b = run(4321, 300);
 check(JSON.stringify(snapshot(a)) === JSON.stringify(snapshot(b)), 'Same seed gives the same world');
 
-// ---- shark rule: two pings are safe, three pings in one area draw it ----
-function sharkTest(pings) {
-  const w = createWorld(1717); light(w);
-  setPower(w, 'sonar', true); for (let i = 0; i < 20; i++) step(w, DT);
-  deployBuoy(w, 2000, 1500); for (let i = 0; i < 50; i++) step(w, DT);
-  for (let k = 0; k < pings; k++) { ping(w); for (let i = 0; i < 70; i++) step(w, DT); }
-  for (let i = 0; i < 20; i++) step(w, DT);
-  return w.shark.mode;
+// ---------- furnace ----------
+{
+  const w = createWorld(1); light(w);
+  for (let i = 0; i < 600; i++) step(w, DT);
+  check(slotsAvailable(w) === 3, 'A fresh furnace runs three systems for the first minute');
+  for (let i = 0; i < 1500; i++) step(w, DT);
+  check(slotsAvailable(w) < 3, 'Left alone for over 2 minutes, the furnace loses power slots');
+  const w3 = createWorld(1); light(w3); w3.furnace.chute = 0;
+  check(!stoke(w3), 'Stoking needs fuel in the chute');
+  const w2 = createWorld(1); light(w2); stoke(w2); stoke(w2); for (let i = 0; i < 50; i++) step(w2, DT);
+  check(w2.furnace.lit === false && w2.t < w2.furnace.outUntil, 'Overfeeding the furnace blows it out');
+  for (let i = 0; i < 80; i++) step(w2, DT);
+  check(!light(w2), 'A blown furnace cracks its grate and cannot be relit');
+  startRepair(w2, 'furnace'); for (let i = 0; i < 100; i++) step(w2, DT);
+  check(light(w2), 'After the grate is repaired the furnace relights');
 }
-check(sharkTest(2) === 'roam', 'Two pings in one area do not draw the Grindmaw');
-check(sharkTest(3) === 'hunt', 'Three pings in one area draw the Grindmaw');
 
-// ---- a competent shot wins; a sloppy shot misses ----
-function shot({ drift, readNearTarget, delay }) {
-  const w = createWorld(1717); light(w);
-  for (let i = 0; i < 4200; i++) step(w, DT);         // 7:00
-  ['sonar', 'currents'].forEach(sys => setPower(w, sys, true));
+// ---------- the Grindmaw ----------
+function sharkSetup(seed) {
+  const w = createWorld(seed); light(w); setPower(w, 'sonar', true);
+  for (let i = 0; i < 20; i++) step(w, DT);
+  w.shark.x = CENTER.x + 900; w.shark.y = CENTER.y; w.lastPing = null;
+  deployBuoy(w, CENTER.x - 600, CENTER.y); for (let i = 0; i < 50; i++) step(w, DT);
+  return w;
+}
+{
+  const w = sharkSetup(5); const d0 = dist(w.shark, w.buoy);
+  ping(w); for (let i = 0; i < 300; i++) { step(w, DT); if (i % 50 === 0) keepFurnace(w); }
+  check(dist(w.shark, w.buoy) < d0 - 60, 'After a ping the Grindmaw swims toward it');
+  for (let i = 0; i < 6000 && w.buoy; i++) { step(w, DT); if (i % 50 === 0) keepFurnace(w); }
+  check(!w.buoy && w.broken.winch, 'A buoy left at the ping is eaten and the winch breaks');
+  const w2 = sharkSetup(5); ping(w2);
+  for (let i = 0; i < 2000; i++) { step(w2, DT); if (i % 50 === 0) keepFurnace(w2); }
+  deployBuoy(w2, CENTER.x, CENTER.y + 1200);
+  for (let i = 0; i < 3000; i++) { step(w2, DT); if (i % 50 === 0) keepFurnace(w2); }
+  check(!!w2.buoy, 'A buoy moved away before the Grindmaw arrives survives');
+}
+
+// ---------- scanner keypad ----------
+{
+  let ok = 0, guesses = 0;
+  for (const seed of SEEDS) {
+    const w = createWorld(seed); light(w); ['sonar', 'currents', 'scanner'].forEach(s => setPower(w, s, true));
+    for (let i = 0; i < 20; i++) step(w, DT);
+    deployBuoy(w, CENTER.x + 400, CENTER.y - 300); for (let i = 0; i < 100; i++) step(w, DT);
+    const code = keypadCode(w.scanner.plate, readingDisplay(w.readings));
+    check.quiet = true;
+    for (const rid of code) pressKey(w, w.scanner.plate.indexOf(rid));
+    if (w.scanner.calibrated) ok++;
+    const naive = [0, 1, 2, 3].map(i => w.scanner.plate[i]);
+    if (naive.join() === code.join()) guesses++;
+  }
+  check(ok === SEEDS.length, 'Following the manual calibrates the scanner in every seed');
+  check(guesses === 0, 'Pressing the first four keys left to right never works');
+  const houses = createWorld(9).scanner.plate.map(i => RUNES[i].house);
+  check(['Ice', 'Iron', 'Ember', 'Bone'].every(h => houses.filter(x => x === h).length >= 2), 'Every plate has at least two runes of every house');
+}
+
+// ---------- radio ----------
+{
+  const w = createWorld(77); light(w); ['radio', 'currents', 'sonar'].forEach(s => setPower(w, s, true));
+  for (let i = 0; i < 30; i++) step(w, DT);
+  const b = w.bergs.find(b => b.radio && b.notable);
+  lockOn(w, b.id, b.x, b.y, w.t, 'camera');
+  setFreq(w, b.radio.freq); setGain(w, gainFor(dist(b, OBSERVATORY)));
+  let sig = radioSignal(w);
+  check(sig.lamps === b.radio.shown, 'Tuned and gained correctly, the lamps show the signal');
+  setFreq(w, b.radio.freq + 12); sig = radioSignal(w);
+  check(sig.strength > 0.75, 'The tuning window is forgiving (12 units off still reads)');
+  setFreq(w, b.radio.freq); setGain(w, 10); sig = radioSignal(w);
+  check(!sig.lamps, 'Too much gain clips the signal and the lamps go dark');
+  setMusic(w, true); const st = w.stations[0]; setFreq(w, st.freq); setGain(w, T.stationGain); sig = radioSignal(w);
+  check(sig.kind === 'station' && sig.lamps === st.shown, 'With music on, the cabin wireless stations can be tuned');
+  check(!!RADIO_TABLE.BRW.MID.includes('TRIAD'), 'The Triad entry exists');
+}
+
+// ---------- rune board ----------
+{
+  let ok = true;
+  for (const seed of SEEDS) {
+    const w = createWorld(seed);
+    for (let k = 0; k < 6; k++) {
+      const fns = w.board.runes.map(r => runeFunction(r, w.board.page));
+      if (!['FUEL', 'TURN LEFT', 'TURN RIGHT', 'COFFEE', 'WIPERS'].every(f => fns.includes(f))) ok = false;
+      for (let p = 0; p < 4; p++) pressBoard(w, p);
+    }
+  }
+  check(ok, 'Every rune board page has fuel, both turns, coffee and wipers');
+  const w = createWorld(3); light(w); const f0 = w.furnace.chute;
+  pressBoard(w, w.board.runes.findIndex(r => runeFunction(r, w.board.page) === 'FUEL'));
+  check(w.furnace.chute === f0 + 1, 'The FUEL rune fills the chute');
+  const w4 = createWorld(3); light(w4); const c0 = w4.cams[0].facing, h0 = w4.furnace.heat;
+  pressBoard(w4, w4.board.runes.findIndex(r => runeFunction(r, w4.board.page) === 'TURN RIGHT'));
+  check(w4.cams[0].facing === (c0 + T.turnStep) % 360 && w4.furnace.heat < h0, 'Turning a camera moves it 15 degrees and costs heat');
+  const w5 = createWorld(3); light(w5); w5.board.nextFlip = 1e9; const pg = w5.board.page;
+  for (let i = 0; i < T.boardFlipPresses; i++) pressBoard(w5, w5.board.runes.findIndex(r => runeFunction(r, w5.board.page) === 'NOTHING') >= 0 ? w5.board.runes.findIndex(r => runeFunction(r, w5.board.page) === 'NOTHING') : 0);
+  check(w5.board.flippedAt === w5.t, 'The board flips after a few presses');
+  const w6 = createWorld(3); light(w6); w6.fatigue = 0.9; w6.coffee.sips = 1; sip(w6);
+  check(w6.fatigue < 0.5, 'A sip of coffee clears fatigue');
+}
+
+// ---------- the weather detunes the scanner ----------
+{
+  const detunes = [];
+  for (const seed of SEEDS.slice(0, 15)) {
+    const w = createWorld(seed); light(w); ['sonar', 'currents', 'scanner'].forEach(s => setPower(w, s, true));
+    for (let i = 0; i < 20; i++) step(w, DT);
+    deployBuoy(w, CENTER.x + 500, CENTER.y - 400);
+    let n = 0;
+    for (let i = 0; i < 11800; i++) {
+      if (i % 50 === 0) keepFurnace(w);
+      if (!w.scanner.calibrated && w.readings && i % 300 === 0) w.scanner.calibrated = true, w.scanner.calCode = null;
+      const was = w.scanner.calibrated; step(w, DT); if (was && !w.scanner.calibrated) n++;
+    }
+    detunes.push(n);
+  }
+  console.log(`Scanner detunes per watch with the buoy left in one place: ${detunes.join(' ')}`);
+  check(mean(detunes) >= 2 && mean(detunes) <= 6 && Math.min(...detunes) >= 1, 'Changing weather detunes the scanner a few times a watch, not constantly');
+}
+
+// ---------- breakdowns ----------
+{
+  const w = createWorld(8); light(w); setPower(w, 'radio', true); for (let i = 0; i < 30; i++) step(w, DT);
+  const b = w.bergs.find(b => b.radio); lockOn(w, b.id, b.x, b.y, w.t, 'camera');
+  setFreq(w, b.radio.freq); setGain(w, 10);
+  for (let i = 0; i < (T.fuseClip + 1) * 10; i++) { lockOn(w, b.id, b.x, b.y, w.t, 'camera'); step(w, DT); }
+  check(w.broken.fuse, 'Clipping too long blows the radio fuse');
+  const w2 = createWorld(8); light(w2); for (let i = 0; i < 30; i++) step(w2, DT);
+  const g = w2.bergs[0]; let shots = 0;
+  while (!w2.broken.launcher && shots < 20) { lockOn(w2, g.id, g.x, g.y, w2.t, 'camera'); fireBeacon(w2, 'red'); shots++; }
+  check(w2.broken.launcher && shots >= T.jamEvery[0] && shots <= T.jamEvery[1], `The launcher jams every few shots (${shots})`);
+  startRepair(w2, 'launcher'); for (let i = 0; i < 100; i++) step(w2, DT);
+  check(!w2.broken.launcher, 'A repaired launcher fires again');
+}
+
+// ---------- aim quality ----------
+{
+  const w = createWorld(12); light(w); ['sonar', 'currents'].forEach(s => setPower(w, s, true)); for (let i = 0; i < 20; i++) step(w, DT);
+  const b = w.bergs[3]; deployBuoy(w, b.x, b.y); for (let i = 0; i < 60; i++) step(w, DT);
+  lockFromCamera(w, b.id);
+  const fresh = aimQuality(w).q;
+  for (let i = 0; i < 600; i++) { step(w, DT); }
+  const stale = aimQuality(w).q;
+  check(dist(w.lock, b) < 200 && fresh >= 80 && stale < fresh, `Aim quality is high for a fresh close fix and falls as it ages (${fresh} -> ${stale})`);
+}
+
+// ---------- shots ----------
+function shot(seed, { drift, readNear, delay, color = 'green' }) {
+  const w = createWorld(seed); light(w);
+  for (let i = 0; i < 3000; i++) { if (i % 50 === 0) keepFurnace(w); step(w, DT); }     // 5:00
+  ['sonar', 'currents'].forEach(s => setPower(w, s, true));
   for (let i = 0; i < 30; i++) step(w, DT);
   const e = w.bergs.find(b => b.elgarz);
-  const dd = dist(e, OBSERVATORY);
-  const k = readNearTarget ? Math.min(1, 1490 / dd) : 0.75;
-  deployBuoy(w, OBSERVATORY.x + (e.x - OBSERVATORY.x) * k, OBSERVATORY.y + (e.y - OBSERVATORY.y) * k);
+  const dd = dist(e, OBSERVATORY), k = readNear ? Math.min(1, (T.buoyDeployRange - 10) / dd) : 0.25;
+  const bx = OBSERVATORY.x + (e.x - OBSERVATORY.x) * k, by = OBSERVATORY.y + (e.y - OBSERVATORY.y) * k;
+  deployBuoy(w, readNear ? bx + 40 : bx, readNear ? by + 40 : by);
   for (let i = 0; i < 100; i++) step(w, DT);
-  ping(w); for (let i = 0; i < 70; i++) step(w, DT);
-  const c = w.contacts.find(c => c.bergId === 'elgarz');
-  if (!c) return 'no contact';
-  lockContact(w, c); setDrift(w, drift);
+  if (!readNear) { const near = { x: OBSERVATORY.x + (e.x - OBSERVATORY.x) * Math.min(1, 1600 / dd), y: OBSERVATORY.y + (e.y - OBSERVATORY.y) * Math.min(1, 1600 / dd) }; deployBuoy(w, near.x, near.y); for (let i = 0; i < 50; i++) step(w, DT); ping(w); for (let i = 0; i < 60; i++) step(w, DT); const c = w.contacts.find(c => c.bergId === 'elgarz'); if (!c) return 'no contact'; lockContact(w, c); setDrift(w, drift); deployBuoy(w, bx, by); for (let i = 0; i < 50; i++) step(w, DT); }
+  else { ping(w); for (let i = 0; i < 60; i++) step(w, DT); const c = w.contacts.find(c => c.bergId === 'elgarz'); if (!c) return 'no contact'; lockContact(w, c); setDrift(w, drift); }
   for (let i = 0; i < delay * 10; i++) step(w, DT);
-  fireBeacon(w, 'green');
-  for (let i = 0; i < 600; i++) step(w, DT);
-  return w.won ? 'win' : 'miss';
+  fireBeacon(w, color);
+  for (let i = 0; i < 400; i++) { if (i % 50 === 0) keepFurnace(w); step(w, DT); }
+  return w.won ? 'win' : e.tag ? 'tag' : 'miss';
 }
-check(shot({ drift: 'deep', readNearTarget: true, delay: 5 }) === 'win', 'Fresh lock + deep drift + nearby reading hits Elgarz');
-check(shot({ drift: 'surface', readNearTarget: true, delay: 20 }) === 'miss', 'Wrong drift setting misses');
+const good = SEEDS.slice(0, 20).map(s => shot(s, { drift: 'deep', readNear: true, delay: 8 }));
+const wrongDrift = SEEDS.slice(0, 20).map(s => shot(s, { drift: 'surface', readNear: true, delay: 8 }));
+const farRead = SEEDS.slice(0, 20).map(s => shot(s, { drift: 'deep', readNear: false, delay: 8 }));
+const amber = SEEDS.slice(0, 5).map(s => shot(s, { drift: 'deep', readNear: true, delay: 8, color: 'amber' }));
+console.log(`Careful green shots: ${good.filter(r => r === 'win').length}/20 win · wrong drift: ${wrongDrift.filter(r => r === 'win').length}/20 · reading far from target: ${farRead.filter(r => r === 'win').length}/20`);
+check(good.filter(r => r === 'win').length >= 18, 'A fresh lock + right drift + nearby reading hits Elgarz (18 of 20 seeds)');
+check(wrongDrift.filter(r => r === 'win').length <= 2, 'The wrong drift setting misses');
+check(farRead.filter(r => r === 'win').length <= 10, 'A reading taken far from the target usually misses');
+check(amber.every(r => r !== 'win'), 'Only a green beacon wins');
 
 process.exit(failures ? 1 : 0);
