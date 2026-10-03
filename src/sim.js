@@ -700,6 +700,7 @@ export function spawnDue(w) {
 export function gm(w, cmd, arg = {}) {
   if (cmd === 'pause') { w.paused = !w.paused; emit(w, w.paused ? 'paused' : 'resumed'); }
   if (cmd === 'camunlock') { w.camUnlocked[w.activeCam] = true; }
+  if (cmd === 'confetti' || cmd === 'devil') emit(w, cmd);
   if (cmd === 'repair') {
     w.cams.forEach(c => { c.broken = false; c.heat = 0; }); w.remorhazes = [];
     for (const k of Object.keys(w.broken)) w.broken[k] = false;

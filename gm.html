@@ -42,7 +42,7 @@
 <main>
   <div>
     <div class="tools"><b style="align-self:center;color:var(--brass)">CLICK THE MAP TO:</b>
-      <button data-tool="">look only</button><button data-tool="place-elgarz">place / move Elgarz</button><button data-tool="storm">drop a storm</button><button data-tool="shark-to">send the Grindmaw</button><button data-tool="tom-to">send Old Tom</button>
+      <button data-tool="">look only</button><button data-tool="place-elgarz">place / move Elgarz</button><button data-tool="storm">drop a storm</button><button data-tool="shark-to">send the Grindmaw</button><button data-tool="tom-to">send Old Tom</button><span style="margin-left:12px">zoom</span><button id="zout">−</button><button id="zin">+</button>
     </div>
     <canvas id="map" width="900" height="900"></canvas>
   </div>
@@ -62,6 +62,8 @@
       <button data-cmd="flip">Flip the rune board</button>
       <button data-cmd="coffee">Fresh coffee</button>
       <button data-cmd="camunlock">Unlock the orb on screen</button>
+      <button data-cmd="confetti">Confetti</button>
+      <button data-cmd="devil">Dancing devil</button>
     </div>
     <div class="box"><b>LEVERS</b> (1 = as designed)<div id="levers"></div></div>
     <div class="grid">
@@ -103,7 +105,7 @@ toolBtns.forEach(b => b.onclick = () => { tool = b.dataset.tool; toolBtns.forEac
 toolBtns[0].classList.add('on');
 document.getElementById('map').addEventListener('click', e => {
   if (!tool) return;
-  const r = e.target.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * MAP, y = (e.clientY - r.top) / r.height * MAP;
+  const r = e.target.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width * cv.width - off) / z, y = ((e.clientY - r.top) / r.height * cv.height - off) / z;
   ch.postMessage({ cmd: tool, arg: { x, y } });
 });
 const LEVERS = [['drift', 'World drift speed', 0, 3], ['tomb', 'Tomb speed', 0, 3], ['elgarz', 'Elgarz speed', 0, 3], ['shark', 'Grindmaw speed', 0, 3],
@@ -125,19 +127,25 @@ document.getElementById('sendnote').onclick = () => {
 };
 
 const cv = document.getElementById('map'), ctx = cv.getContext('2d');
-const z = cv.width / MAP;
+// zoom out a little to see past the rim; text stays full size
+let zoom = 1, z = cv.width / MAP, off = 0, lastSnap = null;
+function setZoom(k) { zoom = Math.max(0.6, Math.min(1, Math.round(k * 100) / 100)); z = cv.width * zoom / MAP; off = cv.width * (1 - zoom) / 2; if (lastSnap) draw(lastSnap); }
+document.getElementById('zout').onclick = () => setZoom(zoom - 0.1);
+document.getElementById('zin').onclick = () => setZoom(zoom + 0.1);
+cv.addEventListener('wheel', e => { e.preventDefault(); setZoom(zoom + (e.deltaY < 0 ? 0.05 : -0.05)); }, { passive: false });
 const fmt = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(Math.floor(s % 60)).padStart(2, '0');
 const COLORS = { red: '#ff4b3a', orange: '#ffb347', green: '#5cff9d', blue: '#6fa8ff' };
 const COLS = 'ABCDEFGHIJKL';
 const ref = (x, y) => COLS[Math.max(0, Math.min(11, Math.floor(x / CELL)))] + (Math.max(0, Math.min(11, Math.floor(y / CELL))) + 1);
 const lampName = s => s ? [...s].map(c => ({ R: 'red', W: 'white', B: 'blue' })[c]).join('-') : '';
-ch.onmessage = ev => {
-  const s = ev.data && ev.data.snap; if (!s) return;
+ch.onmessage = ev => { const s = ev.data && ev.data.snap; if (s) { lastSnap = s; draw(s); } };
+function draw(s) {
   document.getElementById('status').textContent = `seed ${s.seed} · watch ${fmt(s.t)}${s.paused ? ' · PAUSED' : ''}${s.won ? ' · ELGARZ MARKED' : ''} · furnace ${s.furnace.lit ? Math.round(s.furnace.heat) + '°' : 'OUT'}, chute ${s.furnace.chute} · fatigue ${Math.round(s.fatigue * 100)}% · beacons red ${s.beacons} orange ${s.orange} blue ${s.blue} green ${s.green} · scanner ${s.calibrated ? 'calibrated' : 'not calibrated'} · music ${s.music ? 'ON' : 'off'}`;
   document.getElementById('seed').placeholder = `seed (now ${s.seed})`;
-  ctx.fillStyle = '#0d1b22'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#081217'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(1, 0, 0, 1, off, off); ctx.fillStyle = '#0d1b22'; ctx.fillRect(0, 0, MAP * z, MAP * z);
   ctx.strokeStyle = 'rgba(160,200,200,.08)';
-  for (let i = 0; i <= GRID; i++) { ctx.beginPath(); ctx.moveTo(i * CELL * z, 0); ctx.lineTo(i * CELL * z, cv.height); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i * CELL * z); ctx.lineTo(cv.width, i * CELL * z); ctx.stroke(); }
+  for (let i = 0; i <= GRID; i++) { ctx.beginPath(); ctx.moveTo(i * CELL * z, 0); ctx.lineTo(i * CELL * z, MAP * z); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i * CELL * z); ctx.lineTo(MAP * z, i * CELL * z); ctx.stroke(); }
   ctx.fillStyle = 'rgba(232,207,152,.6)'; ctx.font = '11px monospace';
   for (let i = 0; i < GRID; i++) { ctx.fillText(COLS[i], (i + 0.45) * CELL * z, 12); ctx.fillText(String(i + 1), 3, (i + 0.55) * CELL * z); }
   ctx.strokeStyle = 'rgba(232,207,152,.25)'; ctx.setLineDash([2, 5]); ctx.beginPath(); ctx.arc(CENTER.x * z, CENTER.y * z, REACH * z, 0, 7); ctx.stroke(); ctx.setLineDash([]);
@@ -184,7 +192,7 @@ ch.onmessage = ev => {
   document.getElementById('roster').innerHTML = '<tr><th>#</th><th>Name</th><th>Hol</th><th>Met</th><th>Radio</th><th>Tag</th></tr>' +
     notable.map(b => `<tr class="${b.elgarz ? 'el' : ''}"><td>${b.num}</td><td>${b.name}</td><td>${b.hollow ? 'yes' : '-'}</td><td>${b.metal ? 'yes' : '-'}</td><td>${b.radio ? b.radio.freq + ' ' + b.radio.carrier[0] + ' ' + b.radio.shown + (b.radio.decoded === 'BRW' && b.radio.band === 'MID' ? ' ★TRIAD' : '') : '-'}${b.tombDrawn ? ' (drawn to Tomb)' : ''}</td><td>${b.tag || ''}</td></tr>`).join('') +
     (s.pending.length ? `<tr><td colspan="6" style="color:var(--dim)">Still to arrive: ${s.pending.map(b => b.name).join(', ')}</td></tr>` : '');
-};
+}
 </script>
 </body>
 </html>
