@@ -68,9 +68,10 @@ On the main board beside the chart (the metal scanner moved up to the deck). Loc
 ## Mechanics
 
 - **Camera tracking.** Locked ice that stays in the camera on screen for 4 s has its real drift measured; the prediction then uses it instead of the buoy and the drift switch. Aim quality shows a CAMERA TRACK bar.
+- **Beacon telemetry.** Ice that already carries a beacon reports its own position and drift every step, so a lock on it has aim quality 100% (BEACON TELEMETRY) with no buoy, orb or drift switch. The second shot at known ice (orange, blue, green) is never an aiming problem.
 - **Aiming.** A beacon flies to the predicted position: last fix + buoy current reading + drift switch. Aim quality (0–100%, with a lamp) is built from fix age, reading age and how far the reading was taken from the target. It can't see whether the drift switch is wrong. Every miss reports the distance and the reasons, and the chart draws a line from the splash to where the target really was. Camera fixes are accurate to 1–3 mi.
 - **Rune board.** Each rune's house and weight index a 4×4 grid of functions. The page numeral on the flip card shifts the weight. The board flips every 60 s and after 4 presses.
-  - Functions: FUEL, COFFEE (costs heat), WIPERS, WIRELESS, LAMPS (normal / night / red), LAUNCH (red, amber or blue only), VENT, BELL, NOTHING.
+  - Functions: FUEL, COFFEE (costs heat), WIPERS, WIRELESS, LAMPS (normal / night / red), LAUNCH (red, amber or blue only), VENT, BELL, CONFETTI (Ice house), DEVIL (Iron house), NOTHING (Bone house). Confetti and the devil are only for fun; like NOTHING they still count towards the board flip.
 - **Furnace.** Stoking draws from a fuel chute (4 shovels) that only the FUEL rune fills. Low heat cuts power slots. Overfeeding blows the furnace out and cracks the grate.
 - **Fatigue.** Over about 7 minutes the screens vignette, blur and sway, and the operator blinks off. Coffee (brew, then click the mug) clears it.
 - **Scanner.** A 3×3 rune keypad. Wind picks the first house, deep vs surface speed picks the direction round the wheel, and temperature picks heaviest, lightest or second lightest. The setting drifts out of tune once the buoy's conditions have disagreed with it for 50 s, about 3–5 times a watch.
@@ -87,6 +88,12 @@ On the main board beside the chart (the metal scanner moved up to the deck). Loc
 - **Cameras.** Seven, evenly spaced round the island, 680 mi range and 90° wide. Their starting bearings come from `tools/tune-cameras.mjs`.
 
 Nothing can end the game early. Every loss is recoverable.
+
+## Operator comforts
+- **Refresh survival.** The world (random generators included) autosaves to the browser every 5 s once the watch starts; a reload offers RESUME WATCH or NEW WATCH. A resumed watch carries on exactly as it would have.
+- **Message log.** LOG on the chart lists the last ten toasts with their times.
+- **Keys.** Space ping, F focused ping, 1–7 orbs, ↑/↓ look, ←/→ turn the orb, P pause, M mute; right-click the pitch knob to turn it back.
+- **Chart hover.** Hovering a contact shows a small label with its number and length.
 
 ## GM tools
 

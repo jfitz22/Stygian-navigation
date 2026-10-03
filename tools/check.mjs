@@ -3,7 +3,7 @@ import {
   createWorld, step, light, stoke, dist, snapshot, setPower, deployBuoy, ping, lockContact, setDrift, fireBeacon,
   countSightings, camSees, snowAt, slotsAvailable, pressKey, readingDisplay, radioSignal, setFreq, setGain, gainFor, setMusic, lockOn, DT,
   pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip, camCode, setLever, pressPlate, setCamTurn, camIsUnlocked, selectCam, gm,
-  relockCase, setVerdict, isUp, focusPing, setPitch, inShoal,
+  relockCase, setVerdict, isUp, focusPing, setPitch, inShoal, saveWorld, loadWorld,
 } from '../src/sim.js';
 import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RADIO_TABLE, BOARD_GRID, SHOALS, pitchFor, SIZE_CUT } from '../src/scenario.js';
 import { keypadCode, RUNES, REPAIR_RULES, repairAction } from '../src/glyphs.js';
@@ -237,6 +237,15 @@ function sharkSetup(seed) {
   const w5 = createWorld(3); light(w5); w5.board.nextFlip = 1e9; const pg = w5.board.page;
   for (let i = 0; i < T.boardFlipPresses; i++) pressBoard(w5, w5.board.runes.findIndex(r => runeFunction(r, w5.board.page) === 'NOTHING') >= 0 ? w5.board.runes.findIndex(r => runeFunction(r, w5.board.page) === 'NOTHING') : 0);
   check(w5.board.flippedAt === w5.t, 'The board flips after a few presses');
+  check(BOARD_GRID.Ice.includes('CONFETTI') && BOARD_GRID.Iron.includes('DEVIL') && BOARD_GRID.Bone.includes('NOTHING'), 'Ice and Iron have their silly runes; Bone keeps a true dud');
+  {
+    const w8 = createWorld(3); light(w8); w8.board.nextFlip = 1e9;
+    for (const fn of ['CONFETTI', 'DEVIL']) {
+      const k = w8.board.runes.findIndex(r => runeFunction(r, w8.board.page) === fn);
+      if (k < 0) continue; const n0 = w8.board.presses; w8.events.length = 0; pressBoard(w8, k);
+      check(w8.events.some(e => e.type === fn.toLowerCase()) && w8.board.presses !== n0, fn + ' fires its effect and still counts as a press');
+    }
+  }
   const w6 = createWorld(3); light(w6); w6.fatigue = 0.9; w6.coffee.sips = 1; sip(w6);
   check(w6.fatigue < 0.5, 'A sip of coffee clears fatigue');
 }
@@ -302,6 +311,9 @@ function sharkSetup(seed) {
   check(w.cases.length === 2, 'Only the ice you are locked on keeps a temporary row');
   relockCase(w, b.id);
   check(w.lock.bergId === b.id && w.lock.source === 'beacon' && dist(w.lock, b) < 1, 'A beaconed row re-locks from its live position');
+  for (let i = 0; i < 600; i++) { keepFurnace(w); step(w, DT); }
+  const aqB = aimQuality(w);
+  check(aqB.beacon && aqB.q === 100 && dist(w.lock, b) < 1, 'Beaconed ice reports its own position and drift: aim stays full a minute later');
   setFreq(w, b.radio.freq); setGain(w, gainFor(dist(b, OBSERVATORY))); for (let i = 0; i < 10; i++) step(w, DT);
   check(w.obs[b.id].radio && w.obs[b.id].radio.shown === b.radio.shown, 'Reading the radio records the signal on the case board');
   for (let f = 100; f <= 1000; f += 10) { setFreq(w, f); relockCase(w, b.id); step(w, DT); }
@@ -364,6 +376,37 @@ function sharkSetup(seed) {
   check(!w2.contacts.some(c => c.bergId === w2.bergs[0].id), 'Ice inside a shoal gives no sonar echo');
   w2.buoyRebuildAt = 0; deployBuoy(w2, sh.x, sh.y); for (let i = 0; i < 200; i++) { keepFurnace(w2); step(w2, DT); } ping(w2); const before = w2.contacts.length; for (let i = 0; i < 60; i++) step(w2, DT);
   check(w2.pings.length === 0 || w2.contacts.length === before, 'A buoy on the rocks gets no echoes at all');
+}
+
+// ---------- beacon telemetry: shots at beaconed ice land ----------
+{
+  let shots = 0, hits = 0;
+  for (const seed of SEEDS.slice(0, 20)) {
+    const w = createWorld(seed); light(w); for (let i = 0; i < 20; i++) step(w, DT);
+    for (const b of w.bergs.filter(b => b.length > SIZE_CUT && !b.tombDrawn && dist(b, CENTER) < 1500).slice(0, 2)) {
+      b.tag = 'red'; lockOn(w, b.id, b.x, b.y, w.t, 'camera');
+      for (let i = 0; i < 300; i++) { keepFurnace(w); step(w, DT); }
+      w.broken.launcher = false; const n0 = w.events.length; fireBeacon(w, 'red'); shots++;
+      for (let i = 0; i < 1500 && !w.events.slice(n0).some(e => e.type === 'hit' || e.type === 'miss'); i++) { keepFurnace(w); step(w, DT); }
+      if (w.events.slice(n0).some(e => e.type === 'hit' && e.berg === b.id)) hits++;
+    }
+  }
+  check(hits / shots >= 0.9, `Shots at beaconed ice land (${hits}/${shots})`);
+}
+
+// ---------- save and resume ----------
+{
+  let ok = true;
+  for (const seed of SEEDS.slice(0, 6)) {
+    const a = createWorld(seed); light(a); ['sonar', 'currents', 'cameras'].forEach(x => setPower(a, x, true));
+    for (let i = 0; i < 2000; i++) { keepFurnace(a); step(a, DT); }
+    deployBuoy(a, CENTER.x + 400, CENTER.y); for (let i = 0; i < 200; i++) step(a, DT); ping(a);
+    for (let i = 0; i < 4000; i++) { keepFurnace(a); step(a, DT); }
+    const b = loadWorld(saveWorld(a));
+    for (const w of [a, b]) for (let i = 0; i < 3000; i++) { keepFurnace(w); step(w, DT); }
+    if (JSON.stringify(snapshot(a)) !== JSON.stringify(snapshot(b)) || saveWorld(a) !== saveWorld(b)) { ok = false; console.log('resume diverged', seed); }
+  }
+  check(ok, 'A saved watch resumes and carries on exactly as the original would');
 }
 
 // ---------- Old Tom ----------

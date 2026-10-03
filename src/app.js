@@ -2,7 +2,7 @@ import {
   createWorld, newSeed, step, light, stoke, slotsAvailable, setPower, isUp, selectCam, deployBuoy, ping, lockContact, lockFromCamera,
   setDrift, ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
-  pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, focusPing, setPitch, inShoal, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
+  saveWorld, loadWorld, pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, focusPing, setPitch, inShoal, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
 } from './sim.js';
 import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES, SHOALS, PITCHES } from './scenario.js';
 import { glyphSVG, gaugeSVG, repairAction } from './glyphs.js';
@@ -25,6 +25,11 @@ const ui = {
   repairSel: null,
   noteCorner: 0,
   tickerQ: [],             // GM messages waiting for the wire service
+  log: [],                 // recent toasts, newest last
+  logOpen: false,
+  hover: null,             // mouse position over the chart
+  notesGone: [],           // Jerry's notes the crew has thrown away
+  started: false,
 };
 const fmt = s => { s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
 const ago = s => fmt(s) + ' ago';
@@ -51,9 +56,15 @@ function canvasPoint(cv, e) {
 // ---------- toasts & notes ----------
 let toastTimer = null;
 function toast(msg, kind = '') {
+  ui.log.push({ t: world.t, msg, kind }); if (ui.log.length > 40) ui.log.shift(); if (ui.logOpen) drawLog();
   const t = $('toast'); t.textContent = msg; t.className = 'show ' + kind;
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.className = kind, 3600);
 }
+function drawLog() {
+  const rows = ui.log.slice(-10).reverse();
+  $('logdrawer').innerHTML = rows.length ? rows.map(r => `<div class="row ${r.kind}"><b>${fmt(r.t)}</b>${r.msg.replace(/</g, '&lt;')}</div>`).join('') : '<div class="empty">Nothing yet.</div>';
+}
+$('btn-log').onclick = () => { ui.logOpen = !ui.logOpen; $('logdrawer').classList.toggle('hidden', !ui.logOpen); $('btn-log').classList.toggle('on', ui.logOpen); if (ui.logOpen) drawLog(); };
 // Pneumatic-tube notes land in the four corners of the chart in turn.
 function note(text) {
   const k = ui.noteCorner++ % 4, box = $('notes');
@@ -74,10 +85,43 @@ addEventListener('keydown', e => {
   if (e.key === 'ArrowUp') look(true);
   if (e.key === 'ArrowDown') look(false);
   if (e.key === 'p' || e.key === 'P') togglePause();
+  if (!ui.started || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === ' ') { e.preventDefault(); document.activeElement && document.activeElement.blur(); ping(world); }
+  if (e.key === 'f' || e.key === 'F') focusPing(world);
+  if (e.key >= '1' && e.key <= '7') { const c = world.cams[+e.key - 1]; if (c) { selectCam(world, c.id); audio.sfx.click(); } }
 });
 
 // ---------- intro / sound ----------
-$('begin').onclick = () => { audio.unlock(); $('intro').classList.add('hidden'); audio.sfx.click(); };
+const SAVE_KEY = 'lastwatch-save:' + location.pathname;
+function readSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 7 && s.w ? s : null; } catch (e) { return null; } }
+function writeSave() {
+  if (!ui.started) return;
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, seed: world.seed, t: world.t, w: saveWorld(world), log: ui.log, notesGone: ui.notesGone })); } catch (e) { /* storage full or blocked: carry on unsaved */ }
+}
+function takeWatch() { audio.unlock(); $('intro').classList.add('hidden'); audio.sfx.click(); ui.started = true; writeSave(); }
+const saved = readSave(), seedParam = Number(params.get('seed'));
+if (saved && (!seedParam || seedParam === saved.seed)) {
+  $('resumewatch').classList.remove('hidden');
+  $('resumewatch').textContent = `RESUME WATCH No. ${saved.seed} (${fmt(saved.t)})`;
+  $('begin').textContent = 'NEW WATCH';
+  $('resumewatch').onclick = () => {
+    const w = loadWorld(saved.w);
+    for (const k of Object.keys(world)) delete world[k];
+    Object.assign(world, w);
+    ui.log = saved.log || []; ui.notesGone = saved.notesGone || [];
+    document.querySelectorAll('#jnotes .jnote').forEach(n => { if (ui.notesGone.includes(n.dataset.k)) n.remove(); });
+    $('watchno').innerHTML = 'WATCH<br>No. ' + world.seed;
+    takeWatch();
+    audio.setHum(world.furnace.lit ? 1 : 0); audio.setMusic(world.music);
+    toast('WATCH RESUMED', 'info');
+  };
+}
+$('begin').onclick = () => {
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) { }
+  takeWatch();
+};
+setInterval(writeSave, 5000);
+addEventListener('pagehide', writeSave);
 function toggleMute() { audio.setMuted(!audio.isMuted()); $('mute').textContent = audio.isMuted() ? 'SOUND OFF' : 'SOUND ON'; }
 $('mute').onclick = toggleMute;
 addEventListener('keydown', e => { if ((e.key === 'm' || e.key === 'M') && e.target.tagName !== 'INPUT') toggleMute(); });
@@ -176,6 +220,8 @@ const W2S = (x, y) => ({ x: (x - ui.view.cx) * ui.view.z + mapCv.width / 2, y: (
 const S2W = (x, y) => ({ x: (x - mapCv.width / 2) / ui.view.z + ui.view.cx, y: (y - mapCv.height / 2) / ui.view.z + ui.view.cy });
 let drag = null;
 mapCv.addEventListener('mousedown', e => { const p = canvasPoint(mapCv, e); drag = { x: p.x, y: p.y, cx: ui.view.cx, cy: ui.view.cy, moved: false }; });
+mapCv.addEventListener('mousemove', e => { ui.hover = drag && drag.moved ? null : canvasPoint(mapCv, e); });
+mapCv.addEventListener('mouseleave', () => { ui.hover = null; });
 addEventListener('mousemove', e => {
   if (!drag) return; const p = canvasPoint(mapCv, e);
   if (Math.hypot(p.x - drag.x, p.y - drag.y) > 4) drag.moved = true;
@@ -334,7 +380,7 @@ function drawMap() {
     ctx.setLineDash([5, 4]); ctx.strokeStyle = '#f4f1e6'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(pg.x, pg.y, rr, 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pg.x - 6, pg.y); ctx.lineTo(pg.x + 6, pg.y); ctx.moveTo(pg.x, pg.y - 6); ctx.lineTo(pg.x, pg.y + 6); ctx.stroke();
     ctx.strokeStyle = '#ffb347'; ctx.beginPath(); ctx.moveTo(p0.x - 4, p0.y - 4); ctx.lineTo(p0.x + 4, p0.y + 4); ctx.moveTo(p0.x + 4, p0.y - 4); ctx.lineTo(p0.x - 4, p0.y + 4); ctx.stroke();
-    ctx.fillStyle = '#f4f1e6'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText(`PREDICTED (${aq.tracked ? 'ORB TRACK' : world.drift.toUpperCase()}) · ${gridRef(g.x, g.y)} · AIM ${aq.q}%`, pg.x + rr + 4, pg.y - 4);
+    ctx.fillStyle = '#f4f1e6'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText(`PREDICTED (${aq.beacon ? 'BEACON' : aq.tracked ? 'ORB TRACK' : world.drift.toUpperCase()}) · ${gridRef(g.x, g.y)} · AIM ${aq.q}%`, pg.x + rr + 4, pg.y - 4);
   }
   // tagged bergs (live); excluded ones dim
   for (const b of world.bergs) {
@@ -404,6 +450,26 @@ function drawMap() {
   ctx.fillStyle = 'rgba(232,207,152,.8)'; ctx.font = '600 13px Cinzel'; ctx.textAlign = 'center'; ctx.fillText('N', Wd - 24, Ht - 50);
   ctx.strokeStyle = 'rgba(232,207,152,.8)'; ctx.beginPath(); ctx.moveTo(Wd - 24, Ht - 44); ctx.lineTo(Wd - 24, Ht - 20); ctx.stroke();
   const sb = CELL * z; ctx.beginPath(); ctx.moveTo(28, Ht - 14); ctx.lineTo(28 + sb, Ht - 14); ctx.stroke(); ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText('300 mi', 28, Ht - 20);
+  drawHover(ctx, Wd);
+}
+// A small label over the contact under the mouse: number and length, nothing else.
+function drawHover(ctx, Wd) {
+  const h = ui.hover, c = h && !ui.buoyMode ? nearestContact(S2W(h.x, h.y), 18 / ui.view.z) : null;
+  mapCv.style.cursor = ui.buoyMode ? 'crosshair' : c ? 'pointer' : drag && drag.moved ? 'grabbing' : 'grab';
+  if (!c) return;
+  const b = world.bergs.find(b => b.id === c.bergId); if (!b) return;
+  const p = W2S(c.x, c.y), k = 9;
+  ctx.strokeStyle = 'rgba(232,207,152,.9)'; ctx.lineWidth = 1.2; ctx.beginPath();
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { ctx.moveTo(p.x + sx * k, p.y + sy * (k - 4)); ctx.lineTo(p.x + sx * k, p.y + sy * k); ctx.lineTo(p.x + sx * (k - 4), p.y + sy * k); }
+  ctx.stroke(); ctx.lineWidth = 1;
+  const text = `#${b.num} · ${Math.round(c.length)} mi`;
+  ctx.font = '11px IBM Plex Mono'; const tw = ctx.measureText(text).width, dot = b.tag ? 10 : 0, w = tw + dot + 14, ht = 18;
+  let x = p.x + k + 6, y = p.y - k - ht - 2;
+  if (x + w > Wd - 4) x = p.x - k - 6 - w; if (y < 20) y = p.y + k + 4;
+  ctx.fillStyle = 'rgba(10,14,16,.88)'; ctx.strokeStyle = 'rgba(180,150,90,.8)';
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x + 0.5, y + 0.5, w, ht, 3) : ctx.rect(x + 0.5, y + 0.5, w, ht); ctx.fill(); ctx.stroke();
+  if (b.tag) { ctx.fillStyle = COLORS[b.tag]; ctx.beginPath(); ctx.arc(x + 10, y + ht / 2 + 0.5, 3, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#f4f1e6'; ctx.textAlign = 'left'; ctx.fillText(text, x + 7 + dot, y + 13);
 }
 
 // ---------- camera view ----------
@@ -796,7 +862,7 @@ function drawLock() {
     `Fix from <b>${l.source.toUpperCase()}</b>, <b>${ago(world.t - l.t0)}</b>${world.obs[b.id] && world.obs[b.id].length != null ? ` · ≈${world.obs[b.id].length} mi` : ''}<br>Predicted in <b>${gridRef(g.x, g.y)}</b>${b.tag ? ` · tagged <b style="color:${COLORS[b.tag]}">${b.tag.toUpperCase()}</b>` : ''}`;
   document.querySelectorAll('#drift button').forEach(x => x.classList.toggle('sel', x.dataset.v === world.drift));
   const r = world.readings;
-  $('driftinfo').innerHTML = aq && aq.tracked ? `<b style="color:var(--phos)">ORB TRACK</b>: using the drift the ${camName(aq.cam)} orb measured ${ago(aq.trackAge)}. The drift switch is not used.` : !r ? 'No current reading yet. The prediction will not move. Track the ice in an orb, or read the current with a buoy.' : `Predicting with the <b>${world.drift.toUpperCase()}</b> current read at ${gridRef(r.x, r.y)}, ${ago(world.t - r.t)}.`;
+  $('driftinfo').innerHTML = aq && aq.beacon ? `<b style="color:var(--phos)">BEACON TELEMETRY</b>: the beacon in this ice reports its position and drift live. The drift switch is not used.` : aq && aq.tracked ? `<b style="color:var(--phos)">ORB TRACK</b>: using the drift the ${camName(aq.cam)} orb measured ${ago(aq.trackAge)}. The drift switch is not used.` : !r ? 'No current reading yet. The prediction will not move. Track the ice in an orb, or read the current with a buoy.' : `Predicting with the <b>${world.drift.toUpperCase()}</b> current read at ${gridRef(r.x, r.y)}, ${ago(world.t - r.t)}.`;
   const q = aq ? aq.q : null;
   $('aimnum').textContent = $('aimnum2').textContent = q == null ? '--' : q + '%';
   $('aimlamp').className = $('aimlamp2').className = 'lamp ' + lampClass(q);
@@ -813,7 +879,10 @@ function drawLock() {
   for (const id of ['aimtip', 'aimtip2']) { const el = $(id); el.classList.toggle('hidden', !tip); if (el.innerHTML !== tip) el.innerHTML = tip; }
   $('aimfactors').innerHTML = !aq ? '<div class="note2">Lock onto an iceberg to aim.</div>' :
     factorRow('FIX AGE', Math.round(aq.fixAge) + ' s', aq.fFix) +
-    (aq.tracked
+    (aq.beacon
+      ? factorRow('BEACON TELEMETRY', 'live', 1) +
+        `<div class="note2"><b style="color:var(--phos)">This ice already carries a beacon.</b> It reports where it is and how it drifts, so aim is full. Flight time about ${Math.round(aq.flight)} s.</div>`
+      : aq.tracked
       ? factorRow('CAMERA TRACK (' + camName(aq.cam) + ')', Math.round(aq.trackAge) + ' s ago', aq.fTrack) +
         `<div class="note2"><b style="color:var(--phos)">Drift measured by the orb.</b> No buoy needed and the drift switch is not used. Flight time about ${Math.round(aq.flight)} s.</div>`
       : factorRow('CURRENT READING AGE', aq.readAge == null ? 'none' : Math.round(aq.readAge) + ' s', aq.fRead) +
@@ -959,10 +1028,63 @@ function jnote(at, text, gmNote = false) {
   n.style.left = (x + (gmNote ? (Math.random() - 0.5) * 60 : 0)) + 'px'; n.style.top = (y + (gmNote ? (Math.random() - 0.5) * 40 : 0)) + 'px';
   n.style.transform = `rotate(${((Math.random() - 0.5) * 7).toFixed(1)}deg)`;
   n.innerHTML = '<span class="x">✕</span>' + text.replace(/</g, '&lt;');
-  n.onclick = () => n.remove();
+  if (!gmNote) n.dataset.k = at;
+  n.onclick = () => { n.remove(); if (!gmNote) ui.notesGone.push(at); };
   $('jnotes').appendChild(n);
 }
 JERRY.forEach(([at, text]) => jnote(at, text));
+
+// ---------- the two silly runes ----------
+const fxCv = $('fx'), fxCtx = fxCv.getContext('2d');
+let fx = null;
+function confetti() {
+  audio.sfx.confetti();
+  const C = ['#ff4b3a', '#ffb347', '#5cff9d', '#6fa8ff', '#f4f1e6', '#ff7ad9'], parts = [];
+  for (const ox of [300, 960, 1620]) for (let i = 0; i < 90; i++) {
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6, v = 500 + Math.random() * 700;
+    parts.push({ x: ox, y: 1080, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: Math.random() * 6, vr: (Math.random() - 0.5) * 14, w: 6 + Math.random() * 6, h: 3 + Math.random() * 4, c: C[i % C.length] });
+  }
+  const start = !fx; fx = { parts, t0: performance.now(), last: performance.now() };
+  if (start) requestAnimationFrame(drawFx);
+}
+function drawFx(now) {
+  if (!fx) return;
+  const dt = Math.min(0.05, (now - fx.last) / 1000), age = (now - fx.t0) / 1000; fx.last = now;
+  fxCtx.clearRect(0, 0, 1920, 1080);
+  if (age > 3.2) { fx = null; return; }
+  fxCtx.globalAlpha = Math.min(1, (3.2 - age) / 0.6);
+  for (const p of fx.parts) {
+    p.vy += 900 * dt; p.vx *= 0.99; p.vy *= 0.985; p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.vr * dt;
+    fxCtx.save(); fxCtx.translate(p.x, p.y); fxCtx.rotate(p.r); fxCtx.scale(1, Math.cos(p.r * 1.7)); fxCtx.fillStyle = p.c; fxCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); fxCtx.restore();
+  }
+  fxCtx.globalAlpha = 1;
+  requestAnimationFrame(drawFx);
+}
+const DEVIL_SVG = `<svg viewBox="0 0 150 190" xmlns="http://www.w3.org/2000/svg">
+  <path d="M100 150 Q140 150 132 118 Q128 104 140 98 L136 112 L126 104" fill="none" stroke="#c4221a" stroke-width="5" stroke-linecap="round"/>
+  <path d="M126 98 L144 94 L136 110 Z" fill="#c4221a"/>
+  <line x1="30" y1="40" x2="22" y2="182" stroke="#3a2a1a" stroke-width="5"/>
+  <path d="M18 36 L18 18 M30 34 L30 10 M42 36 L42 18 M18 36 Q30 44 42 36" fill="none" stroke="#9a9a9a" stroke-width="4" stroke-linecap="round"/>
+  <ellipse cx="78" cy="122" rx="30" ry="36" fill="#d8291f"/>
+  <path d="M58 150 L52 178 L64 178 M98 150 L104 178 L92 178" fill="none" stroke="#d8291f" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M52 108 L32 86 M104 108 L126 82" stroke="#d8291f" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="78" cy="66" r="30" fill="#e0342a"/>
+  <path d="M56 46 Q46 26 58 16 Q58 32 66 40 Z M100 46 Q110 26 98 16 Q98 32 90 40 Z" fill="#f0e6d0"/>
+  <path d="M62 60 L72 64 M94 60 L84 64" stroke="#2a0a08" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="68" cy="68" r="3.5" fill="#ffe14a"/><circle cx="88" cy="68" r="3.5" fill="#ffe14a"/>
+  <path d="M64 80 Q78 94 92 80 Q78 86 64 80 Z" fill="#2a0a08"/>
+  <path d="M74 92 Q78 104 82 92" fill="#3a0e0a"/>
+</svg>`;
+let devilTimer = null;
+function devil() {
+  const d = $('devil'); clearTimeout(devilTimer);
+  d.className = ''; d.innerHTML = DEVIL_SVG; audio.sfx.jig();
+  devilTimer = setTimeout(() => {
+    d.className = 'puff'; audio.sfx.puff();
+    for (let i = 0; i < 6; i++) { const s = document.createElement('div'); s.className = 'smoke'; const r = 26 + Math.random() * 20; Object.assign(s.style, { width: r + 'px', height: r + 'px', left: (75 - r / 2 + (Math.random() - 0.5) * 70) + 'px', top: (100 - r / 2 + (Math.random() - 0.5) * 80) + 'px' }); d.appendChild(s); }
+    devilTimer = setTimeout(() => { d.className = 'hidden'; d.innerHTML = ''; }, 750);
+  }, 2900);
+}
 
 // ---------- ending cutscene ----------
 let cut = null;
@@ -1160,6 +1282,9 @@ function handleEvents() {
       case 'lamps': audio.sfx.lamps(); break;
       case 'bell': audio.sfx.bell(); break;
       case 'dud': audio.sfx.clunk(); break;
+      case 'confetti': confetti(); break;
+      case 'devil': devil(); break;
+      case 'telemetry': audio.sfx.lock(); toast(`BEACON TELEMETRY FROM #${e.num} · LIVE POSITION AND DRIFT`, 'info'); break;
       case 'spark': audio.sfx.spark(); break;
       case 'win': audio.sfx.win(); look(false); startCutscene(); break;
     }
@@ -1170,6 +1295,7 @@ $('wincontinue').onclick = () => { $('winscreen').classList.add('hidden'); $('cu
 $('ping').onclick = () => ping(world);
 $('focusbtn').onclick = () => focusPing(world);
 $('pitchknob').onclick = () => setPitch(world, world.pitch + 1);
+$('pitchknob').oncontextmenu = e => { e.preventDefault(); setPitch(world, world.pitch + PITCHES.length - 1); };
 
 // ---------- GM link ----------
 const gmChan = 'BroadcastChannel' in window ? new BroadcastChannel('lastwatch-gm:' + location.pathname.replace(/[^/]*$/, '')) : null;
@@ -1187,6 +1313,7 @@ let lastSnap = 0;
 let last = performance.now(), acc = 0;
 function frame(now) {
   acc += Math.min(0.25, (now - last) / 1000); last = now;
+  if (!ui.started) acc = 0;
   while (acc >= DT) { step(world, DT); acc -= DT; }
   handleEvents();
   drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower(); drawBoard(); drawRepairBay(); drawCamCtl(); drawCases(); drawCut(now); $('pausecard').classList.toggle('hidden', !world.paused); $('pausebtn').textContent = world.paused ? '▶ RESUME' : '❚❚ PAUSE'; drawTicker(Math.min(0.1, (now - (frame.prev || now)) / 1000)); frame.prev = now;

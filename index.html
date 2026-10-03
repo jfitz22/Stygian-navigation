@@ -194,7 +194,10 @@
         <button id="btn-zin" class="tool sq">+</button>
         <button id="btn-zout" class="tool sq">−</button>
         <button id="btn-home" class="tool">RESET VIEW</button>
+        <button id="btn-log" class="tool">LOG</button>
       </div>
+      <div id="logdrawer" class="hidden"></div>
+      <div id="devil" class="hidden"></div>
       <div id="toast"></div>
       <div id="notes"></div>
     </div>
@@ -267,13 +270,16 @@
       <button id="wincontinue">KEEP WATCHING</button>
     </div>
   </div>
+  <canvas id="fx" width="1920" height="1080"></canvas>
   <div id="intro">
     <div class="wincard">
       <h1>THE LAST WATCH</h1>
       <p>Somewhere in this frozen sea drifts <b>Elgarz</b>, the glacier that swallowed Citadel Coldsteel.</p>
       <p>Find it. Prove it. Mark it with a green beacon.</p>
+      <button id="resumewatch" class="hidden"></button>
       <button id="begin">TAKE THE WATCH</button>
-      <p class="small">Sound recommended · M to mute · ▲ LOOK UP for the launcher, rune board and repair bay</p>
+      <p class="small">Sound recommended · ▲ LOOK UP for the launcher, rune board and repair bay</p>
+      <p class="small keys">SPACE ping · F focused ping · 1–7 orbs · ↑ ↓ look · ← → turn orb · P pause · M mute · right-click the pitch knob to turn it back</p>
       <p class="small" id="introseed"></p>
     </div>
   </div>

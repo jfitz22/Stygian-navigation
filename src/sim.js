@@ -17,14 +17,44 @@ export const LEVERS = { drift: 1, tomb: 1, elgarz: 1, shark: 1, burn: 1, remorha
 
 // ---------- helpers ----------
 export function mulberry32(seed) {
-  let a = seed >>> 0;
-  return function () {
-    a = (a + 0x6D2B79F5) >>> 0;
-    let t = a;
+  const f = function () {
+    f.s = (f.s + 0x6D2B79F5) >>> 0;
+    let t = f.s;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+  f.s = seed >>> 0;
+  return f;
+}
+// Save and resume a whole watch. Random generators keep their exact state, Infinity survives,
+// and objects shared in two places (Old Tom's target is the last splash) stay shared.
+export function saveWorld(w) {
+  const seen = new Map();
+  const enc = (v, path) => {
+    if (typeof v === 'function') return { __rng: v.s };
+    if (typeof v === 'number' && !isFinite(v)) return { __num: String(v) };
+    if (!v || typeof v !== 'object') return v;
+    if (seen.has(v)) return { __ref: seen.get(v) };
+    seen.set(v, path);
+    if (Array.isArray(v)) return v.map((x, i) => enc(x, [...path, i]));
+    const o = {}; for (const k of Object.keys(v)) if (v[k] !== undefined) o[k] = enc(v[k], [...path, k]); return o;
+  };
+  return JSON.stringify(enc(w, []));
+}
+export function loadWorld(json) {
+  const refs = [];
+  const dec = (v, parent, key) => {
+    if (!v || typeof v !== 'object') return v;
+    if ('__rng' in v) return mulberry32(v.__rng);
+    if ('__num' in v) return Number(v.__num);
+    if ('__ref' in v) { refs.push([parent, key, v.__ref]); return null; }
+    for (const k of Object.keys(v)) v[k] = dec(v[k], v, k);
+    return v;
+  };
+  const w = dec(JSON.parse(json));
+  for (const [parent, key, path] of refs) parent[key] = path.reduce((o, k) => o[k], w);
+  return w;
 }
 const hyp = Math.hypot;
 export const dist = (a, b) => hyp(a.x - b.x, a.y - b.y);
@@ -352,6 +382,8 @@ export function pressBoard(w, slot) {
   if (fn === 'LAMPS') { w.lamps = (w.lamps + 1) % 3; emit(w, 'lamps', { mode: w.lamps }); }
   if (fn === 'LAUNCH') fireBeacon(w, 'red');
   if (fn === 'BELL') emit(w, 'bell');
+  if (fn === 'CONFETTI') emit(w, 'confetti');
+  if (fn === 'DEVIL') emit(w, 'devil');
   if (fn === 'VENT') { if (f.lit) { f.heat = Math.max(0.5, f.heat - T.ventHeat); f.pending = 0; } emit(w, 'vent'); }
   if (fn === 'NOTHING') emit(w, 'dud');
   if (++b.presses >= T.boardFlipPresses) flipBoard(w);
@@ -456,7 +488,7 @@ export function aimQuality(w) {
   if (l.track) {
     // the camera measured the drift itself: no buoy needed
     const trackAge = w.t - l.track.t, fTrack = clamp(1 - (trackAge - T.aimTrackFull) / T.aimTrackSpan, 0, 1);
-    return { q: Math.round(100 * fFix * fTrack), fixAge, readAge, readDist, drift: 'camera', tracked: true, trackAge, cam: l.track.cam, flight: dist(OBSERVATORY, g) / T.beaconSpeed, fFix, fTrack, fRead: 1, fDist: 1 };
+    return { q: Math.round(100 * fFix * fTrack), fixAge, readAge, readDist, drift: 'camera', tracked: true, beacon: l.track.cam === 'beacon', trackAge, cam: l.track.cam, flight: dist(OBSERVATORY, g) / T.beaconSpeed, fFix, fTrack, fRead: 1, fDist: 1 };
   }
   const fRead = r ? clamp(1 - (readAge - T.aimReadFull) / T.aimReadSpan, 0, 1) : 0;
   const fDist = r ? clamp(1 - (readDist - T.aimDistFull) / T.aimDistSpan, 0, 1) : 0;
@@ -545,7 +577,7 @@ export function fireBeacon(w, color) {
   const target = lockedBerg(w);
   w.beacons.flying.push({
     x0: OBSERVATORY.x, y0: OBSERVATORY.y, x1: aim.x, y1: aim.y, t0: w.t, t1: w.t + tf, color,
-    report: { bergId: target.id, num: target.num, large: target.large, fixAge: aq.fixAge, readAge: aq.readAge, readDist: aq.readDist, drift: aq.drift, q: aq.q, tracked: !!aq.tracked, trackAge: aq.trackAge },
+    report: { bergId: target.id, num: target.num, large: target.large, fixAge: aq.fixAge, readAge: aq.readAge, readDist: aq.readDist, drift: aq.drift, q: aq.q, tracked: !!aq.tracked, beacon: !!aq.beacon, trackAge: aq.trackAge },
   });
   emit(w, 'launch', { color });
   const bc = w.beacons;
@@ -555,6 +587,7 @@ export function fireBeacon(w, color) {
 // Why a shot missed, in words the crew can act on.
 function missReasons(rep, berg) {
   const out = [];
+  if (rep.beacon) return ['the ice turned in the current while the beacon was in flight'];
   if (rep.tracked) {
     if (rep.fixAge > 25) out.push(`the fix was ${Math.round(rep.fixAge)} s old`);
     if (rep.trackAge > 20) out.push(`the camera last measured its drift ${Math.round(rep.trackAge)} s before the shot`);
@@ -799,6 +832,7 @@ export function step(w, dt = DT) {
   if (w.camTurn && camIsUnlocked(w, ac.id)) ac.facing = (ac.facing + w.camTurn * T.camTurnRate * dt + 360) % 360;
   // a camera watching the locked ice measures its drift
   trackStep(w, ac, dt);
+  beaconStep(w);
   for (const r of w.remorhazes) {
     const c = w.cams.find(c => c.id === r.cam), d = dist(r, c);
     c.tremor = clamp(1 - d / T.remorhazSpawnDist, 0, 1);
@@ -816,7 +850,7 @@ export function step(w, dt = DT) {
     const a = w.rng() * Math.PI * 2; w.tom.x = CENTER.x + Math.cos(a) * REACH * 0.85; w.tom.y = CENTER.y + Math.sin(a) * REACH * 0.85;
     w.tom.mode = 'roam'; if (w.lastSplash) w.tom.target = w.lastSplash; emit(w, 'tomwakes');
   }
-  if (w.tom.mode !== 'asleep') hunterStep(w, w.tom, w.tom.target, -1, dt);
+  if (w.tom.mode !== 'asleep') hunterStep(w, w.tom, 'tom', w.tom.target, -1, dt);
   // the Grindmaw: always swims toward the latest ping, fast when far away
   const sh = w.shark;
   if (w.lastPing && !w.lastPing.reached) {
@@ -888,8 +922,8 @@ export function step(w, dt = DT) {
 }
 
 // ---------- Old Tom: swims to the last buoy splashdown, then circles the Watch the other way ----------
-function hunterStep(w, h, tg, dir, dt) {
-  if (tg && !tg.reachedBy?.includes(h)) {
+function hunterStep(w, h, who, tg, dir, dt) {
+  if (tg && !tg.reachedBy?.includes(who)) {
     const d = dist(h, tg);
     if (d > 4) {
       h.mode = 'hunt'; h.heading = Math.atan2(tg.x - h.x, -(tg.y - h.y));
@@ -897,7 +931,7 @@ function hunterStep(w, h, tg, dir, dt) {
       h.x += (tg.x - h.x) / d * k; h.y += (tg.y - h.y) / d * k;
       return;
     }
-    (tg.reachedBy = tg.reachedBy || []).push(h);
+    (tg.reachedBy = tg.reachedBy || []).push(who);
     h.patrolR = clamp(dist(h, CENTER), 320, REACH * 0.9);
   }
   if (!h.patrolR) h.patrolR = clamp(dist(h, CENTER), 320, REACH * 0.9);
@@ -969,6 +1003,15 @@ function finishFocus(w, p) {
 export function scannerReach(w, b) {
   if (!b || !w.buoy || w.t < w.buoy.landAt) return 0;
   return clamp(1 - dist(b, w.buoy) / T.buoyRadius, 0, 1);
+}
+
+// ---------- beacon telemetry: ice carrying a beacon reports where it is and how it moves ----------
+function beaconStep(w) {
+  const l = w.lock; if (!l) return;
+  const b = w.bergs.find(b => b.id === l.bergId); if (!b || !b.tag) return;
+  if (!l.track || l.track.cam !== 'beacon') emit(w, 'telemetry', { num: b.num });
+  l.x = b.x; l.y = b.y; l.t0 = w.t; l.source = 'beacon';
+  l.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'beacon' };
 }
 
 // ---------- camera control & tracking ----------

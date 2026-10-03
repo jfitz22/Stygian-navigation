@@ -302,8 +302,8 @@ export const STATIONS = [
 // Each rune's house and weight pick a function from this grid. On page N, count the rune's weight
 // forward N-1 steps (4 wraps round to 1) before reading the grid.
 export const BOARD_GRID = {
-  Ice: ['WIPERS', 'FUEL', 'LAMPS', 'NOTHING'],
-  Iron: ['LAUNCH', 'FUEL', 'VENT', 'NOTHING'],
+  Ice: ['WIPERS', 'FUEL', 'LAMPS', 'CONFETTI'],
+  Iron: ['LAUNCH', 'FUEL', 'VENT', 'DEVIL'],
   Ember: ['COFFEE', 'FUEL', 'LAMPS', 'BELL'],
   Bone: ['WIRELESS', 'COFFEE', 'BELL', 'NOTHING'],
 };
