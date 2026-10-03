@@ -103,11 +103,12 @@ document.getElementById('pw').onkeydown = e => { if (e.key === 'Enter') document
 // The link to the game: same computer, or another computer via the code on the game's top bar.
 const { openLink, cleanCode, NET_ENABLED } = await import('./src/link.js');
 let lastSnapAt = 0;
-const ch = openLink(m => { if (m.snap) { lastSnapAt = Date.now(); onSnap(m.snap); } }, s => { netState = s; showNet(); });
+const ch = openLink(m => { if (m.snap) { const was = Date.now() - lastSnapAt < 4000; lastSnapAt = Date.now(); onSnap(m.snap); if (!was) showNet(); } }, s => { netState = s; showNet(); });
 let netState = NET_ENABLED ? 'idle' : 'LOCAL';
 const showNet = () => {
   const live = Date.now() - lastSnapAt < 4000;
-  document.getElementById('netstat').innerHTML = !ch.room ? 'enter the code from the game' : live ? '<b style="color:#5cff9d">● linked to the game</b>' : netState === 'SUBSCRIBED' ? '<span style="color:#ffb347">● waiting for the game (check the code)</span>' : '<span style="color:#ff8a7a">● ' + netState.toLowerCase() + '</span>';
+  const bad = /[0O1IL]/.test(ch.room || '');
+  document.getElementById('netstat').innerHTML = !ch.room ? 'enter the code from the game' : bad ? '<span style="color:#ff8a7a">● codes never use 0, O, 1, I or L: check the code</span>' : live ? '<b style="color:#5cff9d">● linked to the game</b>' : netState === 'SUBSCRIBED' ? '<span style="color:#ffb347">● waiting for the game: check the code, and that the game page is open</span>' : '<span style="color:#ff8a7a">● ' + netState.toLowerCase() + '</span>';
 };
 if (NET_ENABLED) {
   document.getElementById('netbox').style.display = '';
