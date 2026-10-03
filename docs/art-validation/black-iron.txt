@@ -1,0 +1,118 @@
+Seeds: 40
+Elgarz sightings per session: min 2 avg 2.0 max 3; first sighting 213-700s
+Elgarz closest to the Tomb: 315 mi (ring 300)
+Tomb travel in 20 min: 1557-1559 mi (5.2 squares avg)
+Median iceberg travel in 20 min: 1472-1987 mi (5.8 squares avg)
+Bergs that enter the Tomb ring: 3-20 (avg 8.8)
+Share of ice that transmits: 57% minimum
+PASS Elgarz joins the sea at 3:00 in every seed
+PASS Elgarz passes through camera view at least twice in every seed
+PASS Elgarz never leaves reach
+PASS Elgarz never enters the Tomb ring
+PASS Typical ice crosses at least 4.5 chart squares in 20 minutes
+PASS The Tomb drifts several squares
+PASS Some ice wanders into the Tomb ring and can be ruled out
+PASS Ice stays inside reach (at most 2 strays per seed)
+PASS At least a third of the ice transmits
+Decoys singing the Triad: 12.0 per seed · ice with metal or the Triad: 22-22
+PASS Several decoys also sing the Triad, so the radio alone proves nothing
+PASS No decoy except the Gilded Hulk is halls, metal and Triad
+PASS The Gilded Hulk stays inside the Tomb ring all watch (40/40 seeds)
+PASS Every seed has Triad ice without metal and Triad ice that is not halls
+PASS Plenty of ice shows metal or the Triad, not just the echo
+PASS 60 ice: 20 small; large 15 solid, 6 caverns, 4 flooded, 5 monsters, 10 halls (3 plain, 2 metal, 3 Triad, 2 all three); printouts match their class
+PASS One named field, the Graveyard, spread out
+PASS At least five storms in twenty minutes, each whiting out the orb it is aimed at
+PASS Same seed gives the same world
+PASS A fresh furnace runs three systems for the first minute
+PASS Left alone for over 2 minutes, the furnace loses power slots
+PASS Stoking needs fuel in the chute
+PASS Overfeeding the furnace blows it out
+PASS A blown furnace cracks its grate and cannot be relit
+PASS After the grate is repaired the furnace relights
+PASS After a ping the Grindmaw swims toward it
+PASS A buoy left at the ping is eaten and the winch breaks
+PASS A buoy moved away before the Grindmaw arrives survives
+PASS With no buoy at the ping, the Grindmaw circles the Watch at that distance
+Different lever settings across the 7 cameras: 4.1 on average
+PASS Cameras usually need different lever settings
+PASS Following the manual calibrates the scanner in every seed
+PASS Pressing the first four keys left to right never works
+PASS Every plate has at least two runes of every house
+PASS The radio hears nothing from ice without a beacon
+PASS Tuned and gained correctly, the lamps show the signal
+PASS The tuning window is forgiving (12 units off still reads)
+PASS Too much gain clips the signal and the lamps go dark
+PASS With music on, the cabin wireless stations can be tuned
+PASS The Triad entry exists
+PASS Every rune board page has fuel, coffee and wipers
+PASS The FUEL rune fills the chute
+PASS A locked camera does not turn
+PASS The wrong plate order does not unlock
+PASS The right levers and plate order unlock the camera
+PASS An unlocked camera turns smoothly and costs no heat
+PASS An unlocked camera stays unlocked
+PASS A destroyed camera loses its unlock
+PASS Pausing stops the watch
+PASS Resuming starts it again
+PASS The board flips after a few presses
+PASS Ice and Iron have their silly runes; Bone keeps a true dud
+PASS CONFETTI fires its effect and still counts as a press
+PASS DEVIL fires its effect and still counts as a press
+PASS A sip of coffee clears fatigue
+Scanner detunes per watch with the buoy left in one place: 5 4 3 1 5 3 6 2 2 5 3 5 3 4 1
+PASS Changing weather detunes the scanner a few times a watch, not constantly
+PASS Clipping too long blows the radio fuse
+PASS The launcher jams every few shots (4)
+PASS A repaired launcher fires again
+PASS Aim quality is high for a fresh close fix and falls as it ages (100 -> 80)
+PASS Locking ice from sonar puts it on the case board (temporarily) with its length and its printed echo
+PASS A beacon hit pins the ice to the case board
+PASS Locking other ice adds one temporary row
+PASS Only the ice you are locked on keeps a temporary row
+PASS A beaconed row re-locks from its live position
+PASS Beaconed ice reports its own position and drift: aim stays full a minute later
+PASS Reading the radio records the signal on the case board
+PASS Sweeping the whole band marks the radio SWEPT
+PASS Verdicts can be set
+PASS ...and undone
+PASS The startup checklist starts empty
+PASS The checklist ticks itself off
+PASS Six orange, six blue and four green beacons
+PASS An orange sounding charge prints the echo without a ping
+PASS A blue beacon starts a drift log
+PASS The metal scanner needs a buoy
+PASS The metal scanner does nothing out of buoy range
+PASS In buoy range the metal scanner finishes its scan
+PASS The repair flowchart matches the game for all 16 combinations
+PASS The repair rules can produce CUT, CLOSE and OPEN
+PASS The buoy reads the current as soon as it lands
+PASS A ping also takes a current reading
+PASS One ping prints the full echo of every contact
+PASS A frozen monster pulses in warm water and reads as halls below -40
+PASS Four shoals, each within reach of an orb but outside its starting view
+PASS A beacon hit on a frozen monster lets it out (and leaves empty caverns)
+PASS The monster swims for the buoy
+PASS Nudging the buoy a little does not shake it off
+PASS Moving the buoy a full buoy radius away makes it fade
+PASS ...and it is gone from the sea
+PASS A monster that reaches the buoy destroys it
+PASS The GM can drag ice to a new spot
+PASS Ice inside a shoal gives no sonar echo
+PASS A buoy on the rocks gets no echoes at all
+PASS Shots at beaconed ice land (40/40)
+PASS A saved watch resumes and carries on exactly as the original would
+PASS Old Tom sleeps for the first ten minutes
+PASS Old Tom wakes after ten minutes
+PASS Old Tom swims for the buoy splashdown
+PASS Old Tom eats a buoy left at the splashdown
+PASS Then Old Tom circles the Watch the opposite way to the Grindmaw
+PASS A 40-minute watch runs without errors
+PASS Storms keep coming after twenty minutes
+Camera-tracked shots with no buoy: 15/15 hit
+PASS Tracking ice on a camera lets a beacon hit it without a buoy
+Careful green shots: 18/20 win · wrong drift: 1/20 · reading far from target: 0/20
+PASS A fresh lock + right drift + nearby reading hits Elgarz (18 of 20 seeds)
+PASS The wrong drift setting misses
+PASS A reading taken far from the target usually misses
+PASS Only a green beacon wins
