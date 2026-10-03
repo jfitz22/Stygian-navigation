@@ -10,7 +10,7 @@
   header { padding: 10px 16px; border-bottom: 1px solid #333; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
   h1 { font-size: 16px; margin: 0; letter-spacing: 2px; color: var(--brass); }
   #status { color: var(--dim); }
-  main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; padding: 12px; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 12px; padding: 12px; }
   canvas { width: 100%; height: auto; background: #0d1b22; border: 1px solid #333; }
   aside { display: flex; flex-direction: column; gap: 10px; }
   button { background: #1d2228; color: var(--fg); border: 1px solid var(--brass); padding: 8px; font: inherit; cursor: pointer; border-radius: 3px; }
@@ -24,8 +24,11 @@
   .box b { color: var(--brass); }
   .tools { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
   .tools button.on { background: var(--brass); color: #000; }
-  .lev { display: grid; grid-template-columns: 120px 1fr 44px; gap: 6px; align-items: center; font-size: 12px; }
-  .lev input { width: 100%; }
+  .lev { display: grid; grid-template-columns: 1fr 56px; gap: 2px 8px; align-items: center; font-size: 12px; margin-bottom: 6px; }
+  .lev > span:first-child { grid-column: 1 / 3; color: var(--dim); cursor: default; user-select: none; }
+  .lev input { width: 100%; height: 24px; padding: 0; accent-color: var(--brass); }
+  .lev .val { text-align: right; color: var(--brass); }
+  #map.dragging { cursor: grabbing; }
   .row2 { display: flex; gap: 6px; align-items: center; font-size: 12px; }
   #gate { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; z-index: 9; }
   @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
@@ -42,7 +45,7 @@
 <main>
   <div>
     <div class="tools"><b style="align-self:center;color:var(--brass)">CLICK THE MAP TO:</b>
-      <button data-tool="">look only</button><button data-tool="place-elgarz">place / move Elgarz</button><button data-tool="storm">drop a storm</button><button data-tool="shark-to">send the Grindmaw</button><button data-tool="tom-to">send Old Tom</button><span style="margin-left:12px">zoom</span><button id="zout">−</button><button id="zin">+</button>
+      <button data-tool="">look only</button><button data-tool="place-elgarz">place / move Elgarz</button><button data-tool="storm">drop a storm</button><button data-tool="shark-to">send the Grindmaw</button><button data-tool="tom-to">send Old Tom</button><span style="color:var(--dim);font-size:12px;align-self:center">· or drag any ice to move it</span><span style="margin-left:12px">zoom</span><button id="zout">−</button><button id="zin">+</button>
     </div>
     <canvas id="map" width="900" height="900"></canvas>
   </div>
@@ -73,7 +76,7 @@
     <div class="box" id="tools"></div>
     <div>Send a note down the pneumatic tube:</div>
     <div class="grid">
-      <button data-note="The old sentries swore Coldsteel's bones are iron and its halls ring hollow.">Hint: hollow and iron</button>
+      <button data-note="The old sentries swore Coldsteel's bones are iron and its halls ring even and true.">Hint: halls and iron</button>
       <button data-note="The big ones ride the deep water, officer. Read the deep current near your target.">Hint: deep current</button>
       <button data-note="Every ping calls the Grindmaw to the spot. Ping, then move the buoy.">Hint: shark</button>
       <button data-note="Kill the cabin music before you trust anything you hear on the wireless.">Hint: music lies</button>
@@ -103,18 +106,38 @@ let tool = '';
 const toolBtns = document.querySelectorAll('[data-tool]');
 toolBtns.forEach(b => b.onclick = () => { tool = b.dataset.tool; toolBtns.forEach(x => x.classList.toggle('on', x === b)); });
 toolBtns[0].classList.add('on');
+// Map: press on any ice and drag it to move it (it moves when you let go). Otherwise a click uses the tool.
+let drag = null, swallowClick = false;
+const mapPoint = e => { const r = cv.getBoundingClientRect(), cx = (e.clientX - r.left) / r.width * cv.width, cy = (e.clientY - r.top) / r.height * cv.height; return { cx, cy, x: (cx - off) / z, y: (cy - off) / z }; };
+document.getElementById('map').addEventListener('mousedown', e => {
+  if (!lastSnap) return; const p = mapPoint(e);
+  let best = null, bd = 10;
+  for (const b of lastSnap.bergs) { const d = Math.hypot(b.x * z + off - p.cx, b.y * z + off - p.cy); if (d < bd) { bd = d; best = b; } }
+  if (best) { e.preventDefault(); drag = { id: best.id, num: best.num, x0: best.x, y0: best.y, x: best.x, y: best.y, moved: false }; cv.classList.add('dragging'); }
+});
+addEventListener('mousemove', e => {
+  if (!drag) return; const p = mapPoint(e);
+  if (Math.hypot(p.x - drag.x0, p.y - drag.y0) * z > 3) drag.moved = true;
+  drag.x = Math.max(0, Math.min(MAP, p.x)); drag.y = Math.max(0, Math.min(MAP, p.y)); draw(lastSnap);
+});
+addEventListener('mouseup', () => {
+  if (!drag) return;
+  if (drag.moved) { ch.postMessage({ cmd: 'move-berg', arg: { id: drag.id, x: drag.x, y: drag.y } }); swallowClick = true; }
+  drag = null; cv.classList.remove('dragging'); if (lastSnap) draw(lastSnap);
+});
 document.getElementById('map').addEventListener('click', e => {
+  if (swallowClick) { swallowClick = false; return; }
   if (!tool) return;
-  const r = e.target.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width * cv.width - off) / z, y = ((e.clientY - r.top) / r.height * cv.height - off) / z;
-  ch.postMessage({ cmd: tool, arg: { x, y } });
+  const p = mapPoint(e);
+  ch.postMessage({ cmd: tool, arg: { x: p.x, y: p.y } });
 });
-const LEVERS = [['drift', 'World drift speed', 0, 3], ['tomb', 'Tomb speed', 0, 3], ['elgarz', 'Elgarz speed', 0, 3], ['shark', 'Grindmaw speed', 0, 3],
-  ['burn', 'Furnace burn rate', 0, 3], ['remorhaz', 'Remorhaz aggression', 0, 3], ['aim', 'Beacon forgiveness', 0.5, 4], ['fatigue', 'Operator fatigue rate', 0, 3]];
-document.getElementById('levers').innerHTML = LEVERS.map(([k, label, lo, hi]) => `<div class="lev"><span>${label}</span><input type="range" min="${lo}" max="${hi}" step="0.1" value="1" data-lever="${k}"><span id="lv-${k}">1.0</span></div>`).join('');
-document.querySelectorAll('[data-lever]').forEach(inp => inp.oninput = () => {
-  document.getElementById('lv-' + inp.dataset.lever).textContent = Number(inp.value).toFixed(1);
-  ch.postMessage({ cmd: 'lever', arg: { name: inp.dataset.lever, value: Number(inp.value) } });
-});
+// Ranges kept narrow and steps fine, so a small nudge is a small change. Double-click a name to put it back to 1×.
+const LEVERS = [['drift', 'World drift speed', 0.25, 2.5], ['tomb', 'Tomb speed', 0.25, 2.5], ['elgarz', 'Elgarz speed', 0.25, 2.5], ['shark', 'Grindmaw speed (and monsters)', 0.5, 3],
+  ['burn', 'Furnace burn rate', 0.25, 2.5], ['remorhaz', 'Remorhaz aggression', 0, 2.5], ['aim', 'Beacon forgiveness', 0.5, 3], ['fatigue', 'Operator fatigue rate', 0, 2.5]];
+document.getElementById('levers').innerHTML = LEVERS.map(([k, label, lo, hi]) => `<div class="lev"><span data-reset="${k}" title="double-click to reset">${label}</span><input type="range" min="${lo}" max="${hi}" step="0.05" value="1" data-lever="${k}"><span class="val" id="lv-${k}">1.00×</span></div>`).join('');
+const sendLever = (k, v) => { document.getElementById('lv-' + k).textContent = Number(v).toFixed(2) + '×'; ch.postMessage({ cmd: 'lever', arg: { name: k, value: Number(v) } }); };
+document.querySelectorAll('[data-lever]').forEach(inp => inp.oninput = () => sendLever(inp.dataset.lever, inp.value));
+document.querySelectorAll('[data-reset]').forEach(el => el.ondblclick = () => { const inp = document.querySelector(`[data-lever=${el.dataset.reset}]`); inp.value = 1; sendLever(el.dataset.reset, 1); });
 document.getElementById('reset').onclick = () => {
   const seed = Number(document.getElementById('seed').value) || null;
   if (confirm(seed ? `Reset the game with seed ${seed}?` : 'Reset the game with a new random seed?')) ch.postMessage({ cmd: 'reset', seed });
@@ -173,6 +196,12 @@ function draw(s) {
     if (b.notable) { ctx.font = (b.elgarz ? '600 ' : '') + '11px monospace'; ctx.fillText(`#${b.num} ${b.name}`, b.x * z + 8, b.y * z + 4); }
   }
   if (s.ghost) { ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(s.ghost.x * z, s.ghost.y * z, 8, 0, 7); ctx.stroke(); }
+  for (const m of s.monsters || []) { ctx.globalAlpha = m.fading ? 0.4 : 1; ctx.fillStyle = '#ff4b3a'; ctx.beginPath(); ctx.arc(m.x * z, m.y * z, 6, 0, 7); ctx.fill(); ctx.font = '10px monospace'; ctx.fillText('monster from #' + m.num, m.x * z + 8, m.y * z + 4); ctx.globalAlpha = 1; }
+  if (drag && drag.moved) {
+    ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(drag.x0 * z, drag.y0 * z); ctx.lineTo(drag.x * z, drag.y * z); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(drag.x * z, drag.y * z, 9, 0, 7); ctx.stroke(); ctx.lineWidth = 1;
+    ctx.fillStyle = '#fff'; ctx.font = '11px monospace'; ctx.fillText('#' + drag.num + ' → ' + ref(drag.x, drag.y), drag.x * z + 12, drag.y * z - 8);
+  }
 
   const e = s.bergs.find(b => b.elgarz);
   const p = s.elgarzPlan;
@@ -187,10 +216,10 @@ function draw(s) {
     `<b>Camera unlock code</b> (for the camera on screen): levers WIND ${s.camCode.wind}, TEMP ${s.camCode.temp}; plates ${s.camCode.order.join(' → ')}${Object.keys(s.camUnlocked).length ? ' · unlocked: ' + Object.entries(s.camUnlocked).map(([k, v]) => k + ' ' + v + 's').join(', ') : ''}<br>` +
     `<b>Broken</b>: ${s.broken.length ? s.broken.join(', ') : 'nothing'}<br>` +
     `<b>Case board</b>: ${s.cases.length ? s.cases.map(c => `#${c.num}${c.permanent ? '' : ' (temp)'} ${c.verdict}`).join(' · ') : 'empty'}`;
-  for (const [k, v] of Object.entries(s.levers)) { const inp = document.querySelector(`[data-lever=${k}]`); if (inp && document.activeElement !== inp) { inp.value = v; document.getElementById('lv-' + k).textContent = Number(v).toFixed(1); } }
+  for (const [k, v] of Object.entries(s.levers)) { const inp = document.querySelector(`[data-lever=${k}]`); if (inp && document.activeElement !== inp) { inp.value = v; document.getElementById('lv-' + k).textContent = Number(v).toFixed(2) + '×'; } }
   const notable = s.bergs.filter(b => b.notable).sort((a, b) => b.elgarz - a.elgarz);
-  document.getElementById('roster').innerHTML = '<tr><th>#</th><th>Name</th><th>Hol</th><th>Met</th><th>Radio</th><th>Tag</th></tr>' +
-    notable.map(b => `<tr class="${b.elgarz ? 'el' : ''}"><td>${b.num}</td><td>${b.name}</td><td>${b.hollow ? 'yes' : '-'}</td><td>${b.metal ? 'yes' : '-'}</td><td>${b.radio ? b.radio.freq + ' ' + b.radio.carrier[0] + ' ' + b.radio.shown + (b.radio.decoded === 'BRW' && b.radio.band === 'MID' ? ' ★TRIAD' : '') : '-'}${b.tombDrawn ? ' (drawn to Tomb)' : ''}</td><td>${b.tag || ''}</td></tr>`).join('') +
+  document.getElementById('roster').innerHTML = '<tr><th>#</th><th>Name</th><th>Echo</th><th>Met</th><th>Radio</th><th>Tag</th></tr>' +
+    notable.map(b => `<tr class="${b.elgarz ? 'el' : ''}"><td>${b.num}</td><td>${b.name}</td><td>${b.released ? 'emptied' : b.sig}</td><td>${b.metal ? 'yes' : '-'}</td><td>${b.radio ? b.radio.freq + ' ' + b.radio.carrier[0] + ' ' + b.radio.shown + (b.radio.decoded === 'BRW' && b.radio.band === 'MID' ? ' ★TRIAD' : '') : '-'}${b.tombDrawn ? ' (drawn to Tomb)' : ''}</td><td>${b.tag || ''}</td></tr>`).join('') +
     (s.pending.length ? `<tr><td colspan="6" style="color:var(--dim)">Still to arrive: ${s.pending.map(b => b.name).join(', ')}</td></tr>` : '');
 }
 </script>

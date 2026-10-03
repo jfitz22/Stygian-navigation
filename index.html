@@ -36,6 +36,7 @@
         <div id="colors"></div>
         <button id="fire">FIRE BEACON</button>
         <div id="rack"></div>
+        <div id="rackfill"><div class="bar"><div></div></div><span></span></div>
         <div class="lbl" style="margin-top:12px">LAST SHOT</div>
         <div id="shotreport">No beacons fired yet.</div>
       </div>
@@ -164,7 +165,7 @@
 
 
   <!-- currents -->
-  <section class="panel" id="p-cur" style="left:1364px;top:498px;width:540px;height:270px">
+  <section class="panel" id="p-cur" style="left:1364px;top:838px;width:540px;height:226px">
     <h2>CURRENTS &amp; WIND <small id="curage"></small></h2>
     <canvas id="curcanvas" width="508" height="160"></canvas>
     <div class="offline hidden" id="curoff">NO POWER</div>
@@ -197,7 +198,6 @@
         <button id="btn-log" class="tool">LOG</button>
       </div>
       <div id="logdrawer" class="hidden"></div>
-      <div id="devil" class="hidden"></div>
       <div id="toast"></div>
       <div id="notes"></div>
     </div>
@@ -228,23 +228,22 @@
   </section>
 
   <!-- sonar -->
-  <section class="panel" id="p-sonar" style="left:1364px;top:68px;width:540px;height:420px">
+  <section class="panel" id="p-sonar" style="left:1364px;top:408px;width:540px;height:420px">
     <h2>SONAR <small id="sonarstat"></small></h2>
     <div class="screen round"><canvas id="sonarcanvas" width="300" height="300"></canvas></div>
     <div id="sonarside">
       <button id="ping" class="bigbtn">PING</button>
-      <div id="focusrow"><button id="pitchknob" title="pitch: click to turn">○</button><button id="focusbtn">FOCUS PING<br><small>on the locked contact</small></button></div>
       <div class="lbl">ECHO PRINTOUT</div>
-      <div class="paper"><canvas id="echocanvas" width="176" height="110"></canvas></div>
+      <div class="paper"><canvas id="echocanvas" width="186" height="150"></canvas></div>
       <div id="echoinfo">Select a contact.</div>
     </div>
     <div class="offline hidden" id="sonaroff">NO POWER</div>
   </section>
 
   <!-- case board -->
-  <section class="panel" id="p-case" style="left:1364px;top:778px;width:540px;height:286px">
+  <section class="panel" id="p-case" style="left:1364px;top:68px;width:540px;height:330px">
     <h2>CASE BOARD <small>beacon ice to keep it here</small></h2>
-    <div class="caserow head"><span>ICE</span><span>SEEN</span><span>HOLLOW</span><span>METAL</span><span>RADIO</span><span>VERDICT</span></div>
+    <div class="caserow head"><span>ICE</span><span>SEEN</span><span>ECHO</span><span>METAL</span><span>RADIO</span><span>VERDICT</span></div>
     <div id="caserows"></div>
   </section>
   </div>
@@ -279,7 +278,7 @@
       <button id="resumewatch" class="hidden"></button>
       <button id="begin">TAKE THE WATCH</button>
       <p class="small">Sound recommended · ▲ LOOK UP for the launcher, rune board and repair bay</p>
-      <p class="small keys">SPACE ping · F focused ping · 1–7 orbs · ↑ ↓ look · ← → turn orb · P pause · M mute · right-click the pitch knob to turn it back</p>
+      <p class="small keys">SPACE ping · 1–7 orbs · ↑ ↓ look · ← → turn orb · P pause · M mute</p>
       <p class="small" id="introseed"></p>
     </div>
   </div>

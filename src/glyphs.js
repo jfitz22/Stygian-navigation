@@ -99,3 +99,33 @@ export const REPAIR_RULES = [
 ];
 export const REPAIR_DEFAULT = 'OPEN';
 export function repairAction(row) { for (const rule of REPAIR_RULES) if (rule.test(row)) return rule.then; return REPAIR_DEFAULT; }
+
+// ---------- the sonar printout ----------
+// Height of the echo trace above the baseline at x (0..ECHO_W). The first spike is the surface (taller for longer ice);
+// then one bump per chamber; then the tail. `k` is the sweep number: a monster's pulse swells and fades from one
+// sweep to the next.
+export const ECHO_W = 186;
+export function echoAt(e, len, x, k = 0, seed = 0) {
+  let y = 0;
+  if (x > 10 && x < 24) y += Math.min(72, 16 + len * 1.8) * Math.sin((x - 10) / 14 * Math.PI);
+  for (const h of e.humps) if (x > h.x && x < h.x + 18) y += 36 * h.h * Math.sin((x - h.x) / 18 * Math.PI);
+  const tail = (e.humps.length ? e.humps[e.humps.length - 1].x + 18 : 26) + 8;
+  if (x > tail) {
+    if (e.tail === 'wavy') y += 8 * Math.sin((x - tail) / 4.2);
+    if (e.tail === 'pulse') {
+      const amp = 0.45 + 0.55 * Math.abs(Math.sin(k * 1.9 + seed));
+      const u = (x - tail) % 16;
+      if (u > 3 && u < 6) y += 20 * amp * Math.sin((u - 3) / 3 * Math.PI);
+      if (u > 7 && u < 10) y += 11 * amp * Math.sin((u - 7) / 3 * Math.PI);
+    }
+  }
+  return y;
+}
+// Example printouts for the manuals: one per echo class.
+export const ECHO_EXAMPLES = {
+  solid: { humps: [], tail: 'flat' },
+  caverns: { humps: [{ x: 44, h: 1 }, { x: 76, h: 0.5 }, { x: 93, h: 0.78 }], tail: 'flat' },
+  halls: { humps: [{ x: 44, h: 0.85 }, { x: 68, h: 0.85 }, { x: 92, h: 0.85 }], tail: 'flat' },
+  flooded: { humps: [{ x: 44, h: 1 }, { x: 76, h: 0.5 }], tail: 'wavy' },
+  monster: { humps: [{ x: 44, h: 0.85 }, { x: 68, h: 0.85 }, { x: 92, h: 0.85 }], tail: 'pulse' },
+};

@@ -2,10 +2,10 @@ import {
   createWorld, newSeed, step, light, stoke, slotsAvailable, setPower, isUp, selectCam, deployBuoy, ping, lockContact, lockFromCamera,
   setDrift, ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
-  saveWorld, loadWorld, pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, focusPing, setPitch, inShoal, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
+  saveWorld, loadWorld, pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, inShoal, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
 } from './sim.js';
-import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES, SHOALS, PITCHES } from './scenario.js';
-import { glyphSVG, gaugeSVG, repairAction } from './glyphs.js';
+import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES, SHOALS, SIZE_CUT } from './scenario.js';
+import { glyphSVG, gaugeSVG, repairAction, echoAt, ECHO_W } from './glyphs.js';
 import * as audio from './audio.js';
 
 const $ = id => document.getElementById(id);
@@ -87,7 +87,6 @@ addEventListener('keydown', e => {
   if (e.key === 'p' || e.key === 'P') togglePause();
   if (!ui.started || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === ' ') { e.preventDefault(); document.activeElement && document.activeElement.blur(); ping(world); }
-  if (e.key === 'f' || e.key === 'F') focusPing(world);
   if (e.key >= '1' && e.key <= '7') { const c = world.cams[+e.key - 1]; if (c) { selectCam(world, c.id); audio.sfx.click(); } }
 });
 
@@ -429,6 +428,18 @@ function drawMap() {
     ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(6, 7); ctx.lineTo(-6, 7); ctx.closePath(); ctx.fill(); ctx.restore();
     ctx.fillStyle = '#ff8a7a'; ctx.font = '600 10px IBM Plex Mono'; ctx.textAlign = 'center';
     ctx.fillText(s.mode === 'hunt' ? 'THE GRINDMAW · SWIMMING TO THE PING' : s.mode === 'patrol' ? 'THE GRINDMAW · CIRCLING THE WATCH' : 'THE GRINDMAW', p.x, p.y + 20); }
+  // monsters let out of the ice
+  for (const m of world.monsters) {
+    const p = W2S(m.x, m.y), fade = m.fadeAt != null ? Math.max(0, 1 - (t - m.fadeAt) / T.monsterFadeTime) : 1;
+    ctx.globalAlpha = fade;
+    if (world.buoy && m.fadeAt == null) { const q = W2S(world.buoy.x, world.buoy.y); ctx.strokeStyle = 'rgba(255,75,58,.5)'; ctx.setLineDash([2, 4]); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.fillStyle = '#ff4b3a'; ctx.shadowColor = '#ff4b3a'; ctx.shadowBlur = 12; ctx.beginPath();
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + t, r = i % 2 ? 4 : 9; i ? ctx.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r) : ctx.moveTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r); }
+    ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ff8a7a'; ctx.font = '600 10px IBM Plex Mono'; ctx.textAlign = 'center';
+    ctx.fillText(m.fadeAt != null ? 'MONSTER · SINKING AWAY' : `MONSTER FROM #${m.num} · AFTER THE BUOY`, p.x, p.y + 21);
+    ctx.globalAlpha = 1;
+  }
   // Old Tom
   if (world.tom.mode !== 'asleep') {
     const s = world.tom, p = W2S(s.x, s.y);
@@ -568,9 +579,11 @@ function drawCamera() {
   const lk = world.lock, lb = lockedBerg(world);
   if (lk && lb && up && cameraView(world, cam).some(it => it.o === lb)) {
     const done = lk.track && lk.track.cam === cam.id && t - lk.track.t < 1.5, k = lk.trackSince != null ? Math.min(1, (t - lk.trackSince) / T.trackTime) : 0;
-    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(8, 24, 250, 22);
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(8, 24, 300, 40);
     ctx.fillStyle = done ? '#5cff9d' : '#ffb347'; ctx.font = '600 12px IBM Plex Mono';
     ctx.fillText(done ? `TRACKING #${lb.num} ✓ DRIFT MEASURED` : `TRACKING #${lb.num} · MEASURING DRIFT ${Math.round(k * 100)}%`, 14, 40);
+    const L = Math.round(lb.length); ctx.fillStyle = L <= SIZE_CUT ? '#ff6a5a' : '#e8dfc6';
+    ctx.fillText(L <= SIZE_CUT ? `SIZE ≈${L} mi · UNDER 20 · NOT ELGARZ` : `SIZE ≈${L} mi`, 14, 57);
   }
 }
 function drawReveal(ctx, sx, base, width, k) {
@@ -711,6 +724,12 @@ function drawSonar() {
     ctx.fillStyle = `rgba(255,122,42,${0.6 + 0.4 * Math.sin(t * 5)})`; ctx.beginPath(); ctx.arc(q.x, q.y, 6, 0, 7); ctx.fill();
     ctx.fillStyle = '#ffae7a'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText('OLD TOM', q.x, q.y - 10);
   }
+  for (const m of world.monsters) {
+    if (m.fadeAt != null || dist(m, world.buoy) >= T.buoyRadius) continue;
+    const q = sonarXY(m.x, m.y);
+    ctx.fillStyle = `rgba(255,75,58,${0.6 + 0.4 * Math.sin(t * 8)})`; ctx.beginPath(); ctx.arc(q.x, q.y, 6, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ff8a7a'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText('MONSTER', q.x, q.y - 10);
+  }
   if (dist(world.shark, world.buoy) < T.buoyRadius) {
     const q = sonarXY(world.shark.x, world.shark.y);
     ctx.fillStyle = `rgba(255,75,58,${0.6 + 0.4 * Math.sin(t * 6)})`; ctx.shadowColor = '#ff4b3a'; ctx.shadowBlur = 12;
@@ -718,34 +737,30 @@ function drawSonar() {
     ctx.fillStyle = '#ff8a7a'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText('GRINDMAW', q.x, q.y - 10);
   }
 }
-const ECHO = $('echocanvas').getContext('2d');
+const ECHO = $('echocanvas').getContext('2d'), EW = ECHO_W, EH = 150, SWEEP = 2.5;
 function drawEcho() {
-  const ctx = ECHO, c = world.contacts.find(c => c.id === ui.selected);
-  ctx.fillStyle = '#e8dfc6'; ctx.fillRect(0, 0, 176, 110);
-  ctx.strokeStyle = 'rgba(120,90,60,.25)'; for (let x = 0; x < 176; x += 16) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 110); ctx.stroke(); }
+  const ctx = ECHO, c = world.contacts.find(c => c.id === ui.selected), base = 124;
+  ctx.fillStyle = '#e8dfc6'; ctx.fillRect(0, 0, EW, EH);
+  ctx.strokeStyle = 'rgba(120,90,60,.22)'; ctx.lineWidth = 1;
+  for (let x = 0; x < EW; x += 16) { ctx.beginPath(); ctx.moveTo(x + 0.5, 16); ctx.lineTo(x + 0.5, base + 6); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(80,55,30,.45)'; ctx.beginPath(); ctx.moveTo(0, base + 0.5); ctx.lineTo(EW, base + 0.5); ctx.stroke();
   if (!c) { $('echoinfo').innerHTML = 'Click a contact on the sonar or the chart to print its echo and lock onto it.'; return; }
-  const b = world.bergs.find(b => b.id === c.bergId), o = world.obs[b.id] || {}, focused = o.hollow != null, smear = ui.smear && ui.smear.id === b.id && world.t - ui.smear.t < 20;
-  const e = focused ? b.echo : { humps: 0, tail: 'unfocused' }, spike = Math.min(66, 18 + c.length * 1.7);
+  const b = world.bergs.find(b => b.id === c.bergId), e = c.echo || { humps: [], tail: 'flat', temp: null };
   let seed = 0; for (const ch of c.id) seed = (seed * 31 + ch.charCodeAt(0)) % 9973;
-  const rnd = i => (Math.sin(seed + i * 12.9898) * 43758.5453) % 1;
-  ctx.strokeStyle = '#2a1a0a'; ctx.lineWidth = 1.6; ctx.beginPath();
-  const base = 88;
-  for (let x = 0; x < 176; x++) {
-    let y = base + rnd(x) * 1.5;
-    if (x > 14 && x < 26) y -= spike * Math.sin((x - 14) / 12 * Math.PI);
-    if (!focused && x > 30) y -= (rnd(x * 3) - 0.5) * (smear ? 26 : 6);
-    for (let h = 0; h < e.humps; h++) { const c0 = 48 + h * 26; if (x > c0 && x < c0 + 18) y -= 30 * Math.sin((x - c0) / 18 * Math.PI); }
-    const tail = 50 + e.humps * 26;
-    if (x > tail) {
-      if (e.tail === 'ring') y -= 9 * Math.sin((x - tail) / 3) * Math.exp(-(x - tail) / 45);
-      if (e.tail === 'fuzz' || e.tail === 'fuzzflat') y -= (rnd(x * 7) - 0.5) * 14 * (e.tail === 'fuzz' ? 1 : 0.5);
-    }
-    x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-  }
-  ctx.stroke(); ctx.lineWidth = 1;
-  ctx.fillStyle = '#3a2a10'; ctx.font = '10px IBM Plex Mono'; ctx.fillText(`PING ${fmt(c.tS)}`, 4, 106);
-  ctx.fillStyle = '#3a2a10'; ctx.textAlign = 'right'; ctx.fillText(focused ? 'FOCUSED' : smear ? 'SMEARED · CHECK PITCH' : 'SIZE ONLY · FOCUS FOR CHAMBERS', 172, 10); ctx.textAlign = 'left';
-  $('echoinfo').innerHTML = `Contact pinged at <b>${fmt(c.tS)}</b> in <b>${gridRef(c.x, c.y)}</b><br>Length ≈ <b>${Math.round(c.length)} mi</b>`;
+  const now = performance.now() / 1000, k = Math.floor(now / SWEEP), cur = (now % SWEEP) / SWEEP * EW;
+  const trace = (x0, x1, kk, alpha) => {
+    ctx.strokeStyle = `rgba(42,26,10,${alpha})`; ctx.lineWidth = 1.6; ctx.beginPath();
+    for (let x = Math.floor(x0); x <= x1; x++) { const y = base - echoAt(e, c.length, x, kk, seed) - (Math.random() - 0.5) * 1.2; x > x0 ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+  };
+  trace(cur, EW, k - 1, 0.22);      // what is left of the last sweep
+  trace(0, cur, k, 0.95);           // the sweep being drawn now
+  ctx.strokeStyle = 'rgba(176,120,40,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cur + 0.5, 16); ctx.lineTo(cur + 0.5, base + 6); ctx.stroke();
+  ctx.fillStyle = '#3a2a10'; ctx.font = '600 11px IBM Plex Mono'; ctx.textAlign = 'left';
+  ctx.fillText(e.temp != null ? `WATER ${e.temp}°` : 'WATER --', 4, 12);
+  ctx.textAlign = 'right'; ctx.fillText(`#${b ? b.num : '?'} · ${Math.round(c.length)} mi`, EW - 4, 12);
+  ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText(`PING ${fmt(c.tS)}`, 4, EH - 6);
+  $('echoinfo').innerHTML = `Contact pinged at <b>${fmt(c.tS)}</b> in <b>${gridRef(c.x, c.y)}</b>. Length ≈ <b>${Math.round(c.length)} mi</b>${Math.round(c.length) <= SIZE_CUT ? ' · <b style="color:var(--threat)">UNDER 20 · NOT ELGARZ</b>' : ''}`;
 }
 
 // ---------- radio ----------
@@ -901,6 +916,9 @@ function drawLock() {
     const pips = (n, max, cls) => Array.from({ length: max }, (_, i) => `<i class="${cls} ${i < n ? '' : 'empty'}"></i>`).join('');
     rack.innerHTML = pips(bc.stock, T.beaconStock, 'r') + '<b></b>' + pips(bc.orange, T.orangeStock, 'o') + '<b></b>' + pips(bc.blue, T.blueStock, 'bl') + '<b></b>' + pips(bc.green, T.greenStock, 'g');
   }
+  const full = bc.stock >= T.beaconStock, k = full || !bc.nextAt ? 1 : 1 - Math.max(0, bc.nextAt - world.t) / T.beaconRebuild;
+  $('rackfill').firstElementChild.firstElementChild.style.width = (k * 100).toFixed(1) + '%';
+  $('rackfill').lastElementChild.textContent = full ? 'RED RACK FULL' : `NEXT RED BEACON IN ${Math.ceil(Math.max(0, bc.nextAt - world.t))} s`;
   const last = bc.last, rep = $('shotreport'), rkey = last ? last.t : 0;
   if (rep.dataset.t !== String(rkey) && last) {
     rep.dataset.t = String(rkey);
@@ -965,12 +983,12 @@ function drawBoard() {
 
 // ---------- case board ----------
 const CARRIER_GLYPH = { SMOOTH: '∿', STEPPED: '⊓', JAGGED: '⩘' };
+// A small copy of the printout (the pulse drawn at full size, so the case board remembers it).
 function miniEcho(e) {
-  let pts = '0,10 4,10 6,2 8,10 ';
-  for (let h = 0; h < e.humps; h++) { const x = 11 + h * 7; pts += `${x},10 ${x + 2},5 ${x + 4},10 `; }
-  const x = 12 + e.humps * 7;
-  pts += e.tail === 'ring' ? `${x},10 ${x + 2},8 ${x + 4},12 ${x + 6},9 ${x + 8},11 ${x + 12},10` : e.tail === 'fuzz' || e.tail === 'fuzzflat' ? `${x},10 ${x + 2},6 ${x + 3},13 ${x + 5},7 ${x + 7},12 ${x + 12},10` : `${x + 12},10`;
-  return `<svg class="mini" width="44" height="14" viewBox="0 0 44 14"><polyline points="${pts}" fill="none" stroke="#e8dfc6" stroke-width="1.2"/></svg>`;
+  const pts = [];
+  const tail = (e.humps.length ? e.humps[e.humps.length - 1].x + 18 : 26) + 8;   // the tail is drawn larger, so wavy and pulsing still show
+  for (let x = 0; x <= ECHO_W; x += 1.5) pts.push(`${(x * 72 / ECHO_W).toFixed(1)},${(20 - echoAt(e, 14, x, 0, 0.9) * (x > tail ? 0.6 : 0.3)).toFixed(1)}`);
+  return `<svg class="mini" width="72" height="24" viewBox="0 0 72 24"><polyline points="${pts.join(' ')}" fill="none" stroke="#e8dfc6" stroke-width="1.1"/></svg>`;
 }
 const tf = v => v == null ? '<span class="tile q">?</span>' : v ? '<span class="tile T">T</span>' : '<span class="tile F">F</span>';
 const caseCache = {};
@@ -986,14 +1004,14 @@ function drawCases() {
   if (key === caseKey) return;
   caseKey = key;
   $('caserows').innerHTML = rows.map(({ c, b, o, sq }) => {
-    const prev = caseCache[c.bergId] || {}, now = { sq, h: o.hollow, m: o.metal, r: JSON.stringify(o.radio) + o.swept, v: c.verdict };
+    const prev = caseCache[c.bergId] || {}, now = { sq, h: JSON.stringify(o.echo), m: o.metal, r: JSON.stringify(o.radio) + o.swept, v: c.verdict };
     const fl = k => prev[k] !== undefined && prev[k] !== now[k] ? ' flip' : '';
     caseCache[c.bergId] = now;
     const radio = o.radio ? `<span class="rdots">${[...o.radio.shown].map(x => `<i class="${x}"></i>`).join('')}</span><span class="rtext">${Math.round(o.radio.freq)} ${o.radio.band} ${CARRIER_GLYPH[o.radio.carrier]}${o.swept ? ' · SWEPT' : ''}</span>`
       : o.swept ? '<span class="tile F">SWEPT</span>' : '<span class="tile q">?</span>';
     return `<div class="caserow${c.permanent ? '' : ' temp'}${c.verdict === 'EXCLUDED' ? ' excluded' : ''}${lockId === c.bergId ? ' locked' : ''}" data-id="${c.bergId}">
       <span class="tile">#${b.num}${o.length != null ? `<small style="font-size:10px;opacity:.7;margin-left:4px">${o.length}mi</small>` : ''}</span><span class="odo${prev.sq !== undefined && prev.sq !== sq ? ' roll' : ''}">${sq}</span>
-      <span class="${fl('h').trim()}">${tf(o.hollow)}${o.echo && o.hollow != null ? miniEcho(o.echo) : ''}</span>
+      <span class="echocell ${fl('h').trim()}">${o.echo ? miniEcho(o.echo) + `<small>${o.echo.temp}°</small>` : '<span class="tile q">?</span>'}</span>
       <span class="${fl('m').trim()}">${tf(o.metal)}</span>
       <span class="${fl('r').trim()}">${radio}</span>
       ${c.permanent ? `<button class="verdict ${c.verdict}">${c.verdict}</button>` : '<span class="keephint">BEACON IT<br>TO KEEP IT</span>'}
@@ -1008,14 +1026,14 @@ function drawCases() {
 
 // ---------- Jerry's notes (and GM handouts) ----------
 const NOTE_AT = {   // positions on the rig, chosen to sit on empty space rather than controls
-  checklist: [1120, 822], orbs: [40, 1080], orbctl: [360, 1452], sonar: [1384, 1128], furnace: [26, 1580], scanner: [1730, 610],
-  radio: [250, 404], runes: [880, 500], case: [1700, 1720], chart: [1100, 900], launcher: [430, 70], currents: [1700, 1460],
+  checklist: [1120, 822], orbs: [40, 1080], orbctl: [360, 1452], sonar: [1716, 1490], furnace: [26, 1580], scanner: [1730, 610],
+  radio: [250, 404], runes: [880, 500], case: [1700, 1080], chart: [1100, 900], launcher: [430, 70], currents: [1700, 1750],
 };
 const JERRY = [
   ['checklist', 'Startup list is up on the wire service. Look UP. Do it in order this time, Jerry.'],
   ['orbs', "Remorhaz smell the heat of the scrying orbs. Look away when you're not using one."],
   ['orbctl', 'Orb gears freeze solid. Set the levers to the weather ON THE ORB before you turn it.'],
-  ['sonar', "Every ping rings the Grindmaw's dinner bell. Focused ones too. Ping, then MOVE the buoy."],
+  ['sonar', "Every ping rings the Grindmaw's dinner bell. Ping, then MOVE the buoy."],
   ['furnace', 'Two shovels. NEVER three. Fill the chute from the rune board first.'],
   ['scanner', 'Scanner rides on the buoy. Ice has to be near the buoy. Re-set it when the weather turns.'],
   ['radio', "Radio only hears ice with a beacon in it. And JERRY: gain DOWN. Two fuses this week."],
@@ -1060,7 +1078,7 @@ function drawFx(now) {
   fxCtx.globalAlpha = 1;
   requestAnimationFrame(drawFx);
 }
-const DEVIL_SVG = `<svg viewBox="0 0 150 190" xmlns="http://www.w3.org/2000/svg">
+const DEVIL_SVG = `<svg viewBox="0 0 150 210" xmlns="http://www.w3.org/2000/svg"><g transform="translate(0,20)">
   <path d="M100 150 Q140 150 132 118 Q128 104 140 98 L136 112 L126 104" fill="none" stroke="#c4221a" stroke-width="5" stroke-linecap="round"/>
   <path d="M126 98 L144 94 L136 110 Z" fill="#c4221a"/>
   <line x1="30" y1="40" x2="22" y2="182" stroke="#3a2a1a" stroke-width="5"/>
@@ -1069,21 +1087,49 @@ const DEVIL_SVG = `<svg viewBox="0 0 150 190" xmlns="http://www.w3.org/2000/svg"
   <path d="M58 150 L52 178 L64 178 M98 150 L104 178 L92 178" fill="none" stroke="#d8291f" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M52 108 L32 86 M104 108 L126 82" stroke="#d8291f" stroke-width="8" stroke-linecap="round"/>
   <circle cx="78" cy="66" r="30" fill="#e0342a"/>
-  <path d="M56 46 Q46 26 58 16 Q58 32 66 40 Z M100 46 Q110 26 98 16 Q98 32 90 40 Z" fill="#f0e6d0"/>
+  <path d="M52 50 Q40 32 50 20 Q52 36 60 44 Z M104 50 Q116 32 106 20 Q104 36 96 44 Z" fill="#f0e6d0"/>
+  <g transform="rotate(-8 78 36)">
+    <rect x="58" y="34" width="40" height="6" rx="2" fill="#111"/>
+    <rect x="64" y="2" width="28" height="34" rx="2" fill="#151515"/>
+    <rect x="64" y="26" width="28" height="5" fill="#8a1a14"/>
+  </g>
   <path d="M62 60 L72 64 M94 60 L84 64" stroke="#2a0a08" stroke-width="3" stroke-linecap="round"/>
   <circle cx="68" cy="68" r="3.5" fill="#ffe14a"/><circle cx="88" cy="68" r="3.5" fill="#ffe14a"/>
   <path d="M64 80 Q78 94 92 80 Q78 86 64 80 Z" fill="#2a0a08"/>
   <path d="M74 92 Q78 104 82 92" fill="#3a0e0a"/>
-</svg>`;
+</g></svg>`;
+// He dances on the chart, the orb, the sonar, the radio and the scanner at once.
+const DEVIL_SPOTS = () => [
+  [document.querySelector('#p-map .screen.chart'), null],
+  [$('camscreen'), null],
+  [document.querySelector('#p-sonar .screen.round'), null],
+  [$('radiocanvas').parentElement, null],
+  [$('p-scan'), { left: 14, top: 46, width: 200, height: 130 }],
+];
+const DEVIL_TIME = 5000;
 let devilTimer = null;
 function devil() {
-  const d = $('devil'); clearTimeout(devilTimer);
-  d.className = ''; d.innerHTML = DEVIL_SVG; audio.sfx.jig();
+  clearTimeout(devilTimer);
+  document.querySelectorAll('.devil').forEach(d => d.remove());
+  audio.sfx.jig(); setTimeout(() => audio.sfx.jig(), 2720);
+  for (const [el, box] of DEVIL_SPOTS()) {
+    if (!el) continue;
+    const bw = box ? box.width : el.clientWidth, bh = box ? box.height : el.clientHeight;
+    const h = Math.min(bh * 0.9, 220), w = h * 150 / 210;
+    const d = document.createElement('div'); d.className = 'devil';
+    Object.assign(d.style, { width: w + 'px', height: h + 'px', left: ((box ? box.left : 0) + bw / 2 - w / 2) + 'px', top: ((box ? box.top : 0) + bh / 2 - h / 2) + 'px' });
+    d.innerHTML = DEVIL_SVG; d.firstElementChild.style.animationDelay = (-Math.random() * 0.36).toFixed(2) + 's';
+    el.appendChild(d);
+  }
   devilTimer = setTimeout(() => {
-    d.className = 'puff'; audio.sfx.puff();
-    for (let i = 0; i < 6; i++) { const s = document.createElement('div'); s.className = 'smoke'; const r = 26 + Math.random() * 20; Object.assign(s.style, { width: r + 'px', height: r + 'px', left: (75 - r / 2 + (Math.random() - 0.5) * 70) + 'px', top: (100 - r / 2 + (Math.random() - 0.5) * 80) + 'px' }); d.appendChild(s); }
-    devilTimer = setTimeout(() => { d.className = 'hidden'; d.innerHTML = ''; }, 750);
-  }, 2900);
+    audio.sfx.puff();
+    document.querySelectorAll('.devil').forEach(d => {
+      d.classList.add('puff');
+      const W = parseFloat(d.style.width), H = parseFloat(d.style.height);
+      for (let i = 0; i < 6; i++) { const sm = document.createElement('div'); sm.className = 'smoke'; const r = W * (0.2 + Math.random() * 0.15); Object.assign(sm.style, { width: r + 'px', height: r + 'px', left: (W / 2 - r / 2 + (Math.random() - 0.5) * W * 0.5) + 'px', top: (H / 2 - r / 2 + (Math.random() - 0.5) * H * 0.4) + 'px' }); d.appendChild(sm); }
+    });
+    devilTimer = setTimeout(() => document.querySelectorAll('.devil').forEach(d => d.remove()), 750);
+  }, DEVIL_TIME - 100);
 }
 
 // ---------- ending cutscene ----------
@@ -1174,7 +1220,6 @@ function drawPower() {
     if (p.on) used++;
     el.classList.toggle('on', p.on); el.classList.toggle('spin', p.on && world.t < p.ready);
   }
-  if ($('pitchknob').textContent !== PITCHES[world.pitch]) $('pitchknob').textContent = PITCHES[world.pitch];
   $('powcount').textContent = f.lit ? `${used} of ${slotsNow} in use` : 'furnace cold';
   $('stage').classList.toggle('lit', f.lit); $('stage').classList.toggle('hot', f.lit && f.heat > 90);
   $('flames').style.height = f.lit ? (20 + f.heat * 1.05) + '%' : '0';
@@ -1245,7 +1290,9 @@ function handleEvents() {
       case 'reveal': audio.sfx.reveal(); toast(`GREEN BEACON STRUCK #${e.num} · THE ICE IS BLAZING BLUE`, 'info'); break;
       case 'miss': audio.sfx.miss(); toast(`MISSED #${e.num}${e.by != null ? ' BY ' + e.by + ' MI' : ''} · SEE THE LAUNCHER REPORT ▲`); break;
       case 'sharkhunt': audio.sfx.sharkhunt(); toast('THE GRINDMAW HEARD THE PING · IT IS COMING'); break;
-      case 'buoydead': audio.sfx.buoydead(); toast(e.who === 'tom' ? 'OLD TOM TOOK THE BUOY · REPAIR THE WINCH ▲' : 'THE GRINDMAW TOOK THE BUOY · REPAIR THE WINCH ▲'); break;
+      case 'buoydead': audio.sfx.buoydead(); toast(e.who === 'tom' ? 'OLD TOM TOOK THE BUOY · REPAIR THE WINCH ▲' : e.who === 'monster' ? 'THE MONSTER TOOK THE BUOY · REPAIR THE WINCH ▲' : 'THE GRINDMAW TOOK THE BUOY · REPAIR THE WINCH ▲'); break;
+      case 'monster': audio.sfx.sharkhunt(); toast(`SOMETHING WAS FROZEN IN #${e.num} · IT IS LOOSE AND SWIMMING FOR THE BUOY`); break;
+      case 'monsterfade': audio.sfx.buoy(); toast(e.fed ? 'THE MONSTER SINKS AWAY, FED' : 'THE MONSTER LOST THE BUOY AND SANK AWAY', e.fed ? '' : 'info'); break;
       case 'remorhaz': if (world.activeCam === e.cam) audio.sfx.remorhaz(); break;
       case 'camdead': audio.sfx.camdead(); toast(`${camName(e.cam)} ORB DESTROYED`); break;
       case 'repairstart': audio.sfx.click(); toast('REPAIR CREW SENT', 'info'); break;
@@ -1253,10 +1300,6 @@ function handleEvents() {
       case 'broke': audio.sfx.camdead(); if (e.sys === 'launcher') toast('THE BEACON LAUNCHER JAMMED · REPAIR BAY ▲'); if (e.sys === 'fuse') toast('THE RADIO FUSE BLEW · REPAIR BAY ▲'); if (e.sys === 'winch') toast('THE GRINDMAW TORE THE WINCH CABLE · REPAIR BAY ▲'); if (e.sys === 'furnace') toast('THE GRATE CRACKED · REPAIR BAY ▲'); break;
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
-      case 'pitch': audio.sfx.click(); break;
-      case 'focusok': audio.sfx.echo(); toast(`FOCUSED ECHO ON #${e.num} · CHAMBERS PRINTED`, 'info'); break;
-      case 'focusbad': audio.sfx.deny(); if (!e.rock && !e.noTemp) ui.smear = { id: (world.bergs.find(b => b.num === e.num) || {}).id, t: world.t };
-        toast(e.rock ? 'ROCKS SCATTERED THE FOCUSED PING' : e.noTemp ? 'NO WATER TEMPERATURE · POWER THE CURRENTS TO SET THE PITCH' : `THE ECHO FROM #${e.num} SMEARED · CHECK THE PITCH`); break;
       case 'driftlog': toast(`DRIFT LOG RUNNING ON #${e.num} · SELECT IT ON THE CASE BOARD TO SEE ITS PATH`, 'info'); break;
       case 'casepinned': audio.sfx.flip(); toast(`#${e.num} IS PINNED TO THE CASE BOARD`, 'info'); break;
       case 'observed': audio.sfx.flip(); break;
@@ -1293,9 +1336,6 @@ function handleEvents() {
 }
 $('wincontinue').onclick = () => { $('winscreen').classList.add('hidden'); $('cutscene').classList.add('hidden'); cut = null; };
 $('ping').onclick = () => ping(world);
-$('focusbtn').onclick = () => focusPing(world);
-$('pitchknob').onclick = () => setPitch(world, world.pitch + 1);
-$('pitchknob').oncontextmenu = e => { e.preventDefault(); setPitch(world, world.pitch + PITCHES.length - 1); };
 
 // ---------- GM link ----------
 const gmChan = 'BroadcastChannel' in window ? new BroadcastChannel('lastwatch-gm:' + location.pathname.replace(/[^/]*$/, '')) : null;
