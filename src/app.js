@@ -1362,7 +1362,9 @@ function onGm(m) {
   if (m.handout) { jnote(m.handout.at, m.handout.text, true); audio.sfx.buoy(); }
   if (m.ticker) ui.tickerQ.push(String(m.ticker).toUpperCase());
 }
-let lastSnap = 0, lastNetSnap = 0;
+let lastSnap = 0;
+// Over the network once a second on a timer: animation frames stop in a background tab, timers do not.
+setInterval(() => gmLink.send({ snap: snapshot(world) }), 1000);
 
 // ---------- loop ----------
 let last = performance.now(), acc = 0;
@@ -1374,8 +1376,7 @@ function frame(now) {
   drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower(); drawBoard(); drawRepairBay(); drawCamCtl(); drawCases(); drawCut(now); $('pausecard').classList.toggle('hidden', !world.paused); $('pausebtn').textContent = world.paused ? '▶ RESUME' : '❚❚ PAUSE'; drawTicker(Math.min(0.1, (now - (frame.prev || now)) / 1000)); frame.prev = now;
   if (now - lastSnap > 500) {
     lastSnap = now;
-    const net = now - lastNetSnap > 1000; if (net) lastNetSnap = now;   // once a second over the network
-    gmLink.send({ snap: snapshot(world) }, net);
+    gmLink.send({ snap: snapshot(world) }, false);   // twice a second on this computer while the game is in view
   }
   drawGmLink();
   requestAnimationFrame(frame);
