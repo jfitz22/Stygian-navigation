@@ -7,6 +7,7 @@ import {
 import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES, SHOALS, SIZE_CUT } from './scenario.js';
 import { glyphSVG, gaugeSVG, repairAction, echoAt, ECHO_W } from './glyphs.js';
 import * as audio from './audio.js';
+import { openLink, newRoomCode, cleanCode, NET_ENABLED } from './link.js';
 
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -1338,16 +1339,30 @@ $('wincontinue').onclick = () => { $('winscreen').classList.add('hidden'); $('cu
 $('ping').onclick = () => ping(world);
 
 // ---------- GM link ----------
-const gmChan = 'BroadcastChannel' in window ? new BroadcastChannel('lastwatch-gm:' + location.pathname.replace(/[^/]*$/, '')) : null;
-if (gmChan) gmChan.onmessage = ev => {
-  const m = ev.data || {};
+// Same computer: a browser channel. Another computer: the GM types the code shown on the top bar.
+const ROOM_KEY = 'lastwatch-room:' + location.pathname;
+let roomCode = null; try { roomCode = cleanCode(localStorage.getItem(ROOM_KEY)); } catch (e) { }
+if (!roomCode || roomCode.length < 4) { roomCode = newRoomCode(); try { localStorage.setItem(ROOM_KEY, roomCode); } catch (e) { } }
+let gmSeenAt = -1e9, netStatus = NET_ENABLED ? 'CONNECTING' : 'LOCAL';
+const gmLink = openLink(m => onGm(m), s => { netStatus = s; });
+gmLink.join(roomCode);
+$('introseed').textContent += NET_ENABLED ? ` · GM code ${roomCode}` : '';
+function drawGmLink() {
+  const el = $('gmcode'); if (!NET_ENABLED) { el.textContent = ''; return; }
+  const linked = performance.now() - gmSeenAt < 12000, txt = `GM ${roomCode} <i class="${linked ? 'on' : netStatus === 'SUBSCRIBED' ? 'wait' : 'off'}"></i>`;
+  if (el.innerHTML !== txt) { el.innerHTML = txt; el.title = linked ? 'The GM page is connected' : netStatus === 'SUBSCRIBED' ? 'Waiting for the GM to connect with this code' : 'Not connected to the GM relay'; }
+}
+function onGm(m) {
+  if (m.snap) return;                       // our own snapshots, echoed by another game tab
+  if (m.hello) { gmSeenAt = performance.now(); return; }
+  gmSeenAt = performance.now();
   if (m.cmd === 'reset') { const u = new URL(location.href); u.searchParams.set('seed', m.seed || newSeed()); location.href = u.toString(); }
   else if (m.cmd) gm(world, m.cmd, m.arg || {});
   if (m.note) note(m.note);
   if (m.handout) { jnote(m.handout.at, m.handout.text, true); audio.sfx.buoy(); }
   if (m.ticker) ui.tickerQ.push(String(m.ticker).toUpperCase());
-};
-let lastSnap = 0;
+}
+let lastSnap = 0, lastNetSnap = 0;
 
 // ---------- loop ----------
 let last = performance.now(), acc = 0;
@@ -1357,7 +1372,12 @@ function frame(now) {
   while (acc >= DT) { step(world, DT); acc -= DT; }
   handleEvents();
   drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower(); drawBoard(); drawRepairBay(); drawCamCtl(); drawCases(); drawCut(now); $('pausecard').classList.toggle('hidden', !world.paused); $('pausebtn').textContent = world.paused ? '▶ RESUME' : '❚❚ PAUSE'; drawTicker(Math.min(0.1, (now - (frame.prev || now)) / 1000)); frame.prev = now;
-  if (gmChan && now - lastSnap > 500) { lastSnap = now; gmChan.postMessage({ snap: snapshot(world) }); }
+  if (now - lastSnap > 500) {
+    lastSnap = now;
+    const net = now - lastNetSnap > 1000; if (net) lastNetSnap = now;   // once a second over the network
+    gmLink.send({ snap: snapshot(world) }, net);
+  }
+  drawGmLink();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
