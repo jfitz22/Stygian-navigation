@@ -16,7 +16,6 @@ export const TUNING = {
   buoyDeployRange: 1650,   // how far from the observatory a buoy can be dropped
   buoyRadius: 360,         // sonar reach around the buoy
   sonarDelay: 5,           // seconds between ping and result
-  focusDelay: 3,           // seconds for a focused ping to return
   contactFade: 90,         // seconds a sonar contact stays on the chart
   flowShow: 25,            // seconds the current arrows from a ping stay on the chart
   buoyRebuild: 30,         // seconds to build a new buoy after the shark eats one
@@ -61,10 +60,13 @@ export const TUNING = {
   jamEvery: [4, 7],        // the launcher jams after this many shots (random in range)
   revealDelay: 3.5,        // seconds between the blue light and the win screen
   // aim quality: each bar is full up to *Full, then falls to zero over *Span
-  aimFixFull: 18, aimFixSpan: 90,          // seconds since the fix
-  aimReadFull: 15, aimReadSpan: 75,        // seconds since the current reading
+  aimFixFull: 30, aimFixSpan: 150,         // seconds since the fix
+  aimReadFull: 30, aimReadSpan: 120,       // seconds since the current reading
   aimDistFull: 90, aimDistSpan: 330,       // miles between the reading and the target
-  aimTrackFull: 15, aimTrackSpan: 75,      // seconds since the orb last measured the drift
+  aimTrackFull: 30, aimTrackSpan: 120,     // seconds since the orb last measured the drift
+  // frozen monsters: released by a beacon hit, they swim for the buoy at the Grindmaw's speeds
+  monsterIdleFade: 20,     // seconds a monster lingers with no buoy in the water before it fades
+  monsterFadeTime: 3,      // seconds it takes to fade from the chart
   // scanner
   scanTime: 12,            // seconds of good alignment to finish a metal scan
   alignRadius: 60,         // miles of prediction error before alignment hits zero
@@ -194,77 +196,74 @@ export const CAMERAS = [
 ];
 
 // ---------- the ice ----------
-// 60 floes: 20 small (fail the size test), 20 large and solid, 20 large and hollow.
-// Elgarz is over 20 miles long; anything 20 or under is not Elgarz.
-// Echo: `humps` after the surface spike, and the tail shape. Radio: `decoded` after the manual's procedure,
-// in `band`, sent on `carrier` (null = random). Ice over 8 miles rides the deep current.
+// 60 floes: 20 small (fail the size test) and 40 large. Elgarz is over 20 miles long; anything 20 or under is not Elgarz.
+// Every floe has an echo class, read from the sonar printout:
+//   solid    no bumps, flat tail
+//   caverns  uneven bumps, flat tail                (natural caves)
+//   halls    even bumps, flat tail                  (built chambers: where Elgarz is)
+//   flooded  bumps, wavy tail                       (brine-filled caves)
+//   monster  even bumps, pulsing tail               (something frozen inside; a beacon hit lets it out)
+// Below COLD_WATER a monster is too cold to pulse, and reads exactly like halls.
+// Large ice: 15 solid, 6 caverns, 4 flooded, 5 monsters, 10 halls (3 plain, 2 metal, 3 Triad, 2 with everything).
+// Radio: `decoded` after the manual's procedure, in `band`, sent on `carrier` (null = random). Ice over 8 miles rides the deep current.
 export const SIZE_CUT = 20;
-const H = (humps = 2) => ({ humps, tail: 'ring' }), SOLID = { humps: 0, tail: 'flat' };
+export const ECHO_CLASSES = ['solid', 'caverns', 'halls', 'flooded', 'monster'];
+export const COLD_WATER = -40;           // below this a monster does not pulse
 const TRIAD = { decoded: 'BRW', band: 'MID', carrier: null };
 export const NOTABLES = [
-  // hollow, metal and the Triad
-  { id: 'elgarz', name: 'Elgarz', length: 26, elgarz: true, spawn: 'elgarz', hollow: true, metal: true, echo: H(3), radio: TRIAD, look: 'elgarz' },
-  { id: 'hulk', name: 'The Gilded Hulk', length: 24, hollow: true, metal: true, echo: H(3), radio: TRIAD, look: 'hulk', tombDrawn: true },
-  // hollow and metal, the wrong signal or none
-  { id: 'convoy', name: 'The Drowned Convoy', length: 23, hollow: true, metal: true, echo: H(2), radio: { decoded: 'BRW', band: 'LOW', carrier: 'JAGGED' }, look: 'convoy' },
-  { id: 'shadow', name: "Coldsteel's Shadow", length: 27, spawn: 'late', hollow: true, metal: true, echo: H(3), radio: null, look: 'shadow' },
-  // hollow and the Triad, no metal
-  { id: 'herald', name: 'The Frozen Herald', length: 22, spawn: 'late', hollow: true, metal: false, echo: H(2), radio: { decoded: 'BRW', band: 'MID', carrier: 'JAGGED' }, look: 'plain' },
-  { id: 'choir', name: 'The Penitent Choir', length: 21, hollow: true, metal: false, echo: H(2), radio: { decoded: 'BRW', band: 'MID', carrier: 'STEPPED' }, look: 'choir' },
-  // hollow, nothing else
-  { id: 'sepulcher', name: "Angel's Sepulcher", length: 22, hollow: true, metal: false, echo: H(1), radio: { decoded: 'WWB', band: 'MID', carrier: 'JAGGED' }, look: 'sepulcher' },
-  { id: 'tolling', name: 'The Tolling Berg', length: 21, hollow: true, metal: false, echo: H(1), radio: { decoded: 'BBR', band: 'MID', carrier: 'STEPPED' }, look: 'bell' },
+  // halls, metal and the Triad
+  { id: 'elgarz', name: 'Elgarz', length: 26, elgarz: true, spawn: 'elgarz', sig: 'halls', metal: true, humps: 3, radio: TRIAD, look: 'elgarz' },
+  { id: 'hulk', name: 'The Gilded Hulk', length: 24, sig: 'halls', metal: true, humps: 3, radio: TRIAD, look: 'hulk', tombDrawn: true },
+  // halls and metal, the wrong signal or none
+  { id: 'convoy', name: 'The Drowned Convoy', length: 23, sig: 'halls', metal: true, radio: { decoded: 'BRW', band: 'LOW', carrier: 'JAGGED' }, look: 'convoy' },
+  { id: 'shadow', name: "Coldsteel's Shadow", length: 27, spawn: 'late', sig: 'halls', metal: true, humps: 3, radio: null, look: 'shadow' },
+  // halls and the Triad, no metal
+  { id: 'herald', name: 'The Frozen Herald', length: 22, spawn: 'late', sig: 'halls', metal: false, radio: { decoded: 'BRW', band: 'MID', carrier: 'JAGGED' }, look: 'plain' },
+  { id: 'choir', name: 'The Penitent Choir', length: 21, sig: 'halls', metal: false, radio: { decoded: 'BRW', band: 'MID', carrier: 'STEPPED' }, look: 'choir' },
+  // halls, nothing else
+  { id: 'sepulcher', name: "Angel's Sepulcher", length: 22, sig: 'halls', metal: false, radio: { decoded: 'WWB', band: 'MID', carrier: 'JAGGED' }, look: 'sepulcher' },
+  // flooded
+  { id: 'tolling', name: 'The Tolling Berg', length: 21, sig: 'flooded', metal: false, radio: { decoded: 'BBR', band: 'MID', carrier: 'STEPPED' }, look: 'bell' },
+  // a frozen monster
+  { id: 'cradle', name: "Leviathan's Cradle", length: 24, sig: 'monster', metal: false, radio: { decoded: 'WWB', band: 'LOW', carrier: 'SMOOTH' }, look: 'cradle' },
   // large and solid
-  { id: 'horn', name: "Geryon's Shed Horn", length: 23, hollow: false, metal: true, echo: SOLID, radio: { decoded: 'BRW', band: 'MID', carrier: 'STEPPED' }, look: 'horn' },
-  { id: 'cradle', name: "Leviathan's Cradle", length: 24, hollow: false, metal: false, echo: { humps: 2, tail: 'fuzz' }, radio: { decoded: 'WWB', band: 'LOW', carrier: 'SMOOTH' }, look: 'cradle' },
-  { id: 'cairn', name: 'The Iron Cairn', length: 21, hollow: false, metal: true, echo: SOLID, radio: { decoded: 'RRW', band: 'MID', carrier: 'SMOOTH' }, look: 'cairn' },
-  { id: 'arsenal', name: 'The Broken Arsenal', length: 22, hollow: false, metal: true, echo: SOLID, radio: { decoded: 'WRB', band: 'MID', carrier: 'SMOOTH' }, look: 'arsenal' },
+  { id: 'horn', name: "Geryon's Shed Horn", length: 23, sig: 'solid', metal: true, radio: { decoded: 'BRW', band: 'MID', carrier: 'STEPPED' }, look: 'horn' },
+  { id: 'cairn', name: 'The Iron Cairn', length: 21, sig: 'solid', metal: true, radio: { decoded: 'RRW', band: 'MID', carrier: 'SMOOTH' }, look: 'cairn' },
+  { id: 'arsenal', name: 'The Broken Arsenal', length: 22, sig: 'solid', metal: true, radio: { decoded: 'WRB', band: 'MID', carrier: 'SMOOTH' }, look: 'arsenal' },
   // small
-  { id: 'raft', name: "The Pilgrims' Raft", length: 5, hollow: false, metal: true, echo: { humps: 0, tail: 'fuzzflat' }, radio: { decoded: 'RBW', band: 'MID', carrier: 'STEPPED' }, look: 'plain' },
+  { id: 'raft', name: "The Pilgrims' Raft", length: 5, sig: 'solid', metal: true, radio: { decoded: 'RBW', band: 'MID', carrier: 'STEPPED' }, look: 'plain' },
 ];
-// Named fields: groups of large ice that start together and drift apart slowly.
-// Each member: hollow, metal, radio (null = silent), echo humps.
+// The one named field: large ice that starts loosely together and drifts apart.
 export const FIELDS = [
-  { id: 'graveyard', name: 'The Graveyard', look: 'grave', shape: 'grid', members: [
-    { hollow: true, metal: false, radio: TRIAD }, { hollow: true, metal: false, radio: TRIAD }, { hollow: true, metal: false, radio: TRIAD },
-    { hollow: true, metal: false, radio: { decoded: 'BBR', band: 'MID', carrier: null } }, { hollow: true, metal: false, radio: null },
-  ] },
-  { id: 'chain', name: 'The Chain', look: 'chain', shape: 'line', members: [
-    { hollow: false, metal: true, radio: TRIAD }, { hollow: false, metal: true, radio: { decoded: 'RRW', band: 'MID', carrier: null } },
-    { hollow: false, metal: true, radio: null }, { hollow: false, metal: true, radio: { decoded: 'RRW', band: 'HIGH', carrier: null } }, { hollow: false, metal: false, radio: null },
-  ] },
-  { id: 'crown', name: 'The Crown', look: 'crown', shape: 'ring', members: [
-    { hollow: true, metal: true, radio: { decoded: 'BRW', band: 'HIGH', carrier: null } }, { hollow: true, metal: true, radio: { decoded: 'BRW', band: 'LOW', carrier: null } },
-    { hollow: true, metal: true, radio: { decoded: 'WRB', band: 'MID', carrier: null } }, { hollow: false, metal: false, radio: { decoded: 'WWB', band: 'HIGH', carrier: null } },
+  { id: 'graveyard', name: 'The Graveyard', look: 'grave', members: [
+    { sig: 'halls', metal: false, radio: TRIAD }, { sig: 'monster', metal: false, radio: TRIAD }, { sig: 'caverns', metal: false, radio: TRIAD },
+    { sig: 'caverns', metal: false, radio: { decoded: 'BBR', band: 'MID', carrier: null } }, { sig: 'flooded', metal: false, radio: null },
   ] },
 ];
-// Unnamed ice that fills out the 60. { count, hollow, metal, triad, transmit (share), large }
+export const FIELD_SPREAD = [120, 300];   // miles from the field's centre to each member
+// Unnamed ice that fills out the 60. { count, large, sig, metal, triad, transmit (share) }
 export const FILLER = [
-  { count: 1, large: true, hollow: true, metal: false, triad: true },          // hollow + Triad, no metal
-  { count: 3, large: true, hollow: true, metal: false, transmit: 0.5 },        // hollow, nothing else
-  { count: 2, large: true, hollow: false, metal: true, transmit: 0.5 },        // solid with wreckage
-  { count: 2, large: true, hollow: false, metal: false, triad: true },         // solid, sings the Triad
-  { count: 6, large: true, hollow: false, metal: false, transmit: 0.5 },       // solid giants
-  { count: 2, large: false, hollow: false, metal: false, triad: true },        // small, Triad (cut by size)
-  { count: 3, large: false, hollow: false, metal: true, transmit: 0.4 },       // small with wreckage
-  { count: 4, large: false, hollow: true, metal: false, transmit: 0.4 },       // small and hollow (cut by size)
-  { count: 10, large: false, hollow: false, metal: false, transmit: 0.5 },     // small floes
+  { count: 2, large: true, sig: 'halls', metal: false, transmit: 0.5 },
+  { count: 1, large: true, sig: 'monster', metal: true, transmit: 0.5 },
+  { count: 2, large: true, sig: 'monster', metal: false, transmit: 0.5 },
+  { count: 1, large: true, sig: 'flooded', metal: true, transmit: 0.5 },
+  { count: 1, large: true, sig: 'flooded', metal: false, triad: true },
+  { count: 1, large: true, sig: 'caverns', metal: true, transmit: 0.5 },
+  { count: 1, large: true, sig: 'caverns', metal: false, triad: true },
+  { count: 2, large: true, sig: 'caverns', metal: false, transmit: 0.5 },
+  { count: 1, large: true, sig: 'solid', metal: false, triad: true },
+  { count: 11, large: true, sig: 'solid', metal: false, transmit: 0.5 },
+  { count: 2, large: false, sig: 'solid', metal: true, transmit: 0.4 },
+  { count: 2, large: false, sig: 'caverns', metal: false, triad: true },
+  { count: 6, large: false, sig: 'caverns', metal: false, transmit: 0.4 },
+  { count: 9, large: false, sig: 'solid', metal: false, transmit: 0.5 },
 ];
 
 // ---------- shoals: rocks that scatter the sonar, each beside an orb (outside its starting view) ----------
-export const SHOALS = [['c2', 115], ['c4', -120], ['c6', 125]].map(([cam, turn], i) => {
+export const SHOALS = [['c2', 115], ['c4', -120], ['c6', 125], ['c1', -120]].map(([cam, turn], i) => {
   const c = CAMERAS.find(k => k.id === cam), a = (c.facing + turn) * Math.PI / 180, d = 380;
-  return { id: 's' + (i + 1), name: ['Gullet Rocks', 'The Teeth', 'Saint Brine Shoal'][i], cam, x: Math.round(c.x + Math.sin(a) * d), y: Math.round(c.y - Math.cos(a) * d), r: 260 };
+  return { id: 's' + (i + 1), name: ['Gullet Rocks', 'The Teeth', 'Saint Brine Shoal', 'The Anvil'][i], cam, x: Math.round(c.x + Math.sin(a) * d), y: Math.round(c.y - Math.cos(a) * d), r: 260 };
 });
-
-// ---------- focused ping: pitch knob ----------
-// One knob with four settings. Read the setting from the target's length and the water temperature at the buoy.
-export const PITCHES = ['○', '△', '□', '◇'];
-export const PITCH_LENGTH_BANDS = [[21, 25], [26, 99]];               // miles, as shown on the printout
-export function pitchFor(lengthMi, waterTemp) {
-  const row = lengthMi > 25 ? 1 : 0, col = waterTemp < -40 ? 0 : waterTemp <= -25 ? 1 : 2;
-  return Math.min(3, row + col);
-}
 
 // ---------- radio ----------
 // band: LOW < 400, MID 400-699, HIGH >= 700
@@ -302,8 +301,8 @@ export const STATIONS = [
 // Each rune's house and weight pick a function from this grid. On page N, count the rune's weight
 // forward N-1 steps (4 wraps round to 1) before reading the grid.
 export const BOARD_GRID = {
-  Ice: ['WIPERS', 'FUEL', 'LAMPS', 'NOTHING'],
-  Iron: ['LAUNCH', 'FUEL', 'VENT', 'NOTHING'],
+  Ice: ['WIPERS', 'FUEL', 'LAMPS', 'CONFETTI'],
+  Iron: ['LAUNCH', 'FUEL', 'VENT', 'DEVIL'],
   Ember: ['COFFEE', 'FUEL', 'LAMPS', 'BELL'],
   Bone: ['WIRELESS', 'COFFEE', 'BELL', 'NOTHING'],
 };

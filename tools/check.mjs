@@ -3,9 +3,9 @@ import {
   createWorld, step, light, stoke, dist, snapshot, setPower, deployBuoy, ping, lockContact, setDrift, fireBeacon,
   countSightings, camSees, snowAt, slotsAvailable, pressKey, readingDisplay, radioSignal, setFreq, setGain, gainFor, setMusic, lockOn, DT,
   pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip, camCode, setLever, pressPlate, setCamTurn, camIsUnlocked, selectCam, gm,
-  relockCase, setVerdict, isUp, focusPing, setPitch, inShoal,
+  relockCase, setVerdict, isUp, inShoal, saveWorld, loadWorld, echoSeen,
 } from '../src/sim.js';
-import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RADIO_TABLE, BOARD_GRID, SHOALS, pitchFor, SIZE_CUT } from '../src/scenario.js';
+import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RADIO_TABLE, BOARD_GRID, SHOALS, SIZE_CUT, COLD_WATER, FIELDS } from '../src/scenario.js';
 import { keypadCode, RUNES, REPAIR_RULES, repairAction } from '../src/glyphs.js';
 
 const SEEDS = Array.from({ length: Number(process.argv[2]) || 40 }, (_, i) => 1000 + i * 37);
@@ -23,18 +23,17 @@ function run(seed, seconds, each) {
 
 // ---------- world-level properties per seed ----------
 const stats = { spawnT: [], sightings: [], firstSight: [], minTomb: [], tombMove: [], medianPath: [], ruledOut: [], outOfReach: [], transmit: [], stormHits: [] };
-let triadNoMetal = 0, triadNotHollow = 0;
-let elgarzLeft = 0, triadOthers = 0, fullMatch = 0, hulkInRing = 0, oneSign = [], hollowShare = [];
+let triadNoMetal = 0, triadNotHalls = 0;
+let elgarzLeft = 0, triadOthers = 0, fullMatch = 0, hulkInRing = 0, oneSign = [];
 for (const seed of SEEDS) {
   const w0 = createWorld(seed);
   stats.transmit.push([...w0.bergs, ...w0.reserve].filter(b => b.radio).length / (w0.bergs.length + w0.reserve.length));
   const ice0 = [...w0.bergs, ...w0.reserve], triad = b => b.radio && b.radio.decoded === 'BRW' && b.radio.band === 'MID';
   triadOthers += ice0.filter(b => !b.elgarz && triad(b)).length;
-  fullMatch += ice0.filter(b => !b.elgarz && !b.tombDrawn && b.hollow && b.metal && triad(b)).length;
+  fullMatch += ice0.filter(b => !b.elgarz && !b.tombDrawn && b.echo.sig === 'halls' && b.metal && triad(b)).length;
   oneSign.push(ice0.filter(b => !b.elgarz && (b.metal || triad(b))).length);
   if (ice0.some(b => triad(b) && !b.metal)) triadNoMetal++;
-  if (ice0.some(b => triad(b) && !b.hollow)) triadNotHollow++;
-  hollowShare.push(ice0.filter(b => b.hollow).length / ice0.length);
+  if (ice0.some(b => triad(b) && b.echo.sig !== 'halls')) triadNotHalls++;
   const track = [], tomb0 = { ...w0.tomb };
   const start = {}, path = {}, prev = {}, entered = new Set();
   let spawnT = null, tombPath = 0, tombPrev = null, hulkMax = 0;
@@ -84,22 +83,28 @@ check(stats.outOfReach.every(n => n <= 2), 'Ice stays inside reach (at most 2 st
 check(stats.transmit.every(x => x >= 1 / 3), 'At least a third of the ice transmits');
 console.log(`Decoys singing the Triad: ${(triadOthers / SEEDS.length).toFixed(1)} per seed · ice with metal or the Triad: ${lo(oneSign)}-${hi(oneSign)}`);
 check(triadOthers / SEEDS.length >= 3, 'Several decoys also sing the Triad, so the radio alone proves nothing');
-check(fullMatch === 0, 'No decoy except the Gilded Hulk is hollow, metal and Triad');
+check(fullMatch === 0, 'No decoy except the Gilded Hulk is halls, metal and Triad');
 check(hulkInRing === SEEDS.length, `The Gilded Hulk stays inside the Tomb ring all watch (${hulkInRing}/${SEEDS.length} seeds)`);
-check(triadNoMetal === SEEDS.length && triadNotHollow === SEEDS.length, 'Every seed has Triad ice without metal and Triad ice that is not hollow');
+check(triadNoMetal === SEEDS.length && triadNotHalls === SEEDS.length, 'Every seed has Triad ice without metal and Triad ice that is not halls');
 check(Math.min(...oneSign) >= 12, 'Plenty of ice shows metal or the Triad, not just the echo');
 {
   let ok = true;
   for (const seed of SEEDS) {
-    const w0 = createWorld(seed), all = [...w0.bergs, ...w0.reserve], big = all.filter(b => b.length > SIZE_CUT), tr = b => b.radio && b.radio.decoded === 'BRW' && b.radio.band === 'MID', H = big.filter(b => b.hollow);
-    const shape = [all.length, all.length - big.length, big.length - H.length, H.length, H.filter(b => !b.metal && !tr(b)).length, H.filter(b => b.metal && !tr(b)).length, H.filter(b => !b.metal && tr(b)).length, H.filter(b => b.metal && tr(b)).length].join(',');
-    if (shape !== '60,20,20,20,7,5,6,2') { ok = false; console.log('composition', seed, shape); }
+    const w0 = createWorld(seed), all = [...w0.bergs, ...w0.reserve], big = all.filter(b => b.length > SIZE_CUT), tr = b => b.radio && b.radio.decoded === 'BRW' && b.radio.band === 'MID';
+    const n = sig => big.filter(b => b.echo.sig === sig).length, H = big.filter(b => b.echo.sig === 'halls');
+    const shape = [all.length, all.length - big.length, n('solid'), n('caverns'), n('flooded'), n('monster'), n('halls'), H.filter(b => !b.metal && !tr(b)).length, H.filter(b => b.metal && !tr(b)).length, H.filter(b => !b.metal && tr(b)).length, H.filter(b => b.metal && tr(b)).length].join(',');
+    if (shape !== '60,20,15,6,4,5,10,3,2,3,2') { ok = false; console.log('composition', seed, shape); }
+    const evenOK = all.every(b => { const g = b.echo.humps.slice(1).map((h, i) => h.x - b.echo.humps[i].x), ev = g.every(x => Math.abs(x - g[0]) < 0.5) && b.echo.humps.every(h => h.h === b.echo.humps[0].h);
+      return b.echo.sig === 'solid' ? b.echo.humps.length === 0 : b.echo.sig === 'caverns' ? b.echo.humps.length >= 2 && !ev : b.echo.sig === 'flooded' ? b.echo.tail === 'wavy' : ev && b.echo.humps.length >= 3; });
+    if (!evenOK) { ok = false; console.log('echo shapes', seed); }
     if (all.some(b => b.length > 19.5 && b.length <= SIZE_CUT + 0.5)) { ok = false; console.log('ambiguous size', seed); }
   }
-  check(ok, '60 ice: 20 small, 20 large solid, 20 large hollow (7 plain, 5 metal, 6 Triad, 2 all three)');
+  check(ok, '60 ice: 20 small; large 15 solid, 6 caverns, 4 flooded, 5 monsters, 10 halls (3 plain, 2 metal, 3 Triad, 2 all three); printouts match their class');
 }
-console.log(`Share of ice that rings hollow: ${pct(Math.min(...hollowShare), 1)}-${pct(Math.max(...hollowShare), 1)}`);
-check(mean(hollowShare) > 0.35 && mean(hollowShare) < 0.45, 'About two in five of all ice rings hollow (half the large ice, a few small floes)');
+{
+  const g = createWorld(1000).bergs.filter(b => b.field === 'graveyard'), c = { x: g.reduce((a, b) => a + b.x, 0) / g.length, y: g.reduce((a, b) => a + b.y, 0) / g.length };
+  check(FIELDS.length === 1 && g.length === 5 && Math.min(...g.map(b => dist(b, c))) > 60, 'One named field, the Graveyard, spread out');
+}
 check(stats.stormHits.every(n => n >= 5), 'At least five storms in twenty minutes, each whiting out the orb it is aimed at');
 
 // ---------- determinism ----------
@@ -237,6 +242,15 @@ function sharkSetup(seed) {
   const w5 = createWorld(3); light(w5); w5.board.nextFlip = 1e9; const pg = w5.board.page;
   for (let i = 0; i < T.boardFlipPresses; i++) pressBoard(w5, w5.board.runes.findIndex(r => runeFunction(r, w5.board.page) === 'NOTHING') >= 0 ? w5.board.runes.findIndex(r => runeFunction(r, w5.board.page) === 'NOTHING') : 0);
   check(w5.board.flippedAt === w5.t, 'The board flips after a few presses');
+  check(BOARD_GRID.Ice.includes('CONFETTI') && BOARD_GRID.Iron.includes('DEVIL') && BOARD_GRID.Bone.includes('NOTHING'), 'Ice and Iron have their silly runes; Bone keeps a true dud');
+  {
+    const w8 = createWorld(3); light(w8); w8.board.nextFlip = 1e9;
+    for (const fn of ['CONFETTI', 'DEVIL']) {
+      const k = w8.board.runes.findIndex(r => runeFunction(r, w8.board.page) === fn);
+      if (k < 0) continue; const n0 = w8.board.presses; w8.events.length = 0; pressBoard(w8, k);
+      check(w8.events.some(e => e.type === fn.toLowerCase()) && w8.board.presses !== n0, fn + ' fires its effect and still counts as a press');
+    }
+  }
   const w6 = createWorld(3); light(w6); w6.fatigue = 0.9; w6.coffee.sips = 1; sip(w6);
   check(w6.fatigue < 0.5, 'A sip of coffee clears fatigue');
 }
@@ -293,7 +307,7 @@ function sharkSetup(seed) {
   const b = w.bergs.find(b => b.radio && b.length > SIZE_CUT && !b.tombDrawn && !inShoal(b) && dist(b, CENTER) < 1300);
   deployBuoy(w, b.x + 20, b.y); for (let i = 0; i < 60; i++) step(w, DT); ping(w); for (let i = 0; i < 60; i++) step(w, DT);
   lockContact(w, w.contacts.find(c => c.bergId === b.id));
-  check(w.cases.length === 1 && !w.cases[0].permanent && w.obs[b.id].length === Math.round(b.length) && w.obs[b.id].hollow == null, 'Locking ice from sonar puts it on the case board (temporarily) with its length, not yet its hollowness');
+  check(w.cases.length === 1 && !w.cases[0].permanent && w.obs[b.id].length === Math.round(b.length) && w.obs[b.id].echo && w.obs[b.id].echo.humps.length === b.echo.humps.length, 'Locking ice from sonar puts it on the case board (temporarily) with its length and its printed echo');
   setDrift(w, 'deep'); fireBeacon(w, 'red'); for (let i = 0; i < 150; i++) step(w, DT);
   check(w.cases[0].permanent, 'A beacon hit pins the ice to the case board');
   const other = w.bergs.find(x => x.id !== b.id); lockOn(w, other.id, other.x, other.y, w.t, 'camera');
@@ -302,6 +316,9 @@ function sharkSetup(seed) {
   check(w.cases.length === 2, 'Only the ice you are locked on keeps a temporary row');
   relockCase(w, b.id);
   check(w.lock.bergId === b.id && w.lock.source === 'beacon' && dist(w.lock, b) < 1, 'A beaconed row re-locks from its live position');
+  for (let i = 0; i < 600; i++) { keepFurnace(w); step(w, DT); }
+  const aqB = aimQuality(w);
+  check(aqB.beacon && aqB.q === 100 && dist(w.lock, b) < 1, 'Beaconed ice reports its own position and drift: aim stays full a minute later');
   setFreq(w, b.radio.freq); setGain(w, gainFor(dist(b, OBSERVATORY))); for (let i = 0; i < 10; i++) step(w, DT);
   check(w.obs[b.id].radio && w.obs[b.id].radio.shown === b.radio.shown, 'Reading the radio records the signal on the case board');
   for (let f = 100; f <= 1000; f += 10) { setFreq(w, f); relockCase(w, b.id); step(w, DT); }
@@ -323,7 +340,7 @@ function sharkSetup(seed) {
   const b = w.bergs.find(b => b.large);
   lockOn(w, b.id, b.x, b.y, w.t, 'camera'); w.lock.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'c1' };
   fireBeacon(w, 'orange'); for (let i = 0; i < 150; i++) step(w, DT);
-  check(w.obs[b.id] && w.obs[b.id].hollow === b.hollow && w.beacons.orange === 5, 'An orange sounding charge records HOLLOW without a ping');
+  check(w.obs[b.id] && w.obs[b.id].echo && w.obs[b.id].echo.humps.length === b.echo.humps.length && w.beacons.orange === 5, 'An orange sounding charge prints the echo without a ping');
   const c = w.bergs.find(x => x.large && x.id !== b.id);
   lockOn(w, c.id, c.x, c.y, w.t, 'camera'); w.lock.track = { vx: c.vx || 0, vy: c.vy || 0, t: w.t, cam: 'c1' };
   fireBeacon(w, 'blue'); for (let i = 0; i < 300; i++) step(w, DT);
@@ -344,26 +361,87 @@ function sharkSetup(seed) {
   check(acts.has('CUT') && acts.has('CLOSE') && acts.has('OPEN'), 'The repair rules can produce CUT, CLOSE and OPEN');
 }
 
-// ---------- focused ping and shoals ----------
+// ---------- one ping, the echo classes, currents on ping, shoals ----------
 {
   const w = createWorld(61); light(w); ['sonar', 'currents'].forEach(s => setPower(w, s, true)); for (let i = 0; i < 20; i++) step(w, DT);
   const b = w.bergs.find(x => x.length > SIZE_CUT && !inShoal(x) && dist(x, CENTER) < 1300);
-  deployBuoy(w, b.x + 30, b.y); for (let i = 0; i < 60; i++) step(w, DT); ping(w); for (let i = 0; i < 60; i++) step(w, DT);
-  lockContact(w, w.contacts.find(c => c.bergId === b.id));
-  const right = pitchFor(Math.round(b.length), Math.round(w.readings.temp));
-  setPitch(w, right + 1); w.shark.mode = 'roam'; w.lastPing = null;
-  focusPing(w); for (let i = 0; i < 40; i++) step(w, DT);
-  check(w.obs[b.id].hollow == null, 'A focused ping at the wrong pitch prints nothing useful');
-  check(w.shark.mode === 'hunt', 'A focused ping calls the Grindmaw');
-  setPitch(w, right); focusPing(w); for (let i = 0; i < 40; i++) step(w, DT);
-  check(w.obs[b.id].hollow === b.hollow, 'At the right pitch a focused ping records HOLLOW');
-  check(SHOALS.length === 3 && SHOALS.every(s => { const c = CAMERAS.find(k => k.id === s.cam); return dist(s, c) < T.camRange && !camSees(c, s); }), 'Three shoals, each within reach of an orb but outside its starting view');
+  deployBuoy(w, b.x + 30, b.y); for (let i = 0; i < 45; i++) step(w, DT);
+  check(w.readings && w.t - w.readings.t < 1, 'The buoy reads the current as soon as it lands');
+  for (let i = 0; i < 20; i++) step(w, DT); const r0 = w.readings.t;
+  ping(w);
+  check(w.readings.t === w.t && w.readings.t > r0, 'A ping also takes a current reading');
+  for (let i = 0; i < 60; i++) step(w, DT);
+  const c = w.contacts.find(c => c.bergId === b.id);
+  check(c && c.echo && c.echo.humps.length === b.echo.humps.length, 'One ping prints the full echo of every contact');
+  const mon = { echo: { sig: 'monster', humps: [{ x: 44, h: 0.85 }, { x: 68, h: 0.85 }, { x: 92, h: 0.85 }], tail: 'pulse' } };
+  check(echoSeen(mon, COLD_WATER + 2).tail === 'pulse' && echoSeen(mon, COLD_WATER - 2).tail === 'flat', 'A frozen monster pulses in warm water and reads as halls below -40');
+  check(SHOALS.length === 4 && SHOALS.every(s => { const c = CAMERAS.find(k => k.id === s.cam); return dist(s, c) < T.camRange && !camSees(c, s) && dist(s, CENTER) + s.r * 0.5 < T.buoyDeployRange; }), 'Four shoals, each within reach of an orb but outside its starting view');
+}
+// ---------- frozen monsters ----------
+{
+  const w = createWorld(63); light(w); ['sonar', 'currents'].forEach(s => setPower(w, s, true)); for (let i = 0; i < 20; i++) step(w, DT);
+  const m = w.bergs.find(b => b.echo.sig === 'monster' && !b.tombDrawn);
+  m.x = CENTER.x + 500; m.y = CENTER.y; deployBuoy(w, m.x + 250, m.y); for (let i = 0; i < 50; i++) step(w, DT);
+  lockOn(w, m.id, m.x, m.y, w.t, 'camera'); w.lock.track = { vx: m.vx || 0, vy: m.vy || 0, t: w.t, cam: 'c1' };
+  fireBeacon(w, 'red'); for (let i = 0; i < 100 && !w.monsters.length; i++) step(w, DT);
+  check(w.monsters.length === 1 && m.released && m.echo.sig === 'caverns', 'A beacon hit on a frozen monster lets it out (and leaves empty caverns)');
+  const d0 = dist(w.monsters[0], w.buoy); for (let i = 0; i < 30; i++) step(w, DT);
+  check(dist(w.monsters[0], w.buoy) < d0, 'The monster swims for the buoy');
+  w.buoyRebuildAt = 0; deployBuoy(w, w.buoy.x - 30, w.buoy.y - 30); step(w, DT);
+  check(w.monsters[0] && w.monsters[0].fadeAt == null, 'Nudging the buoy a little does not shake it off');
+  deployBuoy(w, CENTER.x - 900, CENTER.y); step(w, DT);
+  check(w.monsters.length === 1 && w.monsters[0].fadeAt != null, 'Moving the buoy a full buoy radius away makes it fade');
+  for (let i = 0; i < 40; i++) step(w, DT);
+  check(w.monsters.length === 0, '...and it is gone from the sea');
+  // left alone, it eats the buoy
+  const w2 = createWorld(64); light(w2); setPower(w2, 'sonar', true); for (let i = 0; i < 20; i++) step(w2, DT);
+  const m2 = w2.bergs.find(b => b.echo.sig === 'monster' && !b.tombDrawn); m2.x = CENTER.x; m2.y = CENTER.y + 600;
+  deployBuoy(w2, m2.x + 200, m2.y); for (let i = 0; i < 50; i++) step(w2, DT);
+  lockOn(w2, m2.id, m2.x, m2.y, w2.t, 'camera'); w2.lock.track = { vx: m2.vx || 0, vy: m2.vy || 0, t: w2.t, cam: 'c1' };
+  w2.shark.x = 0; w2.shark.y = 0; w2.lastPing = null; fireBeacon(w2, 'red');
+  for (let i = 0; i < 1500 && w2.buoy; i++) { keepFurnace(w2); step(w2, DT); }
+  check(!w2.buoy && w2.broken.winch && w2.events.some(e => e.type === 'buoydead' && e.who === 'monster'), 'A monster that reaches the buoy destroys it');
+  const g = createWorld(65); gm(g, 'move-berg', { id: g.bergs[3].id, x: 1234, y: 2345 });
+  check(g.bergs[3].x === 1234 && g.bergs[3].y === 2345, 'The GM can drag ice to a new spot');
+}
+{
   const w2 = createWorld(62); light(w2); setPower(w2, 'sonar', true); for (let i = 0; i < 20; i++) step(w2, DT);
   const sh = SHOALS[0]; w2.bergs[0].x = sh.x; w2.bergs[0].y = sh.y; w2.bergs[1].x = sh.x + sh.r + 60; w2.bergs[1].y = sh.y;
   deployBuoy(w2, sh.x + sh.r + 40, sh.y); for (let i = 0; i < 60; i++) step(w2, DT); w2.bergs[0].x = sh.x; w2.bergs[0].y = sh.y; ping(w2); for (let i = 0; i < 60; i++) step(w2, DT);
   check(!w2.contacts.some(c => c.bergId === w2.bergs[0].id), 'Ice inside a shoal gives no sonar echo');
   w2.buoyRebuildAt = 0; deployBuoy(w2, sh.x, sh.y); for (let i = 0; i < 200; i++) { keepFurnace(w2); step(w2, DT); } ping(w2); const before = w2.contacts.length; for (let i = 0; i < 60; i++) step(w2, DT);
   check(w2.pings.length === 0 || w2.contacts.length === before, 'A buoy on the rocks gets no echoes at all');
+}
+
+// ---------- beacon telemetry: shots at beaconed ice land ----------
+{
+  let shots = 0, hits = 0;
+  for (const seed of SEEDS.slice(0, 20)) {
+    const w = createWorld(seed); light(w); for (let i = 0; i < 20; i++) step(w, DT);
+    for (const b of w.bergs.filter(b => b.length > SIZE_CUT && !b.tombDrawn && dist(b, CENTER) < 1500).slice(0, 2)) {
+      b.tag = 'red'; lockOn(w, b.id, b.x, b.y, w.t, 'camera');
+      for (let i = 0; i < 300; i++) { keepFurnace(w); step(w, DT); }
+      w.broken.launcher = false; const n0 = w.events.length; fireBeacon(w, 'red'); shots++;
+      for (let i = 0; i < 1500 && !w.events.slice(n0).some(e => e.type === 'hit' || e.type === 'miss'); i++) { keepFurnace(w); step(w, DT); }
+      if (w.events.slice(n0).some(e => e.type === 'hit' && e.berg === b.id)) hits++;
+    }
+  }
+  check(hits / shots >= 0.9, `Shots at beaconed ice land (${hits}/${shots})`);
+}
+
+// ---------- save and resume ----------
+{
+  let ok = true;
+  for (const seed of SEEDS.slice(0, 6)) {
+    const a = createWorld(seed); light(a); ['sonar', 'currents', 'cameras'].forEach(x => setPower(a, x, true));
+    for (let i = 0; i < 2000; i++) { keepFurnace(a); step(a, DT); }
+    deployBuoy(a, CENTER.x + 400, CENTER.y); for (let i = 0; i < 200; i++) step(a, DT); ping(a);
+    for (let i = 0; i < 4000; i++) { keepFurnace(a); step(a, DT); }
+    const b = loadWorld(saveWorld(a));
+    for (const w of [a, b]) for (let i = 0; i < 3000; i++) { keepFurnace(w); step(w, DT); }
+    if (JSON.stringify(snapshot(a)) !== JSON.stringify(snapshot(b)) || saveWorld(a) !== saveWorld(b)) { ok = false; console.log('resume diverged', seed); }
+  }
+  check(ok, 'A saved watch resumes and carries on exactly as the original would');
 }
 
 // ---------- Old Tom ----------

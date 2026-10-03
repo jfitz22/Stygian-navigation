@@ -6,7 +6,7 @@ A 20-minute browser minigame for *To Hell and Back*. One player runs the observa
 
 Find Elgarz among about 60 drifting icebergs and hit it with a **green "this is Elgarz" beacon**. There are only 4, so every green shot is an accusation.
 
-**Beacons:** red (plain, a rebuilding rack of 12), orange sounding charge (prints an echo on impact: HOLLOW without a ping; 6), blue drift log (records the ice's path, shown faintly while that ice is selected; 6), green accusation (4). Every hit pins the ice to the case board.
+**Beacons:** red (plain, a rebuilding rack of 12), orange sounding charge (prints the echo on impact, without a ping; 6), blue drift log (records the ice's path, shown faintly while that ice is selected; 6), green accusation (4). Every hit pins the ice to the case board.
 
 **Instrument roles:** sonar echo needs the buoy (or an orange charge); the **radio only hears ice carrying a beacon**; the **metal scanner rides on the buoy** and only scans ice inside the buoy's range; aiming uses buoy currents or an orb track.
 
@@ -14,18 +14,32 @@ Elgarz is the only iceberg with all four signs, and **no single sign is proof**:
 
 | Sign | Checked with | Who else has it |
 |---|---|---|
-| Hollow inside | Sonar echo printout | several named decoys |
+| A HALLS echo (even bumps, flat tail) | Sonar echo printout | 9 other large floes, plus frozen monsters in cold water |
 | Worked metal | Metal scanner (after keypad calibration) | named decoys and some plain ice with wreckage |
 | The Triad on the radio | Radio tuning, gain and decoding | 3 named decoys and 2 plain bergs, plus one cabin wireless station |
 | Never near the Tomb of Levistus | Anything inside the Tomb's 300 mi ring is not Elgarz | The Gilded Hulk has the other three signs but slowly circles the Tomb, always inside the ring |
 
-About a third of all ice rings hollow (ice caves), about half transmits something, and at least a dozen icebergs per seed show metal or the Triad. The easy echo test can't rule out the field on its own.
+A quarter of the large ice reads HALLS, about half of all ice transmits something, and over twenty icebergs per seed show metal or the Triad. The echo narrows the field; it can't close it.
 
 ## The ice
 
-60 floes: 20 small (20 miles or under: not Elgarz, crossed off by length), 20 large and solid, 20 large and hollow (7 with neither metal nor Triad, 5 hollow and metal with the wrong signal or none, 6 hollow and Triad without metal, and 2 with all three: Elgarz and the Gilded Hulk, which circles inside the Tomb's ring). Three named fields start together and spread slowly: the Graveyard (hollow Triad-singers without metal), the Chain (iron-bound solid ice) and the Crown (tall spiky giants, hollow and metal with the wrong signal).
+60 floes: 20 small (20 miles or under: not Elgarz, crossed off by length) and 40 large. Every floe has an **echo class**:
 
-Size is free (ping length or the orb's estimate). Hollowness takes a **focused ping**: select the contact, set the four-symbol pitch knob from target length and water temperature, fire; wrong pitch smears. It still calls the Grindmaw; the orange sounding charge is the silent shortcut. Three **shoals** beside orbs scatter the sonar: ice inside them only shows on the orbs.
+| Class | Printout | Large floes |
+|---|---|---|
+| Solid | no bumps, flat tail | 15 |
+| Caverns | uneven bumps, flat tail | 6 |
+| Flooded | bumps, steady wavy tail | 4 |
+| Frozen monster | even bumps, pulsing tail (double beats that swell and fade sweep to sweep) | 5 |
+| Halls | even bumps, flat tail | 10: 3 plain, 2 metal, 3 Triad, 2 with everything (Elgarz and the Gilded Hulk, which circles inside the Tomb's ring) |
+
+**Cold-water twist:** below -40° (printed on the strip, the water at the ice when it was pinged) a monster is too cold to pulse and reads exactly like Halls. Two monsters carry metal or the Triad, so a cold "Halls" with one sign can still be a monster.
+
+**One ping does it.** Every contact comes back with its full printout; the operator clicks through them. The printout is a live trace that sweeps every 2.5 s; the monster's pulse changes size between sweeps, so it has to be watched. Each ping also takes a current reading (Currents powered), as does the buoy as it lands.
+
+**Frozen monsters:** any beacon hit lets one out. It swims for the buoy at the Grindmaw's two speeds (the Grindmaw lever scales it too), eats the buoy if it reaches it, and fades if the buoy is moved a full buoy radius from where it was when the monster woke (or if there's no buoy for 20 s). The ice it leaves reads as caverns.
+
+One named field, **the Graveyard** (five large floes of mixed classes), starts loosely together, 120–300 mi from its centre, and spreads with the current. Four **shoals** beside orbs scatter the sonar: ice inside them only shows on the orbs.
 
 ## The sea
 
@@ -42,7 +56,7 @@ Every watch has a seed (`?seed=`). With no seed a fresh sea is rolled. At 3:00 E
 
 The operator has two views and pans between them with **▲ LOOK UP / ▼ LOOK DOWN**, side by side on the top bar next to **❚❚ PAUSE** (the operator or the GM can pause; a card shows until someone resumes). When looking up, the top half of the main board is still visible below the deck.
 
-**Main board:** cameras with camera control right underneath, chart, sonar, currents and weather, furnace, the target lock (drift switch and aim quality) and scanner.
+**Main board:** cameras with camera control and the furnace down the left; the chart and target lock in the middle; down the right, the case board (top, largest text), the sonar, and currents and weather.
 
 **Camera control:** each camera feed shows its post's WIND and AIR temperature. Set two focus levers from those and press three servo plates in the order the rune board page dictates; that camera then stays unlocked (free turning, no heat) until a remorhaz destroys it.
 
@@ -55,7 +69,7 @@ The operator has two views and pans between them with **▲ LOOK UP / ▼ LOOK D
 
 ## The case board
 
-On the main board beside the chart (the metal scanner moved up to the deck). Locking ice gives it a temporary row; a beacon hit pins it. Columns: number, last-seen square (odometer), HOLLOW T/F (with a tiny echo trace), METAL T/F, RADIO (the lamps as shown, frequency, band, wave shape, and SWEPT once the whole band has been searched), and a verdict (? / SUSPECT / EXCLUDED, undoable; excluded rows are stamped, struck through, sink to the bottom and their beacons dim). Readings fill in automatically; the crew still decodes them. Clicking a row re-locks the ice (live if beaconed, otherwise from where it was last seen).
+Top right of the main board. Locking ice gives it a temporary row; a beacon hit pins it. Columns: number and length, last-seen square (odometer), ECHO (a small copy of the printout as pinged, with the water temperature then; the class is not named), METAL T/F, RADIO (the lamps as shown, frequency, band, wave shape, and SWEPT once the whole band has been searched), and a verdict (? / SUSPECT / EXCLUDED, undoable; excluded rows are stamped, struck through, sink to the bottom and their beacons dim). Readings fill in automatically; the crew still decodes them. Clicking a row re-locks the ice (live if beaconed, otherwise from where it was last seen).
 
 ## Onboarding and atmosphere
 
@@ -67,10 +81,12 @@ On the main board beside the chart (the metal scanner moved up to the deck). Loc
 
 ## Mechanics
 
-- **Camera tracking.** Locked ice that stays in the camera on screen for 4 s has its real drift measured; the prediction then uses it instead of the buoy and the drift switch. Aim quality shows a CAMERA TRACK bar.
+- **Camera tracking.** Locked ice that stays in the camera on screen for 4 s has its real drift measured; the prediction then uses it instead of the buoy and the drift switch. Aim quality shows a CAMERA TRACK bar. The tracking box also shows the ice's size, and "UNDER 20 · NOT ELGARZ" for small ice.
+- **Aim quality decay.** Fix age and reading age stay full for 30 s, then fall to nothing over 150 s and 120 s.
+- **Beacon telemetry.** Ice that already carries a beacon reports its own position and drift every step, so a lock on it has aim quality 100% (BEACON TELEMETRY) with no buoy, orb or drift switch. The second shot at known ice (orange, blue, green) is never an aiming problem.
 - **Aiming.** A beacon flies to the predicted position: last fix + buoy current reading + drift switch. Aim quality (0–100%, with a lamp) is built from fix age, reading age and how far the reading was taken from the target. It can't see whether the drift switch is wrong. Every miss reports the distance and the reasons, and the chart draws a line from the splash to where the target really was. Camera fixes are accurate to 1–3 mi.
 - **Rune board.** Each rune's house and weight index a 4×4 grid of functions. The page numeral on the flip card shifts the weight. The board flips every 60 s and after 4 presses.
-  - Functions: FUEL, COFFEE (costs heat), WIPERS, WIRELESS, LAMPS (normal / night / red), LAUNCH (red, amber or blue only), VENT, BELL, NOTHING.
+  - Functions: FUEL, COFFEE (costs heat), WIPERS, WIRELESS, LAMPS (normal / night / red), LAUNCH (red, amber or blue only), VENT, BELL, CONFETTI (Ice house), DEVIL (Iron house), NOTHING (Bone house). Confetti and the devil are only for fun; like NOTHING they still count towards the board flip.
 - **Furnace.** Stoking draws from a fuel chute (4 shovels) that only the FUEL rune fills. Low heat cuts power slots. Overfeeding blows the furnace out and cracks the grate.
 - **Fatigue.** Over about 7 minutes the screens vignette, blur and sway, and the operator blinks off. Coffee (brew, then click the mug) clears it.
 - **Scanner.** A 3×3 rune keypad. Wind picks the first house, deep vs surface speed picks the direction round the wheel, and temperature picks heaviest, lightest or second lightest. The setting drifts out of tune once the buoy's conditions have disagreed with it for 50 s, about 3–5 times a watch.
@@ -88,12 +104,20 @@ On the main board beside the chart (the metal scanner moved up to the deck). Loc
 
 Nothing can end the game early. Every loss is recoverable.
 
+## Operator comforts
+- **Refresh survival.** The world (random generators included) autosaves to the browser every 5 s once the watch starts; a reload offers RESUME WATCH or NEW WATCH. A resumed watch carries on exactly as it would have.
+- **Message log.** LOG on the chart lists the last ten toasts with their times.
+- **Keys.** Space ping, 1–7 orbs, ↑/↓ look, ←/→ turn the orb, P pause, M mute.
+- **Launcher refill bar.** Under the beacon rack: time to the next red beacon.
+- **Chart hover.** Hovering a contact shows a small label with its number and length.
+
 ## GM tools
 
 `gm.html`, in a separate window, shows the truth: identities, radios (Triad singers starred), where Elgarz is or when it arrives, its planned sightings, the scanner code, the rune board's current functions, breakdowns, fatigue and the music stations.
 
 Controls:
-- **Click-the-map tools:** place or move Elgarz, drop a storm, send the shark.
+- **Click-the-map tools:** place or move Elgarz, drop a storm, send the Grindmaw or Old Tom. **Drag any ice** to move it; it moves when released. The map zooms out to 60%.
 - **Buttons:** pause, refuel (fills the chute and fixes the grate), repair everything, refill beacons, send the shark away, calibrate, bring Elgarz in now, force a win, clear storms, flip the rune board, fresh coffee, reset with a chosen or new seed.
-- **Levers (multipliers):** world drift, Tomb speed, Elgarz speed, Grindmaw speed, furnace burn, remorhaz aggression, beacon forgiveness, fatigue rate.
+- **Levers (multipliers):** world drift, Tomb speed, Elgarz speed, Grindmaw speed (0.5–3×, also frozen monsters), furnace burn, remorhaz aggression, beacon forgiveness, fatigue rate. Narrow ranges in 0.05 steps, full-width sliders; double-click a name to reset it to 1×.
+- **Fun buttons:** confetti, and the dancing devil (top hat, five seconds, on every screen).
 - **Messages:** sent either as pneumatic notes, which rotate round the chart's four corners, or as wire service ticker lines.
