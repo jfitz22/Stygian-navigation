@@ -371,7 +371,6 @@ export function light(w, opts = {}) {
 export function stoke(w) {
   const f = w.furnace;
   if (!f.lit) { emit(w, 'deny', { msg: 'LIGHT THE FURNACE FIRST' }); return false; }
-  if (w.seal) { emit(w, 'deny', { msg: 'THE FURNACE IS LOCKED · ENTER THE PASSWORD' }); return false; }
   if (f.chute <= 0) { emit(w, 'deny', { msg: 'THE FUEL CHUTE IS EMPTY · FILL IT FROM THE RUNE BOARD' }); return false; }
   f.chute--; f.pending += T.stokeAmount; emit(w, 'stoke');
   return true;

@@ -51,9 +51,12 @@ export const count = (B, side) => B.flat().filter(p => sideOf(p) === side).lengt
 // The side to move has no moves (or no pieces): the other side has won.
 export const gameOver = (B, toMove) => legalMoves(B, toMove).length === 0;
 
-// Jerry plays greedily, with a little randomness: take the most, crown when he can, don't hang pieces.
+// When he is paying attention, Jerry plays greedily, with a little randomness: take the most, crown when he can, don't hang pieces.
+// More than half the time he is not paying attention and plays any legal move.
+export const JERRY_CARELESS = 0.55;
 export function jerryMove(B, rng = Math.random) {
   const moves = legalMoves(B, 'b');
+  if (moves.length && rng() < JERRY_CARELESS) return moves[Math.floor(rng() * moves.length)];
   let best = null, bs = -1e9;
   for (const m of moves) {
     const N = applyMove(B, m), [r1] = m.path[m.path.length - 1], p = B[m.path[0][0]][m.path[0][1]];

@@ -1,6 +1,6 @@
 // The furnace log: heat over the last three minutes, and where it is heading. Drawn only from furnaceState()
 // (or the same object in a GM snapshot), so the panel can hang in the cabin now and move to the Engineer's station later.
-import { projectHeat } from './sim.js';
+import { projectHeat, burnRate } from './sim.js';
 import { TUNING as T } from './scenario.js';
 
 export const N_COLOR = ['#9aa59c', '#5cff9d', '#9ad0ff', '#ff8a7a'];   // 0, 1, 2, 3 systems running
@@ -64,7 +64,8 @@ export function drawFurnaceLog(cv, fs) {
     ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
     const end = p[p.length - 1];
     ctx.fillStyle = N_COLOR[n]; ctx.font = (now ? '600 ' : '') + '12px IBM Plex Mono'; ctx.textAlign = 'left';
-    ctx.fillText(end.heat <= 0 ? `${n}: OUT ${mmss(end.dt)}` : `${n}${now ? ' (NOW)' : ''}`, Math.min(X(end.dt) + 6, R - 70), Y(end.heat) - 4);
+    const rate = burnRate(n, fs.burnLever, fs.damper).toFixed(2);
+    ctx.fillText(`${n} ON · ${rate}/s${now ? ' (NOW)' : ''}${end.heat <= 0 ? ' · OUT ' + mmss(end.dt) : ''}`, Math.min(X(end.dt) + 6, R - 190), Y(end.heat) - 4);
   }
   ctx.lineWidth = 1;
 }

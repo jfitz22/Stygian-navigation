@@ -100,6 +100,8 @@ button { font-family: inherit; cursor: pointer; }
 #sealterm .warn { color: #ff8a7a; font-size: 14px; min-height: 18px; }
 #sealterm .tries { font-size: 14px; color: #ffb347; letter-spacing: 1px; }
 .sealcover { position: absolute; inset: 36px 0 0 0; z-index: 7; background: repeating-linear-gradient(45deg, rgba(10,8,4,.94) 0 18px, rgba(40,30,8,.94) 18px 36px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #ffcf7a; font: 14px 'Share Tech Mono', monospace; letter-spacing: 2px; text-align: center; border-radius: 0 0 6px 6px; }
+#p-pow .sealcover { left: 214px; border-radius: 0 0 6px 0; }
+#p-pow .sealcover b { font-size: 22px; letter-spacing: 3px; }
 .sealcover b { font: 800 30px 'Cinzel', serif; letter-spacing: 6px; color: #ffb347; }
 .sealcover small { font-size: 11px; color: #c9b88f; letter-spacing: 1px; }
 /* shutters: a steel roller door over the sonar and the orb panel */

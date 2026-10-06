@@ -599,7 +599,7 @@ function sharkSetup(seed) {
   const w = createWorld(73); light(w); ['sonar', 'currents'].forEach(x => setPower(w, x, true)); for (let i = 0; i < 30; i++) step(w, DT);
   runeEffect(w, 'LOCKDOWN');
   check(w.seal && w.seal.mode === 'set' && w.pwCap === 3, 'The first LOCKDOWN asks the crew to set a password under three rules');
-  check(!stoke(w) && !fireBeacon(w, 'red') && !setPower(w, 'radio', true), 'While locked, the furnace, the power board and the launcher refuse');
+  check(stoke(w) && !fireBeacon(w, 'red') && !setPower(w, 'radio', true), 'While locked, the power board and the launcher refuse, but the stoker can still stoke');
   check(sealInput(w, 'jerry') === 'rejected' && w.seal, 'A password that breaks a rule is refused');
   check(sealInput(w, VALID3) === 'ok' && !w.seal && w.password === VALID3, 'A good password is set and the lock lifts');
   runeEffect(w, 'LOCKDOWN');
@@ -617,7 +617,7 @@ function sharkSetup(seed) {
   sealInput(w, p5);
   check(!w.seal && w.beacons.green === g0 - 1, '...and fires the moment it is accepted');
   // relight asks
-  w.furnace.heat = 0.05; for (let i = 0; i < 5; i++) step(w, DT);
+  w.furnace.heat = 0.05; w.furnace.pending = 0; for (let i = 0; i < 30; i++) step(w, DT);
   check(!w.furnace.lit, '(the furnace has gone out)');
   light(w);
   check(w.seal && w.seal.reason === 'relight' && !w.furnace.lit, 'Relighting the furnace asks for the password');
