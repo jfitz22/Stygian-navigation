@@ -22,7 +22,11 @@ export const TUNING = {
   currentRefresh: 4,       // seconds between current readings while powered
   // furnace
   furnaceStartHeat: 62,
-  furnaceBurn: 0.3,        // heat lost per second
+  burnIdle: 0.03,          // heat lost per second with nothing switched on
+  burnSteps: [0.07, 0.11, 0.16], // ...plus this for the first, second and third system (1: 0.10, 2: 0.21, 3: 0.37 a second)
+  damperBurn: 0.6,         // the LOW damper burns this fraction of the heat...
+  damperSlow: 1.6,         // ...but everything powered works this much slower (spin-up, readings, scans, repairs, tracking)
+  heatLogEvery: 2,         // seconds between furnace log samples (the log keeps three minutes)
   stokeAmount: 22,         // heat one shovel adds (over stokeRamp seconds)
   stokeRamp: 2,
   furnaceBlowout: 100,     // heat at which the furnace blows out
@@ -43,11 +47,11 @@ export const TUNING = {
   coffeeBrew: 12,          // seconds to brew
   coffeeSips: 3,
   // operator fatigue
-  fatigueRate: 1 / 420,    // fatigue gained per second (0..1)
+  fatigueRate: 1 / 360,    // fatigue gained per second (0..1): six minutes to nodding off
   sipRelief: 0.45,
   // beacons
   beaconSpeed: 200,        // miles per second
-  beaconStock: 12,         // plain red beacons; the rack rebuilds
+  beaconStock: 12,         // plain red beacons; the rack rebuilds (until the workshop arrives)
   beaconRebuild: 40,
   orangeStock: 6,          // sounding charges: an echo on impact, no ping. Never rebuild.
   blueStock: 6,            // drift logs: the ice's path is recorded from impact. Never rebuild.
@@ -99,7 +103,14 @@ export const TUNING = {
   remorhazSpeed: 3,
   remorhazSpawnDist: 130,
   repairTime: 15,          // camera repair sled
-  minorRepairTime: 8,      // furnace grate, launcher, winch, fuse
+  minorRepairTime: 8,      // furnace grate, launcher, winch, radio receiver, scanner, sonar head
+  // breakage
+  sonarStrainWindow: 20,   // seconds: a third ping inside this window overdrives the sonar head
+  sonarStrainPings: 3,
+  buoyStormTime: 20,       // seconds a buoy can sit inside a storm before it is torn loose
+  buoyStormSnow: 0.3,      // how deep in the storm counts
+  scannerBlowChance: 0.34, // chance the scanner blows its fuse after a positive reading
+  unlockedHeat: 0.6,       // an unlocked orb heats at this fraction of the rate
   // the Grindmaw
   sharkSpeed: 3.5,         // miles per second near its target
   sharkFastSpeed: 9,       // miles per second while far from its target
@@ -160,12 +171,13 @@ export function windAt(t, F) {
   return { x: Math.sin(toward) * speed, y: -Math.cos(toward) * speed, from: ((from % 360) + 360) % 360, speed };
 }
 
-// Water temperature (°) at a point. Colder on one side of the sea and much colder near the Tomb.
+// Water temperature (°) at a point: Stygia runs from about -125° to -250°. Colder on one side of the sea and much colder
+// near the Tomb.
 export function tempAt(x, y, t, F, tomb) {
   const ax = Math.cos(F.coldAxis), ay = Math.sin(F.coldAxis);
   const along = ((x - CENTER.x) * ax + (y - CENTER.y) * ay) / REACH;     // -1..1
   const d = tomb ? Math.hypot(x - tomb.x, y - tomb.y) : 1e9;
-  return -28 - 13 * along - 20 * Math.exp(-((d / 500) ** 2)) - 8 * Math.min(1, t / 1200) + 4 * Math.sin(t / 170 + F.tempPh);
+  return -160 - 26 * along - 40 * Math.exp(-((d / 500) ** 2)) - 16 * Math.min(1, t / 1200) + 8 * Math.sin(t / 170 + F.tempPh);
 }
 
 // Storms: each one is aimed to pass over a camera post during the session.
@@ -217,7 +229,7 @@ export const CAMERAS = [
 // Radio: `decoded` after the manual's procedure, in `band`, sent on `carrier` (null = random). Ice over 8 miles rides the deep current.
 export const SIZE_CUT = 20;
 export const ECHO_CLASSES = ['solid', 'caverns', 'halls', 'flooded', 'monster'];
-export const COLD_WATER = -40;           // below this a monster does not pulse
+export const COLD_WATER = -185;          // below this a monster does not pulse
 const TRIAD = { decoded: 'BRW', band: 'MID', carrier: null };
 export const NOTABLES = [
   // halls, metal and the Triad
@@ -320,14 +332,14 @@ export const BOARD_GRID = {
 export const BOARD_PAGES = ['I', 'II', 'III', 'IV'];
 
 // ---------- camera unlock panel ----------
-// Shape plates: the order depends on the rune board page.
+// Shape plates: the order depends on the house of the rune carved on the orb's housing (Signals reads the rune).
 export const PLATES = ['CIRCLE', 'TRIANGLE', 'SQUARE'];
-export const PLATE_ORDER = [
-  ['CIRCLE', 'TRIANGLE', 'SQUARE'],   // page I
-  ['TRIANGLE', 'SQUARE', 'CIRCLE'],   // page II
-  ['SQUARE', 'CIRCLE', 'TRIANGLE'],   // page III
-  ['CIRCLE', 'SQUARE', 'TRIANGLE'],   // page IV
-];
+export const PLATE_BY_HOUSE = {
+  Ice: ['CIRCLE', 'TRIANGLE', 'SQUARE'],
+  Iron: ['TRIANGLE', 'SQUARE', 'CIRCLE'],
+  Ember: ['SQUARE', 'CIRCLE', 'TRIANGLE'],
+  Bone: ['CIRCLE', 'SQUARE', 'TRIANGLE'],
+};
 // Levers: set from the weather readout on the camera feed (wind in knots, air temperature in degrees).
 export function windLever(kn) { return kn < 30 ? 'DOWN' : kn <= 38 ? 'MIDDLE' : 'UP'; }
-export function tempLever(deg) { return deg < -40 ? 'DOWN' : deg <= -25 ? 'MIDDLE' : 'UP'; }
+export function tempLever(deg) { return deg < -185 ? 'DOWN' : deg <= -155 ? 'MIDDLE' : 'UP'; }

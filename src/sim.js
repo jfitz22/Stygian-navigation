@@ -1,7 +1,7 @@
 // The Last Watch simulation. Pure logic, no DOM. Runs in the browser and in Node.
 import {
   MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, TOMB_RADIUS, TUNING as T, CAMERAS, NOTABLES,
-  FIELDS, FIELD_SPREAD, FILLER, SHOALS, SIZE_CUT, COLD_WATER, PLATE_ORDER, windLever, tempLever,
+  FIELDS, FIELD_SPREAD, FILLER, SHOALS, SIZE_CUT, COLD_WATER, PLATE_BY_HOUSE, windLever, tempLever,
   makeField, vortexAt, windAt, tempAt, makeStorms, stormThrough, bandOf, BAND_RANGE, CARRIERS, encodeLamps, NOISE_SIGNALS, STATIONS,
   BOARD_GRID, BOARD_PAGES,
 } from './scenario.js';
@@ -9,10 +9,12 @@ import { RUNES, makePlate, keypadCode, shuffle, octantName } from './glyphs.js';
 import { checkPassword, passwordMatches, FIRST_RULES, RULES_PER_LOCKDOWN, RULES as PW_RULES, WRONG_TRIES } from './password.js';
 export const PAYLOAD = { red: 'stock', orange: 'orange', blue: 'blue', green: 'green' };
 
-export const SYSTEMS = ['cameras', 'sonar', 'radio', 'scanner', 'currents'];
-export const SPINUP = { cameras: 1, sonar: 1.5, radio: 2, scanner: 4, currents: 1.5 };
+export const SYSTEMS = ['cameras', 'sonar', 'radio', 'scanner', 'currents', 'repair'];
+export const SPINUP = { cameras: 1, sonar: 1.5, radio: 2, scanner: 4, currents: 1.5, repair: 1 };
+// The order the furnace sheds systems when the heat drops: last in this list goes first. The crew can reorder it.
+export const DEFAULT_PRIORITY = ['sonar', 'cameras', 'currents', 'radio', 'scanner', 'repair'];
 export const DT = 0.1;
-export const BREAKABLE = { furnace: 'FURNACE GRATE', launcher: 'BEACON LAUNCHER', winch: 'BUOY WINCH', fuse: 'RADIO FUSE' };
+export const BREAKABLE = { furnace: 'FURNACE GRATE', launcher: 'BEACON LAUNCHER', winch: 'BUOY WINCH', fuse: 'RADIO RECEIVER', scanner: 'METAL SCANNER', sonarhead: 'SONAR HEAD' };
 // GM levers (multipliers). 1 is the designed game.
 export const LEVERS = { drift: 1, tomb: 1, elgarz: 1, shark: 1, burn: 1, remorhaz: 1, aim: 1, fatigue: 1 };
 
@@ -288,21 +290,26 @@ export function createWorld(seed = newSeed()) {
   });
 
   const cams = CAMERAS.map(c => ({ ...c, heat: 0, broken: false, tremor: 0 }));
+  // the rune carved on each orb's housing (a new one every time the orb is repaired)
+  const camRng = mulberry32(seed + 0xCA11);
+  const camRune = Object.fromEntries(cams.map(c => [c.id, Math.floor(camRng() * RUNES.length)]));
   const sharkStart = randomInReach(gen, 900, 1500);
   const rng = mulberry32(seed ^ 0x2545F491);
 
   const w = {
-    seed, rng, spawnRng: mulberry32(seed + 0x51ED), boardRng: mulberry32(seed + 0xB0A2D), field: F, storms, stations,
+    seed, rng, camRng, spawnRng: mulberry32(seed + 0x51ED), boardRng: mulberry32(seed + 0xB0A2D), field: F, storms, stations,
     t: 0, started: false, paused: false, won: false, wonAt: null, reveal: null,
     levers: { ...LEVERS },
     bergs, reserve,
     tomb: { x: tombStart.x, y: tombStart.y },
     furnace: { lit: false, heat: 0, pending: 0, outUntil: 0, everLit: false, chute: T.chuteStart },
+    priority: [...DEFAULT_PRIORITY], damper: 'normal', heatLog: [], heatLogAt: 0,
     power: Object.fromEntries(SYSTEMS.map(s => [s, { on: false, ready: 0, since: 0 }])),
-    broken: { furnace: false, launcher: false, winch: false, fuse: false },
+    broken: { furnace: false, launcher: false, winch: false, fuse: false, scanner: false, sonarhead: false },
     repairs: {},        // system or camera id -> time the repair finishes
     cams, activeCam: 'c1',
     remorhazes: [],
+    sonarPings: [],     // when the sonar head was last driven: three inside the strain window cracks it
     buoy: null, buoyRebuildAt: 0, buoyCount: 0,
     pings: [], contacts: [], flows: [],
     lastPing: null,     // the Grindmaw always swims toward this
@@ -318,7 +325,8 @@ export function createWorld(seed = newSeed()) {
     coffee: { brewUntil: 0, sips: 0 }, fatigue: 0,
     board: { page: 0, runes: [], presses: 0, nextFlip: 0, flippedAt: -99 },
     color: 'red',
-    camUnlocked: {},    // camera id -> time its unlock runs out
+    camUnlocked: {},    // camera id -> true while unlocked (until it breaks)
+    camRune,            // camera id -> RUNES index carved on its housing
     camTurn: 0,         // -1, 0, +1 while an arrow is held
     camPanel: { wind: 'MIDDLE', temp: 'MIDDLE', pressed: [], lockout: 0 },
     cases: [],          // case board rows {bergId, permanent, verdict, seen:{x,y,t}}
@@ -363,12 +371,43 @@ export function light(w, opts = {}) {
 export function stoke(w) {
   const f = w.furnace;
   if (!f.lit) { emit(w, 'deny', { msg: 'LIGHT THE FURNACE FIRST' }); return false; }
-  if (w.seal) { emit(w, 'deny', { msg: 'THE FURNACE IS LOCKED · ENTER THE PASSWORD' }); return false; }
   if (f.chute <= 0) { emit(w, 'deny', { msg: 'THE FUEL CHUTE IS EMPTY · FILL IT FROM THE RUNE BOARD' }); return false; }
   f.chute--; f.pending += T.stokeAmount; emit(w, 'stoke');
   return true;
 }
 function spendHeat(w, n) { const f = w.furnace; f.heat = Math.max(0.5, f.heat - n); }
+// The damper: LOW burns slower, but everything powered works slower.
+export const slowK = w => w.damper === 'low' ? T.damperSlow : 1;
+export function setDamper(w, mode) { if (mode !== 'low' && mode !== 'normal') return; if (w.damper !== mode) { w.damper = mode; emit(w, 'damper', { mode }); } }
+// The crew's shed order (first = kept longest). Any system missing from the list keeps its old place at the end.
+export function setPriority(w, list) {
+  const clean = list.filter((s, i) => SYSTEMS.includes(s) && list.indexOf(s) === i);
+  w.priority = [...clean, ...w.priority.filter(s => !clean.includes(s))];
+  emit(w, 'priority');
+}
+// Heat lost per second with n systems running.
+export const burnRate = (n, burnLever = 1, damper = 'normal') => (T.burnIdle + T.burnSteps.slice(0, n).reduce((a, b) => a + b, 0)) * burnLever * (damper === 'low' ? T.damperBurn : 1);
+const slotsAt = h => { const [a, b, c] = T.slotHeat; return h >= a ? 3 : h >= b ? 2 : h >= c ? 1 : 0; };
+// The furnace in plain numbers: what the furnace log (and the GM) needs. Works on a snapshot too.
+export function furnaceState(w) {
+  const f = w.furnace, on = SYSTEMS.filter(s => w.power[s].on);
+  return { lit: f.lit, heat: f.heat, pending: f.pending, chute: f.chute, on, n: on.length, damper: w.damper, priority: w.priority,
+    burnLever: w.levers.burn, burn: f.lit ? burnRate(on.length, w.levers.burn, w.damper) : 0, slots: slotsAvailable(w), log: w.heatLog, t: w.t };
+}
+// Where the heat goes over the next secs seconds with n systems on and no more shovels. Systems drop as the heat
+// falls below each slot line. Returns [{dt, heat, n}], ending when the fire goes out.
+export function projectHeat(fs, n, secs = 180, stepS = 1) {
+  if (!fs.lit) return [];
+  let h = fs.heat, pend = fs.pending, k = Math.min(n, slotsAt(h)), out = [{ dt: 0, heat: h, n: k }];
+  for (let s = stepS; s <= secs; s += stepS) {
+    const add = Math.min(pend, T.stokeAmount / T.stokeRamp * stepS); pend -= add;
+    h += add - burnRate(k, fs.burnLever, fs.damper) * stepS;
+    k = Math.min(k, slotsAt(h));
+    if (h <= 0) { out.push({ dt: s, heat: 0, n: 0 }); break; }
+    out.push({ dt: s, heat: h, n: k });
+  }
+  return out;
+}
 function allOff(w) { for (const s of SYSTEMS) w.power[s].on = false; }
 export function setPower(w, sys, on) {
   if (!w.furnace.lit) { emit(w, 'deny', { msg: 'THE FURNACE IS COLD' }); return false; }
@@ -378,13 +417,13 @@ export function setPower(w, sys, on) {
   if (on) {
     const used = SYSTEMS.filter(s => w.power[s].on).length;
     if (used >= slotsAvailable(w)) { emit(w, 'deny', { msg: used >= 3 ? 'FURNACE AT CAPACITY · SWITCH SOMETHING OFF' : 'NOT ENOUGH HEAT · STOKE THE FURNACE' }); return false; }
-    p.on = true; p.ready = w.t + SPINUP[sys]; p.since = w.t; if (sys === 'sonar') tick(w, 'sonar'); if (sys === 'cameras') tick(w, 'orbs'); emit(w, 'power', { sys, on: true });
+    p.on = true; p.ready = w.t + SPINUP[sys] * slowK(w); p.since = w.t; if (sys === 'sonar') tick(w, 'sonar'); if (sys === 'cameras') tick(w, 'orbs'); emit(w, 'power', { sys, on: true });
   } else {
     p.on = false; emit(w, 'power', { sys, on: false });
   }
   return true;
 }
-export const isUp = (w, sys) => w.power[sys].on && w.t >= w.power[sys].ready && !(sys === 'radio' && w.broken.fuse);
+export const isUp = (w, sys) => w.power[sys].on && w.t >= w.power[sys].ready && !(sys === 'radio' && w.broken.fuse) && !(sys === 'scanner' && w.broken.scanner);
 
 export function selectCam(w, id) { if (w.activeCam !== id) { w.activeCam = id; emit(w, 'camswitch'); } }
 
@@ -512,6 +551,7 @@ export function ping(w) {
   if (!isUp(w, 'sonar')) { emit(w, 'deny', { msg: 'SONAR IS UNPOWERED' }); return false; }
   if (shuttered(w)) { emit(w, 'deny', { msg: 'THE SONAR IS SHUTTERED' }); return false; }
   if (!w.buoy || w.t < w.buoy.landAt) { emit(w, 'deny', { msg: 'NO BUOY IN THE WATER' }); return false; }
+  if (w.broken.sonarhead) { emit(w, 'deny', { msg: 'THE SONAR HEAD IS CRACKED · REPAIR IT ON THE OVERHEAD DECK' }); return false; }
   if (w.pings.some(p => p.deliverAt > w.t)) { emit(w, 'deny', { msg: 'STILL LISTENING FOR THE LAST ECHO' }); return false; }
   const at = { x: w.buoy.x, y: w.buoy.y };
   const found = [];
@@ -531,13 +571,19 @@ export function ping(w) {
     if (hyp(gx * 140, gy * 140) > T.buoyRadius) continue;
     flow.push({ x, y, deep: deepAt(w.field, x, y, w.t), surf: surfaceAt(w.field, x, y, w.t) });
   }
-  w.pings.push({ tS: w.t, deliverAt: w.t + T.sonarDelay, at, found, flow, scattered: buoyOnRock });
+  w.pings.push({ tS: w.t, deliverAt: w.t + T.sonarDelay * slowK(w), at, found, flow, scattered: buoyOnRock });
   w.lastPing = { x: at.x, y: at.y, t: w.t };
   if (w.shark.mode !== 'hunt') emit(w, 'sharkhunt');
   w.shark.mode = 'hunt';
   emit(w, 'ping');
+  // driving the head too hard cracks it: this ping still goes out
+  w.sonarPings = w.sonarPings.filter(t0 => w.t - t0 < T.sonarStrainWindow); w.sonarPings.push(w.t);
+  if (w.sonarPings.length >= T.sonarStrainPings) { w.sonarPings = []; w.broken.sonarhead = true; emit(w, 'broke', { sys: 'sonarhead' }); }
   return true;
 }
+
+// How hard the sonar head is working: for each recent ping, how much of the strain window it still fills (1 → 0).
+export const sonarStrain = w => w.sonarPings.filter(t0 => w.t - t0 < T.sonarStrainWindow).map(t0 => 1 - (w.t - t0) / T.sonarStrainWindow);
 
 // ---------- lock & prediction ----------
 export function lockOn(w, bergId, x, y, t0, source) {
@@ -639,6 +685,7 @@ function takeReading(w) {
 export function pressKey(w, slot) {
   const s = w.scanner;
   if (s.calibrated || w.t < s.lockoutUntil) return;
+  if (w.broken.scanner) { emit(w, 'deny', { msg: 'THE SCANNER FUSE HAS BLOWN · REPAIR IT' }); return; }
   if (!w.readings) { emit(w, 'deny', { msg: 'THE SCANNER NEEDS A BUOY READING' }); return; }
   if (!s.frozen) { s.frozen = readingDisplay(w.readings); s.code = keypadCode(s.plate, s.frozen); }
   s.lastPress = w.t;
@@ -768,22 +815,28 @@ function resolveBeacon(w, fl, t) {
 // ---------- repairs ----------
 export function brokenList(w) {
   const out = [];
-  for (const c of w.cams) if (c.broken) out.push({ id: c.id, name: c.name + ' CAMERA', cam: true });
+  for (const c of w.cams) if (c.broken) out.push({ id: c.id, name: c.name + ' ORB', cam: true });
   for (const k of Object.keys(BREAKABLE)) if (w.broken[k]) out.push({ id: k, name: BREAKABLE[k], cam: false });
   return out;
 }
+// The crew needs the repair bay powered, except at the furnace grate, which is mended by hand (or a cold furnace
+// could never be fixed). Returns true when the crew sets off.
 export function startRepair(w, id) {
-  if (w.repairs[id]) return;
+  if (w.repairs[id]) return false;
   const cam = w.cams.find(c => c.id === id);
-  if (cam ? !cam.broken : !w.broken[id]) return;
+  if (cam ? !cam.broken : !w.broken[id]) return false;
+  if (id !== 'furnace' && !isUp(w, 'repair')) { emit(w, 'deny', { msg: 'THE REPAIR BAY HAS NO POWER · SWITCH IT ON' }); return false; }
   w.repairs[id] = w.t + (cam ? T.repairTime : T.minorRepairTime);
   emit(w, 'repairstart', { id });
+  return true;
 }
+// Is a repair making progress right now? (It waits while the repair bay is off.)
+export const repairWorking = (w, id) => id === 'furnace' || isUp(w, 'repair');
 export function badRepair(w) { emit(w, 'spark'); }
 function finishRepair(w, id) {
   delete w.repairs[id];
   const cam = w.cams.find(c => c.id === id);
-  if (cam) { cam.broken = false; cam.heat = 0; }
+  if (cam) { cam.broken = false; cam.heat = 0; delete w.camUnlocked[cam.id]; w.camRune[cam.id] = newHousingRune(w, cam.id); }
   else {
     w.broken[id] = false;
     if (id === 'winch' && !w.buoy) w.buoyRebuildAt = w.t + 20;
@@ -861,7 +914,7 @@ export function gm(w, cmd, arg = {}) {
   if (cmd === 'camunlock') { w.camUnlocked[w.activeCam] = true; }
   if (cmd === 'confetti' || cmd === 'devil') emit(w, cmd);
   if (cmd === 'repair') {
-    w.cams.forEach(c => { c.broken = false; c.heat = 0; }); w.remorhazes = [];
+    w.cams.forEach(c => { c.broken = false; c.heat = 0; }); w.remorhazes = []; w.sonarPings = [];
     for (const k of Object.keys(w.broken)) w.broken[k] = false;
     w.repairs = {}; w.buoyRebuildAt = 0; w.radio.clipTime = 0;
   }
@@ -892,6 +945,18 @@ export function gm(w, cmd, arg = {}) {
   if (cmd === 'unseal' && w.seal) { const p = w.seal.pending; w.seal = null; emit(w, 'unsealed'); if (p === 'fatigue') w.fatigue = Math.min(w.fatigue, 0.7); }
   if (cmd === 'lights-normal') { w.lamps = 0; emit(w, 'lights', { mode: 0 }); }
   if (cmd === 'shutter-up') w.shutterUntil = 0;
+  if (cmd === 'break') breakThing(w, arg.id);
+  if (cmd === 'damper') setDamper(w, arg.mode);
+}
+// The GM can break anything: a machine id from BREAKABLE, or an orb's camera id.
+export function breakThing(w, id) {
+  const cam = w.cams.find(c => c.id === id);
+  if (cam) { if (!cam.broken) { cam.broken = true; cam.heat = 0; cam.tremor = 0; delete w.camUnlocked[id]; w.remorhazes = w.remorhazes.filter(r => r.cam !== id); emit(w, 'camdead', { cam: id }); } return; }
+  if (!(id in w.broken) || w.broken[id]) return;
+  w.broken[id] = true;
+  if (id === 'winch') { w.buoy = null; w.buoyRebuildAt = Infinity; }
+  if (id === 'furnace' && w.furnace.lit) { const f = w.furnace; f.lit = false; f.heat = 0; f.pending = 0; f.outUntil = w.t + T.furnaceCooldown; allOff(w); emit(w, 'blowout'); }
+  emit(w, 'broke', { sys: id });
 }
 function win(w) { if (!w.won) { w.won = true; w.wonAt = w.t; emit(w, 'win'); } }
 
@@ -907,7 +972,7 @@ export function step(w, dt = DT) {
   const f = w.furnace;
   if (f.lit) {
     const add = Math.min(f.pending, T.stokeAmount / T.stokeRamp * dt);
-    f.pending -= add; f.heat += add - T.furnaceBurn * w.levers.burn * dt;
+    f.pending -= add; f.heat += add - burnRate(SYSTEMS.filter(s => w.power[s].on).length, w.levers.burn, w.damper) * dt;
     if (f.heat >= T.furnaceBlowout) {
       f.lit = false; f.heat = 0; f.pending = 0; f.outUntil = t + T.furnaceCooldown; allOff(w);
       w.broken.furnace = true;
@@ -917,8 +982,10 @@ export function step(w, dt = DT) {
     }
   }
   const slots = slotsAvailable(w);
-  const on = SYSTEMS.filter(s => w.power[s].on).sort((a, b) => w.power[b].since - w.power[a].since);
+  // too little heat for everything: shed the lowest-priority system first, loudly
+  const on = SYSTEMS.filter(s => w.power[s].on).sort((a, b) => w.priority.indexOf(b) - w.priority.indexOf(a));
   while (on.length > slots) { const s = on.shift(); w.power[s].on = false; emit(w, 'brownout', { sys: s }); }
+  if (t >= w.heatLogAt) { w.heatLogAt = t + T.heatLogEvery; w.heatLog.push({ t, heat: f.lit ? f.heat : 0, n: SYSTEMS.filter(s => w.power[s].on).length }); if (w.heatLog.length > 180 / T.heatLogEvery + 1) w.heatLog.shift(); }
 
   // rune board, coffee, fatigue
   if (t >= w.board.nextFlip) flipBoard(w);
@@ -927,7 +994,11 @@ export function step(w, dt = DT) {
   if (w.fatigue >= 1 && !w.seal) openSeal(w, 'fatigue', { pending: 'fatigue' });   // the console logs the operator out
 
   // repairs
-  for (const [id, until] of Object.entries(w.repairs)) if (t >= until) finishRepair(w, id);
+  // a repair waits while its bay has no power, and runs slower on the LOW damper
+  for (const id of Object.keys(w.repairs)) {
+    if (!repairWorking(w, id)) w.repairs[id] += dt; else if (slowK(w) > 1) w.repairs[id] += dt * (1 - 1 / slowK(w));
+    if (t >= w.repairs[id]) finishRepair(w, id);
+  }
 
   // move the Tomb, then the ice
   advanceTomb(w, w.tomb, t - dt, dt);
@@ -950,15 +1021,31 @@ export function step(w, dt = DT) {
   w.flows = w.flows.filter(fl => t - fl.t < T.flowShow);
 
   // buoy readings
-  if (isUp(w, 'currents') && t - w.readingAt >= T.currentRefresh) takeReading(w);
+  if (isUp(w, 'currents') && t - w.readingAt >= T.currentRefresh * slowK(w)) takeReading(w);
+  // a buoy left inside a storm is torn loose and takes the winch cable with it
+  if (w.buoy && t >= w.buoy.landAt) {
+    const inStorm = snowAt(w, w.buoy.x, w.buoy.y, t) > T.buoyStormSnow;
+    if (inStorm) {
+      if (!w.buoy.storm) emit(w, 'buoystorm');
+      w.buoy.storm = (w.buoy.storm || 0) + dt;
+      if (w.buoy.storm >= T.buoyStormTime) {
+        w.buoy = null; w.buoyRebuildAt = Infinity; w.broken.winch = true;
+        emit(w, 'buoydead', { who: 'storm' }); emit(w, 'broke', { sys: 'winch' });
+      }
+    } else w.buoy.storm = 0;
+  }
 
   // scanner
   const s = w.scanner;
   if (s.frozen && !s.calibrated && t - s.lastPress > 25) { s.frozen = null; s.code = null; s.pressed = []; }
   const lb = lockedBerg(w);
   if (isUp(w, 'scanner') && lb && s.calibrated && !lb.scanned && scannerReach(w, lb) > 0) {
-    lb.scan += dt / T.scanTime;
-    if (lb.scan >= 1) { lb.scan = 1; lb.scanned = true; record(w, lb.id, 'metal', lb.metal); emit(w, 'scandone', { metal: lb.metal }); }
+    lb.scan += dt / (T.scanTime * slowK(w));
+    if (lb.scan >= 1) {
+      lb.scan = 1; lb.scanned = true; record(w, lb.id, 'metal', lb.metal); emit(w, 'scandone', { metal: lb.metal });
+      // a positive reading sometimes blows the scanner's fuse: the reading counts, then it needs repairing
+      if (lb.metal && w.rng() < T.scannerBlowChance) { w.broken.scanner = true; emit(w, 'broke', { sys: 'scanner' }); }
+    }
   }
 
   // radio fuse, radio readings and band sweeps for the case board
@@ -979,7 +1066,7 @@ export function step(w, dt = DT) {
   // cameras heat and remorhazes
   for (const c of w.cams) {
     const watched = isUp(w, 'cameras') && w.activeCam === c.id && !c.broken;
-    c.heat = clamp(c.heat + (watched ? T.camHeatUp * w.levers.remorhaz : -T.camCoolDown) * dt, 0, 100);
+    c.heat = clamp(c.heat + (watched ? T.camHeatUp * w.levers.remorhaz * (camIsUnlocked(w, c.id) ? T.unlockedHeat : 1) : -T.camCoolDown) * dt, 0, 100);
     const has = w.remorhazes.some(r => r.cam === c.id);
     if (!c.broken && !has && c.heat >= T.remorhazTrigger && w.levers.remorhaz > 0) {
       const ang = (c.facing + (w.rng() - 0.5) * 40) * Math.PI / 180;
@@ -990,6 +1077,7 @@ export function step(w, dt = DT) {
   // turning the unlocked camera
   const ac = w.cams.find(c => c.id === w.activeCam);
   if (w.camTurn && camIsUnlocked(w, ac.id)) ac.facing = (ac.facing + w.camTurn * T.camTurnRate * dt + 360) % 360;
+  else followStep(w, ac, dt);
   // a camera watching the locked ice measures its drift
   trackStep(w, ac, dt);
   beaconStep(w);
@@ -1160,12 +1248,13 @@ export function camWeather(w, cam) {
   const wi = windAt(w.t, w.field);
   // each post sits in its own gusts: the wind there differs from post to post and drifts over time
   const local = 9 * Math.sin(cam.x / 410 + cam.y / 530 + w.field.windPh) + 6 * Math.sin(w.t / 75 + cam.x / 290 - cam.y / 370);
-  return { windKn: Math.round(wi.speed * 3.4 + local), windOct: octantName(wi.from), air: Math.round(tempAt(cam.x, cam.y, w.t, w.field, w.tomb) - 4) };
+  return { windKn: Math.round(wi.speed * 3.4 + local), windOct: octantName(wi.from), air: Math.round(tempAt(cam.x, cam.y, w.t, w.field, w.tomb) - 8) };
 }
 export function setCamTurn(w, dir) { w.camTurn = dir; }
 export function camCode(w) {
   const wx = camWeather(w, w.cams.find(c => c.id === w.activeCam));
-  return { order: PLATE_ORDER[w.board.page], wind: windLever(wx.windKn), temp: tempLever(wx.air) };
+  const rune = RUNES[w.camRune[w.activeCam]];
+  return { order: PLATE_BY_HOUSE[rune.house], wind: windLever(wx.windKn), temp: tempLever(wx.air), rune: w.camRune[w.activeCam], house: rune.house };
 }
 export function setLever(w, name, pos) { w.camPanel[name] = pos; emit(w, 'lever'); }
 export function pressPlate(w, shape) {
@@ -1179,13 +1268,27 @@ export function pressPlate(w, shape) {
   if (ok) { w.camUnlocked[w.activeCam] = true; emit(w, 'camunlocked', { cam: w.activeCam }); }
   else { p.lockout = w.t + T.plateLockout; emit(w, 'camfail'); }
 }
+// A fresh housing rune for an orb, never the same as the one it had.
+function newHousingRune(w, id) {
+  let r; do { r = Math.floor(w.camRng() * RUNES.length); } while (r === w.camRune[id]);
+  return r;
+}
+// An unlocked orb that is tracking the locked ice turns to keep it centred, while you watch it.
+function followStep(w, cam, dt) {
+  const l = w.lock, b = lockedBerg(w);
+  if (!l || !b || !l.track || l.track.cam !== cam.id || !camIsUnlocked(w, cam.id) || cam.broken || !isUp(w, 'cameras')) return;
+  let rel = bearingDeg(cam, b) - cam.facing; while (rel > 180) rel -= 360; while (rel < -180) rel += 360;
+  const turn = clamp(rel, -T.camTurnRate * dt, T.camTurnRate * dt);
+  cam.facing = (cam.facing + turn + 360) % 360;
+}
 function trackStep(w, cam, dt) {
   const l = w.lock; if (!l) return;
+  if (!camIsUnlocked(w, cam.id)) { l.trackSince = null; return; }   // only an unlocked orb can measure drift
   const b = w.bergs.find(b => b.id === l.bergId); if (!b) return;
   const seeing = isUp(w, 'cameras') && !cam.broken && camSees(cam, b) && snowAt(w, cam.x, cam.y, w.t) < 0.5;
   if (!seeing) { l.trackSince = null; return; }
   if (l.trackSince == null) l.trackSince = w.t;
-  if (w.t - l.trackSince < T.trackTime) return;
+  if (w.t - l.trackSince < T.trackTime * slowK(w)) return;
   // measured: a fresh fix from the camera and the ice's real drift (to within a few percent)
   if (!l.track || w.t - l.track.t > 1) {
     const n = () => 1 + (w.rng() - 0.5) * 2 * T.trackNoise;
@@ -1230,6 +1333,7 @@ export function snapshot(w) {
     beacons: w.beacons.stock, orange: w.beacons.orange, blue: w.beacons.blue, green: w.beacons.green, calibrated: w.scanner.calibrated, broken: brokenList(w).map(b => b.name),
     furnace: { lit: w.furnace.lit, heat: w.furnace.heat, chute: w.furnace.chute }, music: w.music, fatigue: w.fatigue,
     camCode: camCode(w), activeCam: w.activeCam, tom: { x: w.tom.x, y: w.tom.y, mode: w.tom.mode },
+    furnaceState: furnaceState(w), sonarStrain: sonarStrain(w), camRune: w.camRune, brokenIds: Object.keys(w.broken).filter(k => w.broken[k]),
     seal: w.seal ? { reason: w.seal.reason, mode: w.seal.mode, tries: w.seal.tries } : null, password: w.password, pwCap: w.pwCap, lamps: w.lamps, shuttered: shuttered(w),
     shoals: SHOALS, monsters: w.monsters.map(m => ({ x: m.x, y: m.y, num: m.num, fading: m.fadeAt != null })),
     cases: w.cases.map(c => ({ num: (w.bergs.find(b => b.id === c.bergId) || {}).num, permanent: c.permanent, verdict: c.verdict, obs: w.obs[c.bergId] || null })), camUnlocked: Object.keys(w.camUnlocked),

@@ -14,6 +14,39 @@
 <div id="rig">
   <div id="jnotes"></div>
 
+  <!-- ================= THE CABIN (look left) ================= -->
+  <div id="side">
+    <header id="sidebar">
+      <div class="plate title">THE CABIN <span>· FURNACE LOG · JERRY'S TABLE ·</span></div>
+      <button id="lookback" class="lookbtn">LOOK RIGHT ▶</button>
+    </header>
+    <section class="panel" id="p-flog" style="left:16px;top:68px;width:1180px;height:996px">
+      <h2>FURNACE LOG <small>the last three minutes, and where the heat is heading</small></h2>
+      <div id="flognums"></div>
+      <canvas id="flogcanvas" width="1148" height="560"></canvas>
+      <div id="floglegend"><span><i style="background:#5cff9d"></i>1 SYSTEM</span><span><i style="background:#9ad0ff"></i>2 SYSTEMS</span><span><i style="background:#ff8a7a"></i>3 SYSTEMS</span><span>SOLID: WHAT IS ON NOW · DOTTED: THE OTHER CHOICES · NO MORE SHOVELS ASSUMED</span></div>
+      <div id="flogctl">
+        <div class="flogbox">
+          <div class="lbl">DAMPER</div>
+          <div id="damper"><button data-m="normal">NORMAL</button><button data-m="low">LOW</button></div>
+          <div class="hint">LOW burns slower, but everything powered works slower: spin-up, readings, scans, repairs and tracking.</div>
+        </div>
+        <div class="flogbox">
+          <div class="lbl">SHED ORDER</div>
+          <ol id="prio"></ol>
+          <div class="hint">Drag to reorder (or use the arrows). When the heat drops, the bottom of the list switches off first.</div>
+        </div>
+      </div>
+    </section>
+    <section class="panel" id="p-jerry" style="left:1212px;top:68px;width:692px;height:996px">
+      <h2>CHECKERS WITH JERRY <small id="jerrystat"></small></h2>
+      <div id="cboard"></div>
+      <div id="jerrysay"></div>
+      <div id="jerryrow"><span id="jerryscore"></span><button id="cnew" class="small-btn">NEW GAME</button></div>
+      <div class="hint" style="padding:0 14px">You play the light pieces from the bottom. Jumps are compulsory. Leave Jerry waiting too long and he gets bored and presses something.</div>
+    </section>
+  </div>
+
   <!-- ================= OVERHEAD DECK (look up) ================= -->
   <div id="deck">
     <header id="deckbar">
@@ -105,7 +138,7 @@
   <!-- top bar -->
   <header id="topbar">
     <div class="plate title">THE LAST WATCH <span>· OBSERVATORY OF THE FIFTH ·</span></div>
-    <div id="lookpair"><button id="lookup" class="lookbtn">▲ LOOK UP</button><button id="lookdown" class="lookbtn">▼ LOOK DOWN</button><button id="pausebtn" class="lookbtn">❚❚ PAUSE</button></div>
+    <div id="lookpair"><button id="lookleft" class="lookbtn">◀ LOOK LEFT</button><button id="lookup" class="lookbtn">▲ LOOK UP</button><button id="lookdown" class="lookbtn">▼ LOOK DOWN</button><button id="pausebtn" class="lookbtn">❚❚ PAUSE</button></div>
     <div id="cabin" class="cabin">
       <div class="cabin-label">COFFEE</div>
       <div id="mug" title="click to drink"><div id="mugfill"></div><div class="steam"></div></div>
@@ -137,7 +170,7 @@
       <div class="offline hidden" id="camoff">NO POWER</div>
     </div>
     <div id="camsel"></div>
-    <div class="hint">Click an iceberg in the view to lock onto it. Unlock and turn the orb with ORB CONTROL below.</div>
+    <div class="hint">Click an iceberg to lock onto it. Unlock the orb (ORB CONTROL below) to turn it, zoom and track drift.</div>
     <div class="shutter"><div class="door"><span>SHUTTERED</span></div></div>
   </section>
 
@@ -145,23 +178,24 @@
   <section class="panel" id="p-camctl" style="left:16px;top:548px;width:540px;height:220px">
     <h2>ORB CONTROL <small id="camctlname"></small></h2>
     <div id="camlocked">
-      <div class="lbl">FOCUS LEVERS</div>
+      <div id="housing"><div class="lbl">HOUSING RUNE</div><div id="housingrune"></div></div>
+      <div><div class="lbl">FOCUS LEVERS</div>
       <div id="levers">
         <div class="lever" data-lever="wind"><span>WIND</span><button data-pos="UP">UP</button><button data-pos="MIDDLE">MID</button><button data-pos="DOWN">DOWN</button></div>
         <div class="lever" data-lever="temp"><span>TEMP</span><button data-pos="UP">UP</button><button data-pos="MIDDLE">MID</button><button data-pos="DOWN">DOWN</button></div>
-      </div>
+      </div></div>
       <div id="platebox">
         <div class="lbl">SERVO PLATES</div>
         <div id="plates"><button data-shape="CIRCLE"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14"/></svg></button><button data-shape="TRIANGLE"><svg viewBox="0 0 40 40"><path d="M20 5 L35 33 L5 33 Z"/></svg></button><button data-shape="SQUARE"><svg viewBox="0 0 40 40"><rect x="7" y="7" width="26" height="26"/></svg></button></div>
         <div id="platedots"><i></i><i></i><i></i></div>
-        <div id="camctlhint">Levers: WIND and AIR on the feed. Then the plates, in order.</div>
+        <div id="camctlhint">Levers from WIND and AIR on the feed. Plates in the order for the housing rune's house.</div>
       </div>
     </div>
     <div id="camopen" class="hidden">
       <button id="turnleft" class="turnbtn">◀</button>
-      <div id="camfacing"><div class="nixie big" id="facingnum">000°</div><div class="lbl" id="unlockleft">UNLOCKED</div></div>
+      <div id="camfacing"><div class="nixie big" id="facingnum">000°</div><div class="lbl" id="unlockleft">UNLOCKED</div><button id="zoombtn" class="small-btn">ZOOM ×2</button></div>
       <button id="turnright" class="turnbtn">▶</button>
-      <div id="camopenhint">Hold an arrow (or the left/right keys) to turn the orb.</div>
+      <div id="camopenhint">Hold an arrow (or ← →) to turn. Lock ice in view and hold it there to track its drift; a tracking orb follows its ice while you watch.</div>
     </div>
   </section>
 
@@ -239,6 +273,7 @@
     <div class="screen round"><canvas id="sonarcanvas" width="300" height="300"></canvas></div>
     <div id="sonarside">
       <button id="ping" class="bigbtn">PING</button>
+      <div id="strain"><span class="lbl">HEAD STRAIN</span><div id="strainbars"><i><em></em></i><i><em></em></i><i class="crack"><em></em></i></div><span id="strainmsg">COOL</span></div>
       <div class="lbl">ECHO PRINTOUT</div>
       <div class="paper"><canvas id="echocanvas" width="186" height="150"></canvas></div>
       <div id="echoinfo">Select a contact.</div>
@@ -285,7 +320,7 @@
       <button id="resumewatch" class="hidden"></button>
       <button id="begin">TAKE THE WATCH</button>
       <p class="small">Sound recommended · ▲ LOOK UP for the launcher, rune board and repair bay</p>
-      <p class="small keys">SPACE ping · 1–7 orbs · ↑ ↓ look · ← → turn orb · P pause · M mute</p>
+      <p class="small keys">SPACE ping · 1–7 orbs · ↑ ↓ look · L the cabin · ← → turn orb · P pause · M mute</p>
       <p class="small" id="introseed"></p>
     </div>
   </div>

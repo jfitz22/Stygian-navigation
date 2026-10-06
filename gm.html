@@ -41,7 +41,7 @@
   <button id="enter">ENTER</button>
   <div style="color:var(--dim);font-size:12px">Default passphrase: geryon (change it in gm.html)</div>
 </div>
-<header><h1>THE LAST WATCH · GM TRUTH VIEW</h1><span id="netbox" style="display:none">GAME CODE <input id="room" maxlength="4" size="5" style="text-transform:uppercase;letter-spacing:3px;width:70px"> <button id="joinroom">CONNECT</button> <span id="netstat"></span></span><a href="manual.html" target="_blank" style="color:var(--brass)">manual</a> <a href="manual2.html" target="_blank" style="color:var(--brass)">manual · 2nd edition</a><span id="status">waiting for the game tab...</span></header>
+<header><h1>THE LAST WATCH · GM TRUTH VIEW</h1><span id="netbox" style="display:none">GAME CODE <input id="room" maxlength="4" size="5" style="text-transform:uppercase;letter-spacing:3px;width:70px"> <button id="joinroom">CONNECT</button> <span id="netstat"></span></span><a href="books.html" target="_blank" style="color:var(--brass)">the three books</a> <a href="books.html?book=all" target="_blank" style="color:var(--brass)">GM copy</a><span id="status">waiting for the game tab...</span></header>
 <main>
   <div>
     <div class="tools"><b style="align-self:center;color:var(--brass)">CLICK THE MAP TO:</b>
@@ -73,6 +73,19 @@
         <button data-cmd="unseal">Unlock now</button>
         <button data-cmd="lights-normal">Lights back to normal</button>
         <button data-cmd="shutter-up">Raise the shutters</button>
+      </div>
+    </div>
+    <div class="box"><b>BREAK SOMETHING</b> <span style="color:var(--dim)">(the owner's flowchart fixes it)</span>
+      <div class="grid" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr">
+        <button data-break="furnace">Furnace grate</button>
+        <button data-break="fuse">Radio receiver</button>
+        <button data-break="scanner">Metal scanner</button>
+        <button data-break="winch">Buoy winch</button>
+        <button data-break="sonarhead">Sonar head</button>
+        <button data-break="launcher">Launcher</button>
+        <button data-break="cam">Orb on screen</button>
+        <button data-damper="low">Damper LOW</button>
+        <button data-damper="normal">Damper NORMAL</button>
       </div>
     </div>
     <div class="box"><b>RUNE EFFECTS</b> <span style="color:var(--dim)">(fire any of them now)</span>
@@ -134,6 +147,8 @@ const RUNES_GM = ['FUEL', 'COFFEE', 'COOLANT', 'DECOY', 'LAUNCH', 'PURGE', 'SHUT
 document.getElementById('runebtns').innerHTML = RUNES_GM.map(f => `<button data-rune="${f}">${f}</button>`).join('');
 document.querySelectorAll('[data-rune]').forEach(b => b.onclick = () => ch.postMessage({ cmd: 'rune', arg: { fn: b.dataset.rune } }));
 document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => ch.postMessage({ cmd: b.dataset.cmd }));
+document.querySelectorAll('[data-break]').forEach(b => b.onclick = () => { const id = b.dataset.break === 'cam' ? lastSnap && lastSnap.activeCam : b.dataset.break; if (id) ch.postMessage({ cmd: 'break', arg: { id } }); });
+document.querySelectorAll('[data-damper]').forEach(b => b.onclick = () => ch.postMessage({ cmd: 'damper', arg: { mode: b.dataset.damper } }));
 let tool = '';
 const toolBtns = document.querySelectorAll('[data-tool]');
 toolBtns.forEach(b => b.onclick = () => { tool = b.dataset.tool; toolBtns.forEach(x => x.classList.toggle('on', x === b)); });
@@ -248,7 +263,9 @@ function draw(s) {
     `<b>Scanner code now</b> (from the latest buoy reading): ${s.code ? s.code.map(i => RUNES[i].name).join(' → ') : 'no reading yet'}<br>` +
     `<b>Cabin wireless</b> (music on only): ${s.stations.map(st => `${st.freq} ${st.band}`).join(', ')}<br>` +
     `<b>Rune board</b> page ${s.board.page}: ${s.board.fns.join(' · ')}<br>` +
-    `<b>Camera unlock code</b> (for the camera on screen): levers WIND ${s.camCode.wind}, TEMP ${s.camCode.temp}; plates ${s.camCode.order.join(' → ')}${Object.keys(s.camUnlocked).length ? ' · unlocked: ' + Object.entries(s.camUnlocked).map(([k, v]) => k + ' ' + v + 's').join(', ') : ''}<br>` +
+    `<b>Orb unlock code</b> (the orb on screen): housing rune ${RUNES[s.camCode.rune].name} (${s.camCode.house}); levers WIND ${s.camCode.wind}, TEMP ${s.camCode.temp}; plates ${s.camCode.order.join(' → ')}${s.camUnlocked.length ? ' · unlocked: ' + s.camUnlocked.join(', ') : ''}<br>` +
+    `<b>Furnace</b>: ${s.furnaceState.lit ? `heat ${s.furnaceState.heat.toFixed(1)}, burning ${s.furnaceState.burn.toFixed(2)}/s, ${s.furnaceState.n} on` : 'out'} · damper ${s.furnaceState.damper.toUpperCase()} · shed order ${s.furnaceState.priority.join(' > ')}<br>` +
+    `<b>Sonar head</b>: ${s.sonarStrain.length} recent ping${s.sonarStrain.length === 1 ? '' : 's'} (three in 20 s cracks it)<br>` +
     `<b>Broken</b>: ${s.broken.length ? s.broken.join(', ') : 'nothing'}<br>` +
     `<b>Case board</b>: ${s.cases.length ? s.cases.map(c => `#${c.num}${c.permanent ? '' : ' (temp)'} ${c.verdict}`).join(' · ') : 'empty'}`;
   for (const [k, v] of Object.entries(s.levers)) { const inp = document.querySelector(`[data-lever=${k}]`); if (inp && document.activeElement !== inp) { inp.value = v; document.getElementById('lv-' + k).textContent = Number(v).toFixed(2) + '×'; } }
