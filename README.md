@@ -2,10 +2,10 @@
 
 ![The Last Watch, mid-game](docs/screenshot.png)
 
-A 20-minute observatory minigame for a D&D session in Stygia. One player works the machine on stream; four players hold the Operations Manual and decode what it says. Find Elgarz, prove it, mark it with a green beacon.
+A 20-minute observatory minigame for a D&D session in Stygia. One player works the machine on stream; three officers each hold one book of the Operations Manual (Engineering, Gunnery, Signals) and decode what it says. No job can be done from one book. Find Elgarz, prove it, mark it with a green beacon.
 
 - **Play:** `index.html` (add `?seed=1234` to replay a particular sea; without it every watch is a fresh one)
-- **Operations Manual** (save as PDF for the crew): `manual.html` (first edition) and `manual2.html` (second edition: the diagram book, US Letter)
+- **Operations Manual** (print or save as PDF, US Letter): `books.html?book=engineer`, `?book=gunnery`, `?book=signals`, and `?book=all` for the GM. Each book opens with the same orientation pages.
 - **GM truth view** (your screen only, passphrase `geryon`): `gm.html`
 - **Design:** [docs/design.md](docs/design.md)
 

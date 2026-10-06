@@ -3,9 +3,13 @@ import {
   ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
   saveWorld, loadWorld, pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, inShoal, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
+  setDamper, setPriority, furnaceState, sonarStrain, repairWorking,
 } from './sim.js';
 import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES, SHOALS, SIZE_CUT } from './scenario.js';
-import { glyphSVG, gaugeSVG, repairAction, echoAt, ECHO_W } from './glyphs.js';
+import { glyphSVG, echoAt, ECHO_W } from './glyphs.js';
+import { makeRepairBoard, repairAction, ownerOf, DEPTS } from './repair.js';
+import { drawFurnaceLog, furnaceNumbers, N_COLOR } from './furnacelog.js';
+import * as ck from './checkers.js';
 import * as audio from './audio.js';
 import { openLink, newRoomCode, cleanCode, NET_ENABLED } from './link.js';
 import { checkPassword, keyboardOnly, WRONG_TRIES } from './password.js';
@@ -26,6 +30,7 @@ const ui = {
   coffee: 0, brewing: false,
   camHits: [],
   repair: {},              // system id -> repair board
+  zoom: {},                // camera id -> true while zoomed in
   repairSel: null,
   noteCorner: 0,
   tickerQ: [],             // GM messages waiting for the wire service
@@ -77,17 +82,25 @@ function note(text) {
   n.onclick = () => n.remove();
   box.appendChild(n); audio.sfx.buoy();
 }
-function look(up) { $('stage').classList.toggle('up', up); audio.sfx.clunk(); }
-$('lookup').onclick = () => look(true);
-$('gofire').onclick = () => look(true);
-$('lookdown').onclick = () => look(false);
+// Look up (the overhead deck), down (the main board) or left (the cabin).
+function look(where) {
+  if (where === true) where = 'up'; if (where === false) where = 'main';
+  $('stage').classList.toggle('up', where === 'up'); $('stage').classList.toggle('left', where === 'left'); audio.sfx.clunk();
+}
+const lookingLeft = () => $('stage').classList.contains('left');
+$('lookup').onclick = () => look('up');
+$('gofire').onclick = () => look('up');
+$('lookdown').onclick = () => look('main');
+$('lookleft').onclick = () => look('left');
+$('lookback').onclick = () => look('main');
 const togglePause = () => gm(world, 'pause');
 $('pausebtn').onclick = togglePause;
 $('resume').onclick = () => { if (world.paused) togglePause(); };
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'ArrowUp') look(true);
-  if (e.key === 'ArrowDown') look(false);
+  if (e.key === 'ArrowUp') look('up');
+  if (e.key === 'ArrowDown') look('main');
+  if (e.key === 'l' || e.key === 'L') look(lookingLeft() ? 'main' : 'left');
   if (e.key === 'p' || e.key === 'P') togglePause();
   if (!ui.started || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === ' ') { e.preventDefault(); document.activeElement && document.activeElement.blur(); ping(world); }
@@ -96,10 +109,10 @@ addEventListener('keydown', e => {
 
 // ---------- intro / sound ----------
 const SAVE_KEY = 'lastwatch-save:' + location.pathname;
-function readSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 7 && s.w ? s : null; } catch (e) { return null; } }
+function readSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 8 && s.w ? s : null; } catch (e) { return null; } }
 function writeSave() {
   if (!ui.started) return;
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 7, seed: world.seed, t: world.t, w: saveWorld(world), log: ui.log, notesGone: ui.notesGone })); } catch (e) { /* storage full or blocked: carry on unsaved */ }
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, seed: world.seed, t: world.t, w: saveWorld(world), log: ui.log, notesGone: ui.notesGone, checkers: game })); } catch (e) { /* storage full or blocked: carry on unsaved */ }
 }
 function takeWatch() { audio.unlock(); $('intro').classList.add('hidden'); audio.sfx.click(); ui.started = true; writeSave(); }
 const saved = readSave(), seedParam = Number(params.get('seed'));
@@ -112,6 +125,7 @@ if (saved && (!seedParam || seedParam === saved.seed)) {
     for (const k of Object.keys(world)) delete world[k];
     Object.assign(world, w);
     ui.log = saved.log || []; ui.notesGone = saved.notesGone || [];
+    if (saved.checkers && saved.checkers.board) { Object.assign(game, saved.checkers); game.t0 = world.t; ckKey = ''; }
     document.querySelectorAll('#jnotes .jnote').forEach(n => { if (ui.notesGone.includes(n.dataset.k)) n.remove(); });
     $('watchno').innerHTML = 'WATCH<br>No. ' + world.seed;
     takeWatch();
@@ -133,7 +147,7 @@ addEventListener('keydown', e => { if ((e.key === 'm' || e.key === 'M') && e.tar
 $('ignite').onclick = () => light(world);
 $('mug').onclick = () => sip(world);
 $('stoke').onclick = () => stoke(world);
-const SYS_LABEL = { cameras: 'ORBS', sonar: 'SONAR', radio: 'RADIO', scanner: 'SCANNER', currents: 'CURRENTS' };
+const SYS_LABEL = { cameras: 'ORBS', sonar: 'SONAR', radio: 'RADIO', scanner: 'SCANNER', currents: 'CURRENTS', repair: 'REPAIR' };
 for (const s of SYSTEMS) {
   const d = document.createElement('div'); d.className = 'sw'; d.id = 'sw-' + s;
   d.innerHTML = `<div class="lamp"></div><div class="slot"><div class="knob"></div></div><div>${SYS_LABEL[s]}</div>`;
@@ -155,23 +169,7 @@ $('camcanvas').addEventListener('click', e => {
 });
 
 // ---------- repair bay ----------
-const GAUGES = ['LOW', 'MIDDLE', 'HIGH', 'RED'], LAMPS = ['R', 'W', 'B', 'D'];
-function makeBoard() {
-  const r = Math.random;
-  let rows;
-  do {
-    rows = [];
-    for (let i = 0; i < 5; i++) {
-      const g = r(), gauge = g < 0.3 ? 'LOW' : g < 0.6 ? 'MIDDLE' : g < 0.85 ? 'HIGH' : 'RED';
-      rows.push({ gauge, lamp: LAMPS[Math.floor(r() * 4)], set: null });
-    }
-    // at least two rows must need closing or cutting, and at least one stays open
-    // every board has at least one CUT and at least one CLOSE
-  } while (!rows.some(x => correctAction(x) === 'CUT') || !rows.some(x => correctAction(x) === 'CLOSE'));
-  return { rows, lockUntil: 0 };
-}
-// The manual's repair rules: first rule that fits; if none fits, leave it OPEN.
-const correctAction = repairAction;
+// Every machine shows the same kind of board; its owner's book has the flowchart that reads it.
 let repairKey = '';
 function drawRepairBay() {
   const list = brokenList(world);
@@ -193,26 +191,33 @@ function drawRepairBay() {
   if (!ui.repairSel) { if (el.dataset.ver !== 'none') { el.dataset.ver = 'none'; el.innerHTML = '<div class="rb-sub" style="margin-top:20px">Nothing is broken. Long may it last.</div>'; } return; }
   const item = list.find(x => x.id === ui.repairSel);
   if (world.repairs[item.id]) {
-    el.dataset.ver = 'busy';
-    el.innerHTML = `<div class="rb-title">REPAIR CREW AT WORK</div><div class="rb-sub">${item.name} back in service in ${Math.ceil(world.repairs[item.id] - world.t)}s</div>`;
+    const working = repairWorking(world, item.id), ver = 'busy' + working + Math.ceil(world.repairs[item.id] - world.t);
+    if (el.dataset.ver === ver) return;
+    el.dataset.ver = ver;
+    el.innerHTML = working
+      ? `<div class="rb-title">REPAIR CREW AT WORK</div><div class="rb-sub">${item.name} back in service in ${Math.ceil(world.repairs[item.id] - world.t)}s</div>`
+      : `<div class="rb-title">REPAIR CREW WAITING</div><div class="rb-sub">The repair bay has no power. Switch REPAIR on at the furnace and they carry on.</div>`;
     return;
   }
-  let b = ui.repair[item.id]; if (!b) b = ui.repair[item.id] = makeBoard();
+  let b = ui.repair[item.id]; if (!b) { b = ui.repair[item.id] = makeRepairBoard(ownerOf(item.id)); b.lockUntil = 0; }
   const ver = item.id + ':' + (b.ver || 0);
   if (el.dataset.ver === ver) return;
   el.dataset.ver = ver;
-  el.innerHTML = `<div class="rb-title">${item.name}: BROKEN</div>
-    <div class="rb-sub">Set every conduit, then send the repair crew. The Operations Manual knows the rules.</div>
+  el.innerHTML = `<div class="rb-title">${item.name}: BROKEN <span class="rb-dept">${DEPTS[b.dept]} FLOWCHART</span></div>
+    <div class="rb-sub">Set every conduit, then send the crew. ${item.id === 'furnace' ? 'The grate is mended by hand: no power needed.' : 'The crew needs the REPAIR switch on.'}</div>
     <div class="rb-rows">${b.rows.map((r, i) => `
-      <div class="rb-row g2"><b>${i + 1}</b>${gaugeSVG(r.gauge)}<span class="rlamp ${r.lamp}"></span>
+      <div class="rb-row r11"><b>${i + 1}</b>
+        <span class="rlights">${r.lights.map(l => `<span class="rlamp ${l}"></span>`).join('')}</span>
+        <span class="rgauge"><b>${String(r.gauge).padStart(2, '0')}</b><i><em style="width:${r.gauge}%"></em></i></span>
+        <span class="rcode">${r.code}</span>
         <div class="act">${['OPEN', 'CLOSE', 'CUT'].map(a => `<button data-i="${i}" data-a="${a}" class="${r.set === a ? 'sel' : ''}">${a}</button>`).join('')}</div>
       </div>`).join('')}</div>
     <button class="rb-go">SEND THE REPAIR CREW</button>`;
   el.querySelectorAll('.act button').forEach(btn => btn.onclick = () => { b.rows[+btn.dataset.i].set = btn.dataset.a; b.ver = (b.ver || 0) + 1; audio.sfx.click(); });
   el.querySelector('.rb-go').onclick = () => {
     if (world.t < b.lockUntil) return;
-    const wrong = b.rows.filter(r => r.set !== correctAction(r));
-    if (!wrong.length) { startRepair(world, item.id); delete ui.repair[item.id]; el.dataset.ver = ''; }
+    const wrong = b.rows.filter(r => r.set !== repairAction(b.dept, r));
+    if (!wrong.length) { if (startRepair(world, item.id)) { delete ui.repair[item.id]; el.dataset.ver = ''; } }
     else { wrong.forEach(r => r.set = null); b.lockUntil = world.t + 4; b.ver = (b.ver || 0) + 1; badRepair(world); toast(`SPARKS! ${wrong.length} CONDUIT${wrong.length > 1 ? 'S' : ''} WRONG. THEY HAVE RESET.`); }
   };
 }
@@ -498,6 +503,9 @@ function drawCamera() {
   $('camoff').classList.toggle('hidden', up);
   $('camdead').classList.toggle('hidden', !(up && cam.broken));
   ui.camHits = [];
+  const open = camIsUnlocked(world, cam.id);
+  if (!open) ui.zoom[cam.id] = false;
+  const Z = ui.zoom[cam.id] ? 2 : 1;
   const sky = ctx.createLinearGradient(0, 0, 0, HORIZON); sky.addColorStop(0, '#04110e'); sky.addColorStop(1, '#16302c');
   ctx.fillStyle = sky; ctx.fillRect(0, 0, Wd, HORIZON);
   for (let k = 0; k < 3; k++) {
@@ -516,19 +524,19 @@ function drawCamera() {
     for (let k = -3; k <= 3; k++) {
       const a = Math.atan2(s.x - cam.x, -(s.y - cam.y)) + k * 0.06;
       let rel = a - cam.facing * Math.PI / 180; while (rel > Math.PI) rel -= 2 * Math.PI; while (rel < -Math.PI) rel += 2 * Math.PI;
-      if (Math.abs(rel) > T.camFov / 2) continue;
-      const sx = Wd / 2 + (rel / (T.camFov / 2)) * (Wd / 2), base = HORIZON + 3600 / Math.max(60, d), hgt = 14 + ((k * 7 + 11) % 9) * 3;
+      if (Math.abs(rel) > T.camFov / 2 / Z) continue;
+      const sx = Wd / 2 + (rel / (T.camFov / 2 / Z)) * (Wd / 2), base = HORIZON + 3600 / Math.max(60, d), hgt = (14 + ((k * 7 + 11) % 9) * 3) * Z;
       ctx.fillStyle = 'rgba(28,24,22,.9)'; ctx.beginPath(); ctx.moveTo(sx - 18, base); ctx.lineTo(sx - 6, base - hgt); ctx.lineTo(sx + 3, base - hgt * 0.6); ctx.lineTo(sx + 9, base - hgt * 0.9); ctx.lineTo(sx + 20, base); ctx.fill();
     }
   }
-  const items = cameraView(world, cam);
-  const hf = T.camFov / 2;
+  const hf = T.camFov / 2 / Z;
+  const items = cameraView(world, cam).filter(it => Math.abs(it.rel) <= hf + 0.15 / Z);
   for (const it of items) {
     const sx = Wd / 2 + (it.rel / hf) * (Wd / 2), d = Math.max(it.d, 15);
     const base = HORIZON + 3600 / d, fog = Math.min(0.5, (d / T.camRange) * 0.55);
     if (it.kind === 'remorhaz') { drawRemorhaz(ctx, sx, base, d, t, it.o.phase); continue; }
     if (it.kind === 'tomb') { drawTomb(ctx, sx, base, d, fog); continue; }
-    const b = it.o, width = Math.min(520, b.length * 4200 / d), hScale = Math.min(160, b.large ? width * 0.22 : width * 0.55);
+    const b = it.o, width = Math.min(520 * Z, b.length * 4200 * Z / d), hScale = Math.min(160 * Z, b.large ? width * 0.22 : width * 0.55);
     const x0 = sx - width / 2;
     if (world.reveal && world.reveal.bergId === b.id) drawReveal(ctx, sx, base, width, t - world.reveal.t);
     ctx.beginPath(); ctx.moveTo(x0, base);
@@ -574,20 +582,20 @@ function drawCamera() {
     ctx.fillRect(x, 0, 1, 6); ctx.fillText(String(((b % 360) + 360) % 360).padStart(3, '0'), x, 17);
   }
   ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.moveTo(Wd / 2 - 5, 0); ctx.lineTo(Wd / 2 + 5, 0); ctx.lineTo(Wd / 2, 7); ctx.fill(); ctx.fillStyle = 'rgba(232,207,152,.8)';
-  ctx.textAlign = 'left'; ctx.fillText('● REC ' + fmt(t), 8, Ht - 8);
+  ctx.textAlign = 'left'; ctx.fillText('● REC ' + fmt(t) + (Z > 1 ? '   ZOOM ×2' : ''), 8, Ht - 8);
   // weather station on the post: what the camera control levers are set from
   { const wx = camWeather(world, cam);
     ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(Wd - 196, 24, 188, 22);
     ctx.fillStyle = '#9ad0ff'; ctx.font = '600 12px IBM Plex Mono'; ctx.textAlign = 'right';
     ctx.fillText(`WIND ${wx.windKn} kn · AIR ${wx.air}°`, Wd - 14, 40); ctx.textAlign = 'left'; }
   const lk = world.lock, lb = lockedBerg(world);
-  if (lk && lb && up && cameraView(world, cam).some(it => it.o === lb)) {
-    const done = lk.track && lk.track.cam === cam.id && t - lk.track.t < 1.5, k = lk.trackSince != null ? Math.min(1, (t - lk.trackSince) / T.trackTime) : 0;
-    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(8, 24, 300, 40);
-    ctx.fillStyle = done ? '#5cff9d' : '#ffb347'; ctx.font = '600 12px IBM Plex Mono';
-    ctx.fillText(done ? `TRACKING #${lb.num} ✓ DRIFT MEASURED` : `TRACKING #${lb.num} · MEASURING DRIFT ${Math.round(k * 100)}%`, 14, 40);
+  if (lk && lb && up && items.some(it => it.o === lb)) {
+    const done = lk.track && lk.track.cam === cam.id && t - lk.track.t < 1.5, k = lk.trackSince != null ? Math.min(1, (t - lk.trackSince) / (T.trackTime * (world.damper === 'low' ? T.damperSlow : 1))) : 0;
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(8, 24, 330, 40);
+    ctx.fillStyle = !open ? '#cfc6ab' : done ? '#5cff9d' : '#ffb347'; ctx.font = '600 12px IBM Plex Mono';
+    ctx.fillText(!open ? `#${lb.num} IN VIEW · UNLOCK THE ORB TO TRACK IT` : done ? `TRACKING #${lb.num} ✓ DRIFT MEASURED` : `TRACKING #${lb.num} · MEASURING DRIFT ${Math.round(k * 100)}%`, 14, 40);
     const L = Math.round(lb.length); ctx.fillStyle = L <= SIZE_CUT ? '#ff6a5a' : '#e8dfc6';
-    ctx.fillText(L <= SIZE_CUT ? `SIZE ≈${L} mi · UNDER 20 · NOT ELGARZ` : `SIZE ≈${L} mi`, 14, 57);
+    ctx.fillText(`SIZE ≈${L} mi`, 14, 57);
   }
 }
 function drawReveal(ctx, sx, base, width, k) {
@@ -695,8 +703,13 @@ sonCv.addEventListener('click', e => {
   if (best) selectContact(best);
 });
 function drawSonar() {
-  const ctx = sctx, t = world.t, up = isUp(world, 'sonar');
-  $('sonaroff').classList.toggle('hidden', up); $('sonaroff').textContent = world.power.sonar.on ? 'WARMING UP' : 'NO POWER';
+  const ctx = sctx, t = world.t, up = isUp(world, 'sonar'), cracked = world.broken.sonarhead;
+  $('sonaroff').classList.toggle('hidden', up && !cracked);
+  $('sonaroff').innerHTML = cracked ? 'SONAR HEAD CRACKED<br><small>REPAIR IT ON THE OVERHEAD DECK ▲</small>' : world.power.sonar.on ? 'WARMING UP' : 'NO POWER';
+  const strain = sonarStrain(world).sort((a, b) => b - a), bars = $('strainbars').children;
+  for (let i = 0; i < bars.length; i++) bars[i].firstElementChild.style.width = ((strain[i] || 0) * 100).toFixed(0) + '%';
+  $('strain').classList.toggle('hot', strain.length >= T.sonarStrainPings - 1);
+  $('strainmsg').textContent = strain.length >= T.sonarStrainPings - 1 ? 'ONE MORE PING NOW CRACKS IT' : strain.length ? 'EASING OFF' : 'COOL';
   ctx.fillStyle = 'rgba(2,10,6,.35)'; ctx.fillRect(0, 0, 300, 300);
   ctx.strokeStyle = 'rgba(92,255,157,.18)';
   for (const r of [SON_R / 3, SON_R * 2 / 3, SON_R]) { ctx.beginPath(); ctx.arc(150, 150, r, 0, 7); ctx.stroke(); }
@@ -764,7 +777,7 @@ function drawEcho() {
   ctx.fillText(e.temp != null ? `WATER ${e.temp}°` : 'WATER --', 4, 12);
   ctx.textAlign = 'right'; ctx.fillText(`#${b ? b.num : '?'} · ${Math.round(c.length)} mi`, EW - 4, 12);
   ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText(`PING ${fmt(c.tS)}`, 4, EH - 6);
-  $('echoinfo').innerHTML = `Contact pinged at <b>${fmt(c.tS)}</b> in <b>${gridRef(c.x, c.y)}</b>. Length ≈ <b>${Math.round(c.length)} mi</b>${Math.round(c.length) <= SIZE_CUT ? ' · <b style="color:var(--threat)">UNDER 20 · NOT ELGARZ</b>' : ''}`;
+  $('echoinfo').innerHTML = `Contact pinged at <b>${fmt(c.tS)}</b> in <b>${gridRef(c.x, c.y)}</b>. Length ≈ <b${Math.round(c.length) <= SIZE_CUT ? ' style="color:var(--threat)"' : ''}>${Math.round(c.length)} mi</b>`;
 }
 
 // ---------- radio ----------
@@ -779,7 +792,7 @@ const WAVE = {
 };
 function drawRadio() {
   const up = isUp(world, 'radio'), sig = radioSignal(world), t = world.t, ctx = rctx;
-  $('radiooff').classList.toggle('hidden', up); $('radiooff').innerHTML = world.broken.fuse ? 'FUSE BLOWN<br><small style="font-size:12px;letter-spacing:2px">REPAIR IT IN THE REPAIR BAY →</small>' : world.power.radio.on ? 'WARMING UP' : 'NO POWER';
+  $('radiooff').classList.toggle('hidden', up); $('radiooff').innerHTML = world.broken.fuse ? 'RECEIVER BURNT OUT<br><small style="font-size:12px;letter-spacing:2px">REPAIR IT IN THE REPAIR BAY →</small>' : world.power.radio.on ? 'WARMING UP' : 'NO POWER';
   $('freq').textContent = world.radio.freq.toFixed(1);
   if (document.activeElement !== $('freqslider')) $('freqslider').value = world.radio.freq;
   if (document.activeElement !== $('gain')) $('gain').value = world.radio.gain;
@@ -822,7 +835,7 @@ const alCv = $('aligncanvas'), actx = alCv.getContext('2d');
 let padKey = '';
 function drawScanner() {
   const up = isUp(world, 'scanner');
-  $('scanoff').classList.toggle('hidden', up); $('scanoff').textContent = world.power.scanner.on ? 'WARMING UP' : 'NO POWER';
+  $('scanoff').classList.toggle('hidden', up); $('scanoff').innerHTML = world.broken.scanner ? 'SCANNER FUSE BLOWN<br><small style="font-size:12px;letter-spacing:2px">REPAIR IT IN THE REPAIR BAY ↑</small>' : world.power.scanner.on ? 'WARMING UP' : 'NO POWER';
   const a = scannerReach(world, lockedBerg(world)), ctx = actx;
   ctx.clearRect(0, 0, 200, 130);
   ctx.lineWidth = 10;
@@ -912,6 +925,7 @@ function drawLock() {
 // ---------- camera control (overhead deck) ----------
 document.querySelectorAll('.lever button').forEach(b => b.onclick = () => setLever(world, b.parentElement.dataset.lever, b.dataset.pos));
 document.querySelectorAll('#plates button').forEach(b => b.onclick = () => pressPlate(world, b.dataset.shape));
+$('zoombtn').onclick = () => { const id = world.activeCam; ui.zoom[id] = !ui.zoom[id]; audio.sfx.click(); };
 for (const [id, dir] of [['turnleft', -1], ['turnright', 1]]) {
   const b = $(id);
   const start = e => { e.preventDefault(); setCamTurn(world, dir); b.classList.add('held'); audio.sfx.turn(); };
@@ -931,14 +945,18 @@ function drawCamCtl() {
   $('camlocked').classList.toggle('hidden', open); $('camopen').classList.toggle('hidden', !open);
   if (open) {
     $('facingnum').textContent = String(Math.round(cam.facing) % 360).padStart(3, '0') + '°';
-    $('unlockleft').textContent = 'UNLOCKED UNTIL IT BREAKS';
+    const lk = world.lock, following = lk && lk.track && lk.track.cam === cam.id;
+    $('unlockleft').textContent = following ? 'FOLLOWING ITS ICE' : 'UNLOCKED UNTIL IT BREAKS';
+    $('zoombtn').classList.toggle('on', !!ui.zoom[cam.id]); $('zoombtn').textContent = ui.zoom[cam.id] ? 'ZOOM ×2 · ON' : 'ZOOM ×2';
     return;
   }
+  const rid = world.camRune[cam.id];
+  if ($('housingrune').dataset.r !== String(rid)) { $('housingrune').dataset.r = rid; $('housingrune').innerHTML = glyphSVG(rid, 58); }
   document.querySelectorAll('.lever').forEach(l => l.querySelectorAll('button').forEach(b => b.classList.toggle('sel', p[l.dataset.lever] === b.dataset.pos)));
   document.querySelectorAll('#platedots i').forEach((d, i) => d.classList.toggle('on', i < p.pressed.length));
   const bad = world.t < p.lockout;
   $('camctlhint').classList.toggle('bad', bad);
-  $('camctlhint').textContent = bad ? 'WRONG CODE · THE SERVOS ARE RESETTING' : 'Levers: WIND and AIR on the feed. Then the plates, in order.';
+  $('camctlhint').textContent = bad ? 'WRONG CODE · THE SERVOS ARE RESETTING' : 'Levers from WIND and AIR on the feed. Plates in the order for the housing rune\'s house.';
 }
 
 // ---------- rune board ----------
@@ -1008,7 +1026,7 @@ function drawCases() {
 // ---------- Jerry's notes (and GM handouts) ----------
 const NOTE_AT = {   // positions on the rig, chosen to sit on empty space rather than controls
   checklist: [1120, 822], orbs: [40, 1080], orbctl: [360, 1452], sonar: [1716, 1490], furnace: [26, 1580], scanner: [1730, 610],
-  radio: [250, 404], runes: [880, 500], case: [1700, 1080], chart: [1100, 900], launcher: [430, 70], currents: [1700, 1750],
+  radio: [250, 404], runes: [880, 500], case: [1700, 1080], chart: [1100, 900], launcher: [430, 70], currents: [1700, 1750], cabin: [-700, 1690],
 };
 const JERRY = [
   ['orbs', "Remorhaz smell the heat of the scrying orbs. Look away when you're not using one."],
@@ -1016,8 +1034,9 @@ const JERRY = [
   ['sonar', "Every ping rings the Grindmaw's dinner bell. Ping, then MOVE the buoy."],
   ['furnace', 'Two shovels. NEVER three. Fill the chute from the rune board first.'],
   ['scanner', 'Scanner rides on the buoy. Ice has to be near the buoy. Re-set it when the weather turns.'],
-  ['radio', 'Gain DOWN, Jerry. Two fuses this week.'],
+  ['radio', 'Gain DOWN, Jerry. Two receivers this week.'],
   ['runes', 'Runes change every page. CHECK THE BOOK, Jerry.'],
+  ['cabin', "Your move. Don't keep me waiting. I get bored. I press things. —J."],
 ];
 function jnote(at, text, gmNote = false) {
   const [x, y] = NOTE_AT[at] || NOTE_AT.chart;
@@ -1298,6 +1317,8 @@ function drawPower() {
 
 // ---------- events ----------
 const camName = id => world.cams.find(c => c.id === id).name;
+const BROKE_MSG = { launcher: 'THE BEACON LAUNCHER JAMMED', fuse: 'THE RADIO RECEIVER BURNT OUT', winch: 'THE BUOY WINCH IS BROKEN', furnace: 'THE GRATE CRACKED',
+  scanner: 'THE METAL SCANNER BLEW ITS FUSE', sonarhead: 'THE SONAR HEAD CRACKED · TOO MANY PINGS' };
 function handleEvents() {
   for (const e of world.events) {
     switch (e.type) {
@@ -1306,7 +1327,10 @@ function handleEvents() {
       case 'stoke': audio.sfx.stoke(); break;
       case 'blowout': audio.sfx.blowout(); audio.setHum(0); toast('THE FURNACE BLEW OUT · EVERYTHING IS DARK'); break;
       case 'furnaceout': audio.sfx.buoydead(); audio.setHum(0); toast('THE FURNACE HAS GONE OUT · RELIGHT IT'); break;
-      case 'brownout': audio.sfx.clunk(); toast(`NOT ENOUGH HEAT · ${e.sys.toUpperCase()} SHUT DOWN`); break;
+      case 'brownout': audio.sfx.alarm(); toast(`HEAT TOO LOW · ${SYS_LABEL[e.sys]} SWITCHED OFF (LOWEST PRIORITY)`); break;
+      case 'damper': audio.sfx.clunk(); toast(e.mode === 'low' ? 'DAMPER LOW · SLOWER BURN, SLOWER SYSTEMS' : 'DAMPER NORMAL', 'info'); break;
+      case 'priority': audio.sfx.click(); break;
+      case 'buoystorm': audio.sfx.alarm(); toast(`A STORM IS OVER THE BUOY · MOVE IT WITHIN ${T.buoyStormTime} S OR LOSE IT`); break;
       case 'power': audio.sfx.clunk(); break;
       case 'buoy': audio.sfx.buoy(); break;
       case 'ping': audio.sfx.ping(); break;
@@ -1322,14 +1346,14 @@ function handleEvents() {
       case 'reveal': audio.sfx.reveal(); toast(`GREEN BEACON STRUCK #${e.num} · THE ICE IS BLAZING BLUE`, 'info'); break;
       case 'miss': audio.sfx.miss(); toast(e.wild ? 'THE WILD BEACON SPLASHED INTO OPEN WATER' : `MISSED #${e.num}${e.by != null ? ' BY ' + e.by + ' MI' : ''} · SEE THE LAUNCHER REPORT ▲`); break;
       case 'sharkhunt': audio.sfx.sharkhunt(); toast('THE GRINDMAW HEARD THE PING · IT IS COMING'); break;
-      case 'buoydead': audio.sfx.buoydead(); toast(e.who === 'tom' ? 'OLD TOM TOOK THE BUOY · REPAIR THE WINCH ▲' : e.who === 'monster' ? 'THE MONSTER TOOK THE BUOY · REPAIR THE WINCH ▲' : 'THE GRINDMAW TOOK THE BUOY · REPAIR THE WINCH ▲'); break;
+      case 'buoydead': ui.buoyDeadAt = world.t; audio.sfx.buoydead(); toast(e.who === 'storm' ? 'THE STORM TORE THE BUOY LOOSE · REPAIR THE WINCH ▲' : e.who === 'tom' ? 'OLD TOM TOOK THE BUOY · REPAIR THE WINCH ▲' : e.who === 'monster' ? 'THE MONSTER TOOK THE BUOY · REPAIR THE WINCH ▲' : 'THE GRINDMAW TOOK THE BUOY · REPAIR THE WINCH ▲'); break;
       case 'monster': audio.sfx.sharkhunt(); toast(`SOMETHING WAS FROZEN IN #${e.num} · IT IS LOOSE AND SWIMMING FOR THE BUOY`); break;
       case 'monsterfade': audio.sfx.buoy(); toast(e.fed ? 'THE MONSTER SINKS AWAY, FED' : 'THE MONSTER LOST THE BUOY AND SANK AWAY', e.fed ? '' : 'info'); break;
       case 'remorhaz': if (world.activeCam === e.cam) audio.sfx.remorhaz(); break;
       case 'camdead': audio.sfx.camdead(); toast(`${camName(e.cam)} ORB DESTROYED`); break;
       case 'repairstart': audio.sfx.click(); toast('REPAIR CREW SENT', 'info'); break;
       case 'repaired': audio.sfx.repaired(); toast((world.cams.find(c => c.id === e.id) ? camName(e.id) + ' ORB' : BREAKABLE[e.id]) + ' REPAIRED', 'info'); break;
-      case 'broke': audio.sfx.camdead(); if (e.sys === 'launcher') toast('THE BEACON LAUNCHER JAMMED · REPAIR BAY ▲'); if (e.sys === 'fuse') toast('THE RADIO FUSE BLEW · REPAIR BAY ▲'); if (e.sys === 'winch') toast('THE GRINDMAW TORE THE WINCH CABLE · REPAIR BAY ▲'); if (e.sys === 'furnace') toast('THE GRATE CRACKED · REPAIR BAY ▲'); break;
+      case 'broke': audio.sfx.camdead(); if (e.sys !== 'winch' || ui.buoyDeadAt !== world.t) toast(BROKE_MSG[e.sys] + ' · REPAIR BAY ▲'); break;
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
       case 'driftlog': toast(`DRIFT LOG RUNNING ON #${e.num} · SELECT IT ON THE CASE BOARD TO SEE ITS PATH`, 'info'); break;
@@ -1340,7 +1364,7 @@ function handleEvents() {
       case 'pressure': audio.sfx.alarm(); toast('THE WIND IS RISING · STORMS WILL COME MORE OFTEN'); break;
       case 'tomwakes': audio.sfx.sharkhunt(); toast('SOMETHING ELSE IS IN THE WATER · OLD TOM HAS WOKEN'); break;
       case 'fusewarn': audio.sfx.alarm(); toast('RADIO FUSE OVERHEATING · LOWER THE GAIN'); break;
-      case 'tracked': audio.sfx.lock(); toast(`ORB TRACKING #${e.num} · DRIFT MEASURED · NO BUOY NEEDED`, 'info'); break;
+      case 'tracked': audio.sfx.lock(); toast(`ORB TRACKING #${e.num} · DRIFT MEASURED`, 'info'); break;
       case 'camunlocked': audio.sfx.calibrated(); toast(camName(e.cam) + ' ORB UNLOCKED', 'info'); break;
       case 'camfail': audio.sfx.runefail(); break;
       case 'plate': case 'lever': audio.sfx.click(); break;
@@ -1376,6 +1400,99 @@ function handleEvents() {
 }
 $('wincontinue').onclick = () => { $('winscreen').classList.add('hidden'); $('cutscene').classList.add('hidden'); cut = null; };
 $('ping').onclick = () => ping(world);
+
+// ---------- the cabin (look left): the furnace log and Jerry's checkers ----------
+document.querySelectorAll('#damper button').forEach(b => b.onclick = () => setDamper(world, b.dataset.m));
+let prioKey = '', dragSys = null;
+function drawPriority() {
+  const key = world.priority.join() + '|' + SYSTEMS.map(s => world.power[s].on ? 1 : 0).join('');
+  if (key === prioKey) return;
+  prioKey = key;
+  const el = $('prio'); el.innerHTML = '';
+  world.priority.forEach((s, i) => {
+    const li = document.createElement('li'); li.draggable = true; li.dataset.s = s;
+    li.innerHTML = `<span class="grip">≡</span><b>${i + 1}</b><span class="nm">${SYS_LABEL[s]}</span><i class="${world.power[s].on ? 'on' : ''}"></i><button data-d="-1">▲</button><button data-d="1">▼</button>`;
+    li.querySelectorAll('button').forEach(btn => btn.onclick = () => { const p = [...world.priority], j = i + Number(btn.dataset.d); if (j < 0 || j >= p.length) return; [p[i], p[j]] = [p[j], p[i]]; setPriority(world, p); });
+    li.addEventListener('dragstart', () => { dragSys = s; li.classList.add('drag'); });
+    li.addEventListener('dragend', () => { dragSys = null; li.classList.remove('drag'); });
+    li.addEventListener('dragover', e => e.preventDefault());
+    li.addEventListener('drop', e => { e.preventDefault(); if (!dragSys || dragSys === s) return; const p = world.priority.filter(x => x !== dragSys); p.splice(p.indexOf(s) + (world.priority.indexOf(dragSys) < i ? 1 : 0), 0, dragSys); setPriority(world, p); });
+    el.appendChild(li);
+  });
+}
+let flogAt = 0;
+function drawCabin() {
+  if (!lookingLeft() && world.t - flogAt < 2) return;   // out of sight: keep it fresh, but cheaply
+  flogAt = world.t;
+  const fs = furnaceState(world);
+  const nums = furnaceNumbers(fs); if ($('flognums').innerHTML !== nums) $('flognums').innerHTML = nums;
+  drawFurnaceLog($('flogcanvas'), fs);
+  document.querySelectorAll('#damper button').forEach(b => b.classList.toggle('sel', b.dataset.m === world.damper));
+  drawPriority();
+  drawCheckers();
+}
+// Jerry plays checkers between shifts. He thinks for a few seconds after your move; leave him waiting too long and
+// he gets bored and pulls a lever on the rune board.
+const JERRY_THINK = [2, 5], JERRY_PATIENCE = 150;
+const JERRY_SAYS = {
+  start: ['Fancy a game? Lights are yours.', 'Board is set. Try not to cry.', 'Best of one. Then best of three. Then I win.'],
+  take: ['Ha! Mine.', 'Into the pot it goes.', 'That one had it coming.', 'Did you see that? I saw that.'],
+  lose: ['Hey! That one had a family.', 'Ow. Rude.', 'I was going to move that.', 'Fine. FINE.'],
+  crown: ['Bow before the king.', 'Crown me, baby.'],
+  bored: ['Your move. Still your move. I\'m pulling something.', 'I got bored. Sorry. Not sorry.', 'Wake up! I pressed a thing.'],
+  win: ['Jerry wins! He does a little dance.', 'Another one for the wall.'],
+  lost: ['You cheated. I don\'t know how, but you did.', 'Rematch. Now. RIGHT now.'],
+};
+const say = k => { const a = JERRY_SAYS[k]; game.say = a[Math.floor(Math.random() * a.length)]; };
+const game = { board: ck.newBoard(), turn: 'w', sel: null, jerryAt: 0, t0: 0, you: 0, jerry: 0, over: null, say: '' };
+say('start');
+let ckKey = '';
+function ckNew() { game.board = ck.newBoard(); game.turn = 'w'; game.sel = null; game.over = null; game.t0 = world.t; say('start'); ckKey = ''; }
+function ckFinish(w) { game.over = w; if (w === 'w') { game.you++; say('lost'); confetti(); } else { game.jerry++; say('win'); } ckKey = ''; }
+function ckMove(m, side) {
+  const p = game.board[m.path[0][0]][m.path[0][1]], before = ck.count(game.board, side === 'w' ? 'b' : 'w');
+  game.board = ck.applyMove(game.board, m); audio.sfx.click();
+  const [r1, c1] = m.path[m.path.length - 1];
+  if (m.caps.length) say(side === 'b' ? 'take' : 'lose');
+  else if (side === 'b' && p === 'b' && game.board[r1][c1] === 'B') say('crown');
+  game.turn = side === 'w' ? 'b' : 'w'; game.sel = null; game.t0 = world.t;
+  if (game.turn === 'b') game.jerryAt = world.t + JERRY_THINK[0] + Math.random() * (JERRY_THINK[1] - JERRY_THINK[0]);
+  if (ck.gameOver(game.board, game.turn)) ckFinish(side);
+  ckKey = '';
+}
+function jerryStep() {
+  if (!ui.started || world.paused || game.over) return;
+  if (game.turn === 'b' && world.t >= game.jerryAt) { const m = ck.jerryMove(game.board); if (m) ckMove(m, 'b'); }
+  if (game.turn === 'w' && world.t - game.t0 > JERRY_PATIENCE && !world.seal) {
+    const fn = ['LIGHTS', 'ALARM', 'RADIO', 'CONFETTI', 'DEVIL'][Math.floor(Math.random() * 5)];
+    gm(world, 'rune', { fn }); say('bored'); game.t0 = world.t; ckKey = '';
+    toast(`JERRY GOT BORED WAITING FOR YOUR CHECKERS MOVE AND PRESSED ${fn} · LOOK LEFT ◀`);
+  }
+}
+function drawCheckers() {
+  const mine = game.turn === 'w' && !game.over ? ck.legalMoves(game.board, 'w') : [];
+  const targets = game.sel ? mine.filter(m => m.path[0][0] === game.sel[0] && m.path[0][1] === game.sel[1]) : [];
+  const key = JSON.stringify([game.board, game.sel, game.turn, game.over, game.say, game.you, game.jerry]);
+  const wait = game.turn === 'w' && !game.over ? Math.max(0, JERRY_PATIENCE - (world.t - game.t0)) : null;
+  $('jerrystat').textContent = game.over ? (game.over === 'w' ? 'YOU WIN' : 'JERRY WINS') : game.turn === 'w' ? `your move · Jerry's patience ${Math.ceil(wait)} s` : 'Jerry is thinking...';
+  if (key === ckKey) return;
+  ckKey = key;
+  const movable = new Set(mine.map(m => m.path[0].join())), dest = new Map(targets.map(m => [m.path[m.path.length - 1].join(), m]));
+  let html = '';
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const p = game.board[r][c], dark = (r + c) % 2 === 1, sel = game.sel && game.sel[0] === r && game.sel[1] === c;
+    html += `<div class="sq ${dark ? 'dk' : 'lt'}${sel ? ' sel' : ''}${dest.has(r + ',' + c) ? ' to' : ''}${movable.has(r + ',' + c) ? ' can' : ''}" data-r="${r}" data-c="${c}">${p ? `<span class="pc ${ck.sideOf(p)}${p === p.toUpperCase() ? ' king' : ''}"></span>` : ''}</div>`;
+  }
+  $('cboard').innerHTML = html;
+  $('jerrysay').innerHTML = `<b>JERRY:</b> “${game.say}”`;
+  $('jerryscore').textContent = `YOU ${game.you} · JERRY ${game.jerry}`;
+  $('cboard').querySelectorAll('.sq').forEach(sq => sq.onclick = () => {
+    const r = +sq.dataset.r, c = +sq.dataset.c;
+    if (movable.has(r + ',' + c)) { game.sel = [r, c]; ckKey = ''; audio.sfx.click(); return; }
+    const m = dest.get(r + ',' + c); if (m) ckMove(m, 'w');
+  });
+}
+$('cnew').onclick = () => { if (!game.over && ck.count(game.board, 'w') + ck.count(game.board, 'b') < 24) { game.jerry++; } ckNew(); };
 
 // ---------- GM link ----------
 // Same computer: a browser channel. Another computer: the GM types the code shown on the top bar.
@@ -1417,7 +1534,7 @@ function frame(now) {
     lastSnap = now;
     gmLink.send({ snap: snapshot(world) }, false);   // twice a second on this computer while the game is in view
   }
-  drawGmLink(); drawSeal(); drawShutters();
+  drawGmLink(); drawSeal(); drawShutters(); drawCabin(); jerryStep();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

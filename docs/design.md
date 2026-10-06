@@ -47,18 +47,28 @@ One named field, **the Graveyard** (five large floes of mixed classes), starts l
 - Two pairs of wandering gyres drive the water. The deep pair (east and west) push a jet south past the island; the surface pair (north and south) push a jet east. A rim current holds ice inside reach.
 - Large ice rides the deep water. Small ice rides the surface and the wind. A typical iceberg crosses about 5.5 squares a watch, and the Tomb about 4.
 - The wind veers through well over 100° in a watch, and the water temperature drifts. This keeps the scanner setting changing.
+- Stygia is cold: the water runs from about −125° to −250° (colder towards the Tomb and as the night goes on). Every threshold (the cold-water monster rule at −185°, the scanner bands, the orb TEMP lever) sits in that range.
 
 ## Seeds and spawning
 
 Every watch has a seed (`?seed=`). With no seed a fresh sea is rolled. At 3:00 Elgarz slips in at the rim of reach, somewhere the buoy and cameras aren't looking. The spot is chosen by tracing candidate routes with the live movement code, keeping only ones that pass through camera view at least twice. The GM can override this by placing Elgarz anywhere.
 
+## The crew and the three books
+
+Three officers each hold one book (`books.html?book=engineer|gunnery|signals`, `?book=all` for the GM). Every book opens with the same orientation pages (the flow and who leads each step, the sieve and cockpit, the sea, breakdowns and the password rules, the case board); then each holds only its own officer's pages. Each step of the flow has a lead who needs one piece from another book:
+- **Engineering & Power:** the furnace, the furnace log and shed order, the rune board grid and page shift, the scanner procedure, radio tuning (frequency, gain, band), and its repair flowchart (grate, receiver, scanner).
+- **Gunnery & Targeting:** the orbs (lever chart, plate order by housing-rune house), aiming and beacons, the codebook (call sign + band → meaning), and its repair flowchart (launcher, orbs).
+- **Signals & Sonar:** the rune catalogue (asked for by both other books), sonar and echoes, decoding the radio lamps into a call sign, and its repair flowchart (winch, sonar head).
+
 ## The cockpit
 
-The operator has two views and pans between them with **▲ LOOK UP / ▼ LOOK DOWN**, side by side on the top bar next to **❚❚ PAUSE** (the operator or the GM can pause; a card shows until someone resumes). When looking up, the top half of the main board is still visible below the deck.
+The operator has three views and pans between them with **◀ LOOK LEFT / ▲ LOOK UP / ▼ LOOK DOWN** on the top bar next to **❚❚ PAUSE** (the operator or the GM can pause; a card shows until someone resumes). When looking up, the top half of the main board is still visible below the deck.
 
 **Main board:** cameras with camera control and the furnace down the left; the chart and target lock in the middle; down the right, the case board (top, largest text), the sonar, and currents and weather.
 
-**Camera control:** each camera feed shows its post's WIND and AIR temperature. Set two focus levers from those and press three servo plates in the order the rune board page dictates; that camera then stays unlocked (free turning, no heat) until a remorhaz destroys it.
+**Orb control:** each orb feed shows its post's WIND and AIR temperature, and a rune is carved on its housing. Set two focus levers from the weather and press three servo plates in the order for the housing rune's house. A locked orb can still lock ice and show its length (red at 20 mi or under). An unlocked orb turns, zooms ×2, tracks drift, follows its tracked ice while watched, and heats more slowly. It relocks when it breaks; a repaired orb has a new housing rune.
+
+**The cabin (look left):** the furnace log (heat in numbers, the last three minutes, the next three as a solid line for what is on now and dotted lines for 1, 2 and 3 systems), the shed order (drag to rank the systems; the lowest goes first, with an alarm), the damper (NORMAL or LOW: LOW burns at 60% but everything powered works 1.6× slower), and checkers with Jerry. Jerry replies a few seconds after your move; leave him waiting 150 s and he presses a nuisance rune.
 
 **Overhead deck:**
 - **Beacon launcher:** colour, fire, aim quality and a shot report.
@@ -81,23 +91,22 @@ Top right of the main board. Locking ice gives it a temporary row; a beacon hit 
 
 ## Mechanics
 
-- **Camera tracking.** Locked ice that stays in the camera on screen for 4 s has its real drift measured; the prediction then uses that. The tracking box also shows the ice's size, and "UNDER 20 · NOT ELGARZ" for small ice.
+- **Orb tracking.** Locked ice that stays in an unlocked orb on screen for 4 s has its real drift measured; the prediction then uses that. The tracking box also shows the ice's size, in red at 20 mi or under.
 - **Beacon telemetry.** Ice that already carries a beacon reports its own position and drift, so a lock on it has a 100% hit chance. The second shot at known ice (orange, blue, green) is never an aiming problem.
 - **Aiming: an honest hit chance, then a roll.** There is no drift switch: the prediction uses the deep current for ice over 8 miles and the surface current plus wind for smaller ice. At fire time the game estimates the expected miss distance, sigma = fix error + ice speed × model error × (fix age + flight time), where the model error comes from the source (orb track 3%, a fresh nearby current reading 2.5%, much worse for a reading far from the ice or stale, 100% with no reading) and grows with the time since the fix. The chance is 1 − exp(−R² / 2σ²) against a generous hit radius (14 + 0.6 × length mi), capped at 99% (100% only for beacon telemetry). The shot rolls against exactly that number, and the flight is drawn to match: a hit lands on the ice, a miss splashes just beyond the radius. The drift-speed lever lowers the chance (faster ice), the beacon-forgiveness lever raises it (bigger radius). Over 285 test shots the stated and actual hit rates agree within two points. One plain line under the number says what is wrong when it is low.
 - **Rune board.** Each rune's house and weight index a 4×4 grid of functions. The page numeral on the flip card shifts the weight. The board flips every 60 s and after 4 presses.
   - Grid (house × weight): Ice COFFEE · SUCCUBUS · COOLANT · CONFETTI; Iron FUEL · SHUTTER · LAUNCH · DEVIL; Ember COFFEE · PURGE · ALARM · LIGHTS; Bone DECOY · LOCKDOWN · RADIO · FUEL. Two FUELs and two COFFEEs in different houses; every board dealt has at least one of each. COFFEE's Ember neighbours are consequences, so miscounting the page shift there costs something.
   - Effects: FUEL (a shovel in the chute), COFFEE (a pot, costs heat), COOLANT (every orb cold, burrowers give up), DECOY (a noisemaker 1.5 buoy ranges from the buoy, to the side of the Grindmaw's approach; it chases that), LAUNCH (red beacon now; wild if nothing is locked), PURGE (empties the chute), SHUTTER (steel shutters over the sonar and orbs for 20 s), LOCKDOWN (the password lock, and a new password), LIGHTS (normal → red → green → normal), RADIO (the cabin radio: a procedural lo-fi loop, and three false stations on the band), ALARM, CONFETTI, DEVIL (top hat, five seconds, every screen), SUCCUBUS (a 4.5 s animated cameo: a purple succubus in a white halter dress billowing over a glowing grate, Marilyn-style, with a heart that beats beside her and pops as she goes; on the orb feed and over the rune board, which she blocks while she is there).
-- **Furnace.** Stoking draws from a fuel chute (4 shovels) that only the FUEL rune fills. Low heat cuts power slots. Overfeeding blows the furnace out and cracks the grate.
-- **Fatigue.** Over about 7 minutes the screens vignette, blur and sway, and the operator blinks off. Coffee (brew, then click the mug) clears it.
+- **Furnace.** Stoking draws from a fuel chute (4 shovels) that only the FUEL rune fills. It burns 0.1 a second plus 0.07 per system running. Low heat cuts power slots, shedding the lowest-ranked system with an alarm. Overfeeding blows the furnace out and cracks the grate. Six systems share three slots: ORBS, SONAR, RADIO, SCANNER, CURRENTS and REPAIR.
+- **Fatigue.** Over about 6 minutes the screens vignette, blur and sway, and the operator blinks off. Coffee (brew, then click the mug) clears it.
 - **Scanner.** A 3×3 rune keypad. Wind picks the first house, deep vs surface speed picks the direction round the wheel, and temperature picks heaviest, lightest or second lightest. The setting drifts out of tune once the buoy's conditions have disagreed with it for 50 s, about 3–5 times a watch.
-- **Radio.** A long slider with a wide, forgiving peak, plus gain matching. Carrier shape transforms the lamps, and band plus lamps give the meaning. The wireless adds three false stations. Clipping for 12 s blows the fuse; a FUSE bar flashes from halfway.
+- **Radio.** A long slider with a wide, forgiving peak, plus gain matching. Carrier shape transforms the lamps into a call sign, and call sign plus band give the meaning. The wireless adds three false stations. Clipping for 12 s burns out the receiver; a FUSE bar flashes from halfway.
 - **Grindmaw.** Always on the chart. After every ping it swims for the ping spot: fast (9 mi/s) when more than 1.5 squares away, steady (3.5 mi/s) when close. If it finds the buoy there, it eats it and tears the winch; either way it then circles the Watch at that distance until the next ping.
-- **Breakdowns.** Every breakdown goes through the same repair board: five rows, each a gauge (low/middle/high/red) and a lamp (red/white/blue/dark); rules say what to CLOSE or CUT, otherwise leave it OPEN; every board has at least one CUT and one CLOSE:
-  - cameras (remorhazes, now faster)
-  - the furnace grate (blowout)
-  - the launcher (jams every 4–7 shots)
-  - the winch (shark)
-  - the radio fuse (clipping)
+- **Breakdowns.** Every breakdown shows the same repair board: four rows, each with three lights (red/yellow/green, left to right), a gauge (0–99) and a fault code (letter, digit, letter). Each row is set OPEN, CLOSE or CUT by the first matching rule in the **owner's** flowchart (seven rules each, in `src/repair.js`); every board needs at least one CLOSE and one CUT. Signals reads the order of the lights and the code (gauge only high or low); Gunnery reads the exact gauge (lights only counted); Engineering reads gauge bands and light counts. The crew needs the REPAIR switch on, except at the grate (mended by hand); a repair waits while the power is off.
+  - Engineering: the furnace grate (blowout), the radio receiver (clipping), the metal scanner (about one positive reading in three blows its fuse; the reading still counts)
+  - Signals: the buoy winch (a hunter or monster eats the buoy, or it sits 20 s inside a storm), the sonar head (three pings inside 20 s; a HEAD STRAIN gauge shows it)
+  - Gunnery: the launcher (jams every 4–7 shots), the orbs (remorhazes)
+  - The GM can break any of them.
 - **Sonar.** Contacts last 90 s, and successive pings of the same ice are joined by a trail. Each echo draws deep and surface current arrows round the buoy for 25 s.
 - **Storms.** Five per watch, each aimed over a camera. The GM can drop more.
 - **Cameras.** Seven, evenly spaced round the island, 680 mi range and 90° wide. Their starting bearings come from `tools/tune-cameras.mjs`.
@@ -115,7 +124,7 @@ One lock, several triggers. While it is up, a terminal replaces the chart, and t
 ## Operator comforts
 - **Refresh survival.** The world (random generators included) autosaves to the browser every 5 s once the watch starts; a reload offers RESUME WATCH or NEW WATCH. A resumed watch carries on exactly as it would have.
 - **Message log.** LOG on the chart lists the last ten toasts with their times.
-- **Keys.** Space ping, 1–7 orbs, ↑/↓ look, ←/→ turn the orb, P pause, M mute.
+- **Keys.** Space ping, 1–7 orbs, ↑/↓ look, L the cabin, ←/→ turn the orb, P pause, M mute.
 - **Launcher refill bar.** Under the beacon rack: time to the next red beacon.
 - **Chart hover.** Hovering a contact shows a small label with its number and length.
 
@@ -128,5 +137,6 @@ Controls:
 - **Buttons:** pause, refuel (fills the chute and fixes the grate), repair everything, refill beacons, send the shark away, calibrate, bring Elgarz in now, force a win, clear storms, flip the rune board, fresh coffee, reset with a chosen or new seed.
 - **Levers (multipliers):** world drift, Tomb speed, Elgarz speed, Grindmaw speed (0.5–3×, also frozen monsters), furnace burn, remorhaz aggression, beacon forgiveness, fatigue rate. Narrow ranges in 0.05 steps, full-width sliders; double-click a name to reset it to 1×.
 - **Rune effects:** a button for every rune function, plus lights back to normal and raise the shutters.
+- **Break something:** a button for every machine (and the orb on screen), and the damper.
 - **Password lock:** ask for it, force a lockdown, unlock now; the truth view shows the current password and how many rules are in force.
 - **Messages:** sent either as pneumatic notes, which rotate round the chart's four corners, or as wire service ticker lines.

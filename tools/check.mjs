@@ -4,9 +4,12 @@ import {
   countSightings, camSees, snowAt, slotsAvailable, pressKey, readingDisplay, radioSignal, setFreq, setGain, gainFor, setMusic, lockOn, DT,
   pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip, camCode, setLever, pressPlate, setCamTurn, camIsUnlocked, selectCam, gm,
   relockCase, setVerdict, isUp, inShoal, saveWorld, loadWorld, echoSeen, SYSTEMS,
+  setDamper, setPriority, projectHeat, furnaceState, sonarStrain, breakThing, BREAKABLE,
 } from '../src/sim.js';
 import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RADIO_TABLE, BOARD_GRID, SHOALS, SIZE_CUT, COLD_WATER, FIELDS } from '../src/scenario.js';
-import { keypadCode, RUNES, REPAIR_RULES, repairAction } from '../src/glyphs.js';
+import { keypadCode, RUNES } from '../src/glyphs.js';
+import { FLOWS, repairAction, makeRepairBoard, randomRow, ownerOf, OWNER } from '../src/repair.js';
+import { tempAt, makeField, PLATE_BY_HOUSE } from '../src/scenario.js';
 import { checkPassword, RULES as PW_RULES, WRONG_TRIES } from '../src/password.js';
 
 const SEEDS = Array.from({ length: Number(process.argv[2]) || 40 }, (_, i) => 1000 + i * 37);
@@ -125,7 +128,7 @@ check(JSON.stringify(snapshot(a)) === JSON.stringify(snapshot(b)), 'Same seed gi
 
 // ---------- furnace ----------
 {
-  const w = createWorld(1); light(w);
+  const w = createWorld(1); light(w); ['sonar', 'currents', 'cameras'].forEach(s => setPower(w, s, true));
   for (let i = 0; i < 600; i++) step(w, DT);
   check(slotsAvailable(w) === 3, 'A fresh furnace runs three systems for the first minute');
   for (let i = 0; i < 1500; i++) step(w, DT);
@@ -285,6 +288,7 @@ function sharkSetup(seed) {
     let n = 0;
     for (let i = 0; i < 11800; i++) {
       if (i % 50 === 0) keepFurnace(w);
+      if (!w.buoy) { w.broken.winch = false; w.buoyRebuildAt = 0; deployBuoy(w, CENTER.x + 500, CENTER.y - 400); }   // a storm took it: put it back in the same place
       if (!w.scanner.calibrated && w.readings && i % 300 === 0) w.scanner.calibrated = true, w.scanner.calCode = null;
       const was = w.scanner.calibrated; step(w, DT); if (was && !w.scanner.calibrated) n++;
     }
@@ -305,6 +309,8 @@ function sharkSetup(seed) {
   const g = w2.bergs[0]; let shots = 0;
   while (!w2.broken.launcher && shots < 20) { lockOn(w2, g.id, g.x, g.y, w2.t, 'camera'); fireBeacon(w2, 'red'); shots++; }
   check(w2.broken.launcher && shots >= T.jamEvery[0] && shots <= T.jamEvery[1], `The launcher jams every few shots (${shots})`);
+  check(!startRepair(w2, 'launcher'), 'The repair crew needs the repair bay powered');
+  setPower(w2, 'repair', true); for (let i = 0; i < 20; i++) step(w2, DT);
   startRepair(w2, 'launcher'); for (let i = 0; i < 100; i++) step(w2, DT);
   check(!w2.broken.launcher, 'A repaired launcher fires again');
 }
@@ -373,12 +379,20 @@ function sharkSetup(seed) {
   check(d.scan === 0, 'The metal scanner does nothing out of buoy range');
   w2.buoy = { x: d.x + 20, y: d.y, landAt: w2.t }; for (let i = 0; i < (T.scanTime + 3) * 10; i++) { keepFurnace(w2); w2.buoy.x = d.x + 20; w2.buoy.y = d.y; step(w2, DT); }
   check(d.scanned, 'In buoy range the metal scanner finishes its scan');
-  // every repair combination: the flowchart order equals the game's rules, and every board has a CUT and a CLOSE
-  const combos = []; for (const gauge of ['LOW', 'MIDDLE', 'HIGH', 'RED']) for (const lamp of ['R', 'W', 'B', 'D']) combos.push({ gauge, lamp });
-  const viaChart = r => { for (const rule of REPAIR_RULES) if (rule.test(r)) return rule.then; return 'OPEN'; };
-  check(combos.every(r => viaChart(r) === repairAction(r)), 'The repair flowchart matches the game for all 16 combinations');
-  const acts = new Set(combos.map(repairAction));
-  check(acts.has('CUT') && acts.has('CLOSE') && acts.has('OPEN'), 'The repair rules can produce CUT, CLOSE and OPEN');
+  // the three repair flowcharts: every rule gets used, every answer comes up, every board can be solved
+  let rng = 12345; const rnd = () => { rng = (rng * 1103515245 + 12345) % 2147483648; return rng / 2147483648; };
+  for (const dept of Object.keys(FLOWS)) {
+    const used = new Array(FLOWS[dept].length).fill(0), acts = { OPEN: 0, CLOSE: 0, CUT: 0 };
+    for (let i = 0; i < 20000; i++) {
+      const r = randomRow(rnd), j = FLOWS[dept].findIndex(q => q.test(r));
+      if (j >= 0) used[j]++; acts[repairAction(dept, r)]++;
+    }
+    check(used.every(n => n >= 20000 * 0.02), `${dept}: every rule in the repair flowchart comes up (rarest ${(Math.min(...used) / 200).toFixed(1)}%)`);
+    check(acts.CLOSE > 4000 && acts.CUT > 4000 && acts.OPEN > 2000, `${dept}: the flowchart gives a real mix of OPEN, CLOSE and CUT`);
+    const boards = Array.from({ length: 300 }, () => makeRepairBoard(dept, rnd));
+    check(boards.every(b => b.rows.length === 4 && b.rows.some(r => repairAction(dept, r) === 'CUT') && b.rows.some(r => repairAction(dept, r) === 'CLOSE')), `${dept}: every board needs at least one CLOSE and one CUT`);
+  }
+  check(Object.keys(BREAKABLE).every(k => OWNER[k]) && ownerOf('c3') === 'gunnery', 'Every machine has an owner, and the orbs are Gunnery\'s');
 }
 
 // ---------- one ping, the echo classes, currents on ping, shoals ----------
@@ -394,7 +408,7 @@ function sharkSetup(seed) {
   const c = w.contacts.find(c => c.bergId === b.id);
   check(c && c.echo && c.echo.humps.length === b.echo.humps.length, 'One ping prints the full echo of every contact');
   const mon = { echo: { sig: 'monster', humps: [{ x: 44, h: 0.85 }, { x: 68, h: 0.85 }, { x: 92, h: 0.85 }], tail: 'pulse' } };
-  check(echoSeen(mon, COLD_WATER + 2).tail === 'pulse' && echoSeen(mon, COLD_WATER - 2).tail === 'flat', 'A frozen monster pulses in warm water and reads as halls below -40');
+  check(echoSeen(mon, COLD_WATER + 2).tail === 'pulse' && echoSeen(mon, COLD_WATER - 2).tail === 'flat', `A frozen monster pulses in warm water and reads as halls below ${COLD_WATER}`);
   check(SHOALS.length === 4 && SHOALS.every(s => { const c = CAMERAS.find(k => k.id === s.cam); return dist(s, c) < T.camRange && !camSees(c, s) && dist(s, CENTER) + s.r * 0.5 < T.buoyDeployRange; }), 'Four shoals, each within reach of an orb but outside its starting view');
 }
 // ---------- frozen monsters ----------
@@ -505,7 +519,7 @@ function sharkSetup(seed) {
     }
     if (!pick) continue;
     tries++;
-    selectCam(w, pick.c.id); lockFromCamera(w, pick.b.id);
+    selectCam(w, pick.c.id); gm(w, 'camunlock'); lockFromCamera(w, pick.b.id);
     for (let i = 0; i < (T.trackTime + 2) * 10; i++) step(w, DT);
     if (!w.lock.track) continue;
     fireBeacon(w, 'red');
@@ -628,6 +642,94 @@ function sharkSetup(seed) {
   w2.pwCap = 8; runeEffect(w2, 'LOCKDOWN'); w2.pwCap = 8; const pg0 = w2.board.page;
   let flips = 0; while (w2.board.page === pg0 && flips < 50) { w2.board.nextFlip = 0; step(w2, DT); flips++; }
   check(w2.seal.pages.includes(pg0) && w2.seal.pages.includes(w2.board.page), 'A board flip while the lock is open: both pages count for the page rule');
+}
+
+// ---------- revision 11: the cold, the furnace log, the damper, repairs and the new breakdowns ----------
+{
+  // Stygia is cold: -125 to -250 everywhere, all session
+  let lo = 0, hi = -999;
+  for (const seed of SEEDS.slice(0, 10)) { const F = makeField(() => (seed % 97) / 97); for (let t = 0; t <= 2400; t += 300) for (let k = 0; k < 40; k++) { const v = tempAt(300 + (k * 811) % 3000, 300 + (k * 433) % 3000, t, F, { x: 1800 + (k % 3) * 200, y: 1800 }); lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+  console.log(`Water temperature range: ${lo.toFixed(0)}° to ${hi.toFixed(0)}°`);
+  check(lo >= -260 && hi <= -115 && hi - lo > 80, 'The water runs from about -125° to -250°');
+  // the furnace burns more with more running, and sheds the lowest priority first
+  const w = createWorld(81); light(w); ['sonar', 'currents', 'cameras'].forEach(s => setPower(w, s, true));
+  for (let i = 0; i < 20; i++) step(w, DT);
+  check(furnaceState(w).burn > furnaceState(createWorld(81)).burn, 'More systems burn more heat');
+  const fs0 = furnaceState(w), proj = projectHeat(fs0, 3, 60);
+  for (let i = 0; i < 600; i++) step(w, DT);
+  check(Math.abs(proj[60].heat - w.furnace.heat) < 1.5, `The furnace log's projection matches the furnace (${proj[60].heat.toFixed(1)} vs ${w.furnace.heat.toFixed(1)})`);
+  setPriority(w, ['cameras', 'currents', 'sonar']);
+  w.furnace.heat = T.slotHeat[0] - 0.5; step(w, DT);
+  check(!w.power.sonar.on && w.power.cameras.on && w.power.currents.on && w.events.some(e => e.type === 'brownout' && e.sys === 'sonar'), 'Low heat sheds the lowest-priority system, and says so');
+  const wa = createWorld(82), wb = createWorld(82); light(wa); light(wb); setDamper(wb, 'low');
+  for (const x of [wa, wb]) { ['sonar', 'currents'].forEach(s => setPower(x, s, true)); for (let i = 0; i < 600; i++) step(x, DT); }
+  check(wb.furnace.heat > wa.furnace.heat + 5, 'The LOW damper burns slower');
+  check(wb.readings == null || T.currentRefresh * T.damperSlow > T.currentRefresh, '...and the systems work slower');
+  // repairs need the bay powered, except the grate; they wait when the power goes
+  const wr = createWorld(83); light(wr); for (let i = 0; i < 10; i++) step(wr, DT);
+  breakThing(wr, 'launcher'); setPower(wr, 'repair', true); for (let i = 0; i < 20; i++) step(wr, DT);
+  startRepair(wr, 'launcher'); for (let i = 0; i < 30; i++) step(wr, DT); setPower(wr, 'repair', false);
+  for (let i = 0; i < 200; i++) step(wr, DT);
+  check(wr.broken.launcher, 'A repair waits while the repair bay is switched off');
+  setPower(wr, 'repair', true); for (let i = 0; i < 100; i++) step(wr, DT);
+  check(!wr.broken.launcher, '...and finishes once it is back on');
+  breakThing(wr, 'furnace'); setPower(wr, 'repair', false);
+  check(startRepair(wr, 'furnace'), 'The furnace grate is mended by hand, with no power');
+  // the sonar head: a third ping inside the window cracks it
+  const ws = createWorld(84); light(ws); ['sonar'].forEach(s => setPower(ws, s, true)); for (let i = 0; i < 20; i++) step(ws, DT);
+  deployBuoy(ws, CENTER.x + 300, CENTER.y + 300); for (let i = 0; i < 50; i++) step(ws, DT);
+  ping(ws); for (let i = 0; i < 60; i++) step(ws, DT); ping(ws); for (let i = 0; i < 60; i++) step(ws, DT);
+  check(!ws.broken.sonarhead && sonarStrain(ws).length === 2, 'Two quick pings strain the sonar head');
+  ping(ws);
+  check(ws.broken.sonarhead && !ping(ws), 'A third inside twenty seconds cracks it, and it will not ping until repaired');
+  const ws2 = createWorld(84); light(ws2); setPower(ws2, 'sonar', true); for (let i = 0; i < 20; i++) step(ws2, DT);
+  deployBuoy(ws2, CENTER.x + 300, CENTER.y + 300); for (let i = 0; i < 50; i++) step(ws2, DT);
+  for (let k = 0; k < 5; k++) { ping(ws2); for (let i = 0; i < 110; i++) { keepFurnace(ws2); step(ws2, DT); } }
+  check(!ws2.broken.sonarhead, 'Pings spaced out never crack it');
+  // a buoy left in a storm is lost
+  const wt = createWorld(85); light(wt); setPower(wt, 'sonar', true); for (let i = 0; i < 20; i++) step(wt, DT);
+  deployBuoy(wt, CENTER.x + 500, CENTER.y); for (let i = 0; i < 50; i++) step(wt, DT);
+  gm(wt, 'storm', { x: wt.buoy.x, y: wt.buoy.y }); wt.storms[wt.storms.length - 1] = { cam: null, t0: wt.t - 100, t1: wt.t + 100, r: 360, x0: wt.buoy.x, y0: wt.buoy.y, x1: wt.buoy.x, y1: wt.buoy.y };
+  for (let i = 0; i < (T.buoyStormTime - 2) * 10; i++) { keepFurnace(wt); step(wt, DT); }
+  check(!!wt.buoy, 'A buoy rides out a short spell in a storm');
+  for (let i = 0; i < 40; i++) { keepFurnace(wt); step(wt, DT); }
+  check(!wt.buoy && wt.broken.winch, 'Left in the storm, the buoy is torn loose and the winch breaks');
+  // the metal scanner blows its fuse after some positive readings, never after a negative one
+  let blown = 0, neg = 0, tries = 0;
+  for (let k = 0; k < 60; k++) {
+    const wm = createWorld(900 + k); light(wm); ['scanner'].forEach(s => setPower(wm, s, true)); for (let i = 0; i < 50; i++) step(wm, DT);
+    const metal = k % 2 === 0, b = wm.bergs.find(x => !!x.metal === metal && x.large); if (!b) continue;
+    wm.scanner.calibrated = true; lockOn(wm, b.id, b.x, b.y, wm.t, 'camera');
+    for (let i = 0; i < (T.scanTime + 2) * 10; i++) { wm.buoy = { x: b.x, y: b.y, landAt: 0 }; keepFurnace(wm); step(wm, DT); }
+    if (!b.scanned) continue;
+    if (metal) { tries++; if (wm.broken.scanner) blown++; } else if (wm.broken.scanner) neg++;
+  }
+  console.log(`Scanner fuses blown after a positive reading: ${blown}/${tries}`);
+  check(tries > 20 && blown > tries * 0.15 && blown < tries * 0.55 && neg === 0, 'The scanner sometimes blows a fuse after a positive reading, never after a negative one');
+  // orbs: the housing rune sets the plate order; a repaired orb relocks with a new rune; only unlocked orbs track
+  const wo = createWorld(86); light(wo); setPower(wo, 'cameras', true); setPower(wo, 'repair', true); for (let i = 0; i < 20; i++) step(wo, DT);
+  const code = camCode(wo);
+  check(code.order.join() === PLATE_BY_HOUSE[RUNES[wo.camRune[wo.activeCam]].house].join(), 'The plate order comes from the house of the rune on the orb housing');
+  const rune0 = wo.camRune.c1; gm(wo, 'camunlock'); breakThing(wo, 'c1');
+  check(!camIsUnlocked(wo, 'c1'), 'A broken orb relocks');
+  startRepair(wo, 'c1'); for (let i = 0; i < (T.repairTime + 1) * 10; i++) { keepFurnace(wo); step(wo, DT); }
+  check(!wo.cams[0].broken && !camIsUnlocked(wo, 'c1') && wo.camRune.c1 !== rune0, 'A repaired orb is locked again, with a new housing rune');
+  let tr = null;
+  for (let k = 0; k < 80 && !tr; k++) { for (const c of wo.cams) { const b = wo.bergs.find(b => camSees(c, b, -0.3) && dist(b, c) < T.camRange * 0.7); if (b) { tr = { c, b }; break; } } if (!tr) { keepFurnace(wo); for (let i = 0; i < 50; i++) step(wo, DT); } }
+  if (tr) {
+    selectCam(wo, tr.c.id); delete wo.camUnlocked[tr.c.id]; lockFromCamera(wo, tr.b.id);
+    for (let i = 0; i < (T.trackTime + 2) * 10; i++) step(wo, DT);
+    check(!wo.lock.track, 'A locked orb does not measure drift');
+    gm(wo, 'camunlock'); for (let i = 0; i < (T.trackTime + 2) * 10; i++) step(wo, DT);
+    check(!!wo.lock.track, 'An unlocked orb does');
+    const f0 = tr.c.facing; for (let i = 0; i < 300; i++) { keepFurnace(wo); step(wo, DT); }
+    let rel = Math.atan2(tr.b.x - tr.c.x, -(tr.b.y - tr.c.y)) * 180 / Math.PI - tr.c.facing; rel = ((rel % 360) + 540) % 360 - 180;
+    check(Math.abs(rel) < 5, `A tracking orb turns to follow its ice while you watch it (${rel.toFixed(1)}° off, turned ${(tr.c.facing - f0).toFixed(1)}°)`);
+  } else check(false, 'Found ice in an orb to test tracking');
+  const wh = createWorld(87); light(wh); setPower(wh, 'cameras', true); for (let i = 0; i < 20; i++) step(wh, DT);
+  selectCam(wh, 'c2'); for (let i = 0; i < 100; i++) step(wh, DT); const hLocked = wh.cams[1].heat;
+  wh.cams[1].heat = 0; gm(wh, 'camunlock'); for (let i = 0; i < 100; i++) step(wh, DT);
+  check(wh.cams[1].heat < hLocked * 0.75, 'An unlocked orb heats more slowly');
 }
 
 // ---------- shots ----------
