@@ -275,8 +275,8 @@ button { font-family: inherit; cursor: pointer; }
 /* SUCCUBUS */
 .succ { position: absolute; z-index: 9; pointer-events: none; filter: drop-shadow(0 6px 14px rgba(0,0,0,.6)); }
 .succ svg { width: 100%; height: 100%; display: block; overflow: visible; }
-.succ.kiss { transform-origin: 50% 100%; animation: succkiss 4.5s cubic-bezier(.3,.7,.3,1) forwards; }
-@keyframes succkiss { 0% { transform: translateY(100%); } 13% { transform: translateY(-3%); } 18% { transform: translateY(0); } 50% { transform: translateY(0) rotate(-1.5deg); } 84% { transform: translateY(0) rotate(0); } 100% { transform: translateY(105%); } }
+.succblock { position: absolute; z-index: 8; background: rgba(20,6,24,.45); pointer-events: auto; cursor: not-allowed; animation: succfade 4.5s ease-in-out forwards; }
+@keyframes succfade { 0% { opacity: 0; } 8%, 88% { opacity: 1; } 100% { opacity: 0; } }
 .succ.marilyn { transform-origin: 50% 100%; animation: succmarilyn 4.5s ease-in-out forwards; }
 @keyframes succmarilyn { 0% { opacity: 0; transform: translateY(20px) scale(.9); } 10% { opacity: 1; transform: translateY(0) scale(1); } 30% { transform: translateY(-5px); } 45% { transform: translateY(0); } 60% { transform: translateY(-4px); } 75% { transform: translateY(0); } 88% { opacity: 1; } 100% { opacity: 0; transform: translateY(10px); } }
 
