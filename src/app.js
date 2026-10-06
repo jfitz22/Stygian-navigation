@@ -1032,7 +1032,7 @@ function jnote(at, text, gmNote = false) {
 JERRY.forEach(([at, text]) => jnote(at, text));
 
 // ---------- the password lock ----------
-const SEAL_TITLE = { lockdown: 'LAUNCHER LOCKDOWN', green: 'AUTHORISE THE GREEN BEACON', relight: 'FURNACE INTERLOCK', fatigue: 'OPERATOR LOGGED OUT', gm: 'LOCKED BY THE WATCH OFFICER', reboot: 'SYSTEM REBOOTED', station: 'STATION LOCKOUT' };
+const SEAL_TITLE = { lockdown: 'PASSWORD SECURITY UPDATE REQUIRED', green: 'AUTHORISE THE GREEN BEACON', relight: 'FURNACE INTERLOCK', fatigue: 'OPERATOR LOGGED OUT', gm: 'LOCKED BY THE WATCH OFFICER', reboot: 'SYSTEM REBOOTED', station: 'STATION LOCKOUT' };
 ui.sealKey = '';
 function drawSeal() {
   const s = world.seal, term = $('sealterm');
@@ -1041,13 +1041,18 @@ function drawSeal() {
   const key = [s.reason, s.mode, world.pwCap].join('|');
   if (ui.sealKey !== key) {
     ui.sealKey = key; term.classList.remove('hidden');
-    const set = s.mode === 'set';
+    const set = s.mode === 'set', update = s.reason === 'lockdown';
+    // a lockdown is a security update: the rules in force are on screen from the start, even while the old password is entered
+    const sub = update ? (set ? 'PLEASE IMPROVE YOUR PASSWORD. EVERY RULE BELOW MUST PASS.' : 'PLEASE IMPROVE YOUR PASSWORD. FIRST, ENTER THE CURRENT ONE.')
+      : set ? (s.reason === 'reboot' ? 'SET A FRESH PASSWORD. EVERY RULE BELOW MUST PASS.' : 'SET A PASSWORD. EVERY RULE BELOW MUST PASS.') : 'ENTER THE PASSWORD.';
     term.innerHTML = `<div class="t">${SEAL_TITLE[s.reason] || 'LOCKED'}</div>
-      <div class="sub">${set ? (s.reason === 'reboot' ? 'SET A FRESH PASSWORD. EVERY RULE BELOW MUST PASS.' : 'SET A NEW PASSWORD. EVERY RULE BELOW MUST PASS.') : 'ENTER THE PASSWORD.'}</div>
-      <input id="sealin" type="text" spellcheck="false" autocomplete="off" maxlength="120" placeholder="${set ? 'new password' : 'password'}">
+      <div class="sub">${sub}</div>
+      <input id="sealin" type="text" spellcheck="false" autocomplete="off" maxlength="120" placeholder="${set ? 'new password' : 'current password'}">
       <div class="warn" id="sealwarn"></div>
       <button id="sealgo">${set ? 'SET PASSWORD' : 'ENTER'}</button>
-      ${set ? '<ol class="rules" id="sealrules"></ol>' : '<div class="tries" id="sealtries"></div>'}`;
+      ${set ? '' : '<div class="tries" id="sealtries"></div>'}
+      ${set || update ? `${set ? '' : '<div class="sub">THE NEW PASSWORD WILL NEED:</div>'}<ol class="rules${set ? '' : ' pending'}" id="sealrules"></ol>` : ''}`;
+    if (!set && update) $('sealrules').innerHTML = checkPassword('', world.pwCap, { pages: s.pages }).results.map(r => `<li>${r.text}</li>`).join('');
     const inp = $('sealin');
     const submit = () => { const r = sealInput(world, inp.value); if (r === 'wrong') { inp.value = ''; inp.focus({ preventScroll: true }); } if (r === 'reboot') ui.sealKey = ''; };
     inp.addEventListener('input', () => {

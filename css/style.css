@@ -94,6 +94,8 @@ button { font-family: inherit; cursor: pointer; }
 #sealterm .rules li { padding: 3px 8px; border-left: 3px solid #a3291c; background: rgba(163,41,28,.12); margin-bottom: 4px; color: #ffb3a6; }
 #sealterm .rules li.ok { border-left-color: #5cff9d; background: rgba(92,255,157,.08); color: #9dffc4; }
 #sealterm .rules li::before { content: '✗ '; } #sealterm .rules li.ok::before { content: '✓ '; }
+#sealterm .rules.pending li { border-left-color: #b08d57; background: rgba(176,141,87,.1); color: #e8d6a8; }
+#sealterm .rules.pending li::before { content: '· '; }
 #sealterm .warn { color: #ff8a7a; font-size: 14px; min-height: 18px; }
 #sealterm .tries { font-size: 14px; color: #ffb347; letter-spacing: 1px; }
 .sealcover { position: absolute; inset: 36px 0 0 0; z-index: 7; background: repeating-linear-gradient(45deg, rgba(10,8,4,.94) 0 18px, rgba(40,30,8,.94) 18px 36px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #ffcf7a; font: 14px 'Share Tech Mono', monospace; letter-spacing: 2px; text-align: center; border-radius: 0 0 6px 6px; }

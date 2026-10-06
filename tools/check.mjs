@@ -588,13 +588,13 @@ function sharkSetup(seed) {
   check(sealInput(w, 'jerry') === 'rejected' && w.seal, 'A password that breaks a rule is refused');
   check(sealInput(w, VALID3) === 'ok' && !w.seal && w.password === VALID3, 'A good password is set and the lock lifts');
   runeEffect(w, 'LOCKDOWN');
-  check(w.seal.mode === 'enter' && w.pwCap === 5, 'The next LOCKDOWN asks for the password, and two more rules will apply');
+  check(w.seal.mode === 'enter' && w.pwCap === 4, 'The next LOCKDOWN asks for the password, and one more rule will apply');
   check(sealInput(w, 'nope') === 'wrong' && w.seal.tries === 1, 'A wrong password costs a try');
   sealInput(w, VALID3);
   check(w.seal && w.seal.mode === 'set', '...the right one, and a new password must be set');
   check(sealInput(w, VALID3) === 'rejected', 'The old password no longer satisfies the new rules');
   const p5 = 'Jerry!StygiaV-Pride' + (() => { for (let L = 20; L < 40; L++) { const t = 'Jerry!StygiaV-Pride' + L; if (t.length === L) return L; } })();
-  check(sealInput(w, p5) === 'ok' && w.password === p5, `A password meeting five rules is accepted (${p5})`);
+  check(sealInput(w, p5) === 'ok' && w.password === p5, `A password meeting four rules is accepted (${p5})`);
   // green asks
   const b = w.bergs.find(b => b.large && !b.tombDrawn); lockOn(w, b.id, b.x, b.y, w.t, 'camera'); w.lock.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'c1' };
   const g0 = w.beacons.green; fireBeacon(w, 'green');

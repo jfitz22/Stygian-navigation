@@ -107,7 +107,7 @@ Nothing can end the game early. Every loss is recoverable.
 ## The password lock
 One lock, several triggers. While it is up, a terminal replaces the chart, and the furnace panel and launcher show LOCKED; the sea keeps moving.
 - **Asks for the password:** firing green (then it fires), relighting the furnace (then it lights), the operator nodding off at full fatigue (logs back in at 0.7), the GM.
-- **Changes it:** the LOCKDOWN rune. The rules in force rise by two each time: 3, 5, 7, 8. No password yet: any trigger asks to set one.
+- **Changes it:** the LOCKDOWN rune. It shows "PASSWORD SECURITY UPDATE REQUIRED", with the rules in force listed from the start. The rules rise by one each time: 3, 4, 5, 6, 7, 8. No password yet: any trigger asks to set one.
 - **Rules, in order:** includes JERRY; an uppercase letter and a special character; a layer of Hell with its Roman numeral in capitals; its own length; a deadly sin; an archdevil; digits adding to 42; the rune board page in capitals (any page shown while the lock is open). The terminal lists every rule in force and ticks them as you type. Checks are lenient (words found anywhere, any capitals) so a correct password is never refused; only keyboard characters are allowed; ends are trimmed; unlocking is an exact match.
 - **Five wrong tries reboot the system:** furnace out, chute empty, all systems off, one or two of the grate, launcher, winch and fuse broken. Beacons, the case board and the chart stay. Then a fresh password under the same rules.
 - **GM:** sees the password; buttons to ask for it, force a lockdown, or unlock outright.

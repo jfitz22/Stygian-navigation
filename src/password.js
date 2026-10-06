@@ -15,7 +15,7 @@ export const ARCHDEVILS = ['ASMODEUS', 'MAMMON', 'LEVISTUS', 'GERYON', 'DISPATER
   'MEPHISTOPHELES', 'GLASYA', 'FIERNA', 'BEL', 'RHUN'];
 export const PAGE_NUMERALS = ['I', 'II', 'III', 'IV'];
 export const DIGIT_SUM = 42;
-export const FIRST_RULES = 3, RULES_PER_LOCKDOWN = 2;
+export const FIRST_RULES = 3, RULES_PER_LOCKDOWN = 1;
 export const WRONG_TRIES = 5;
 
 export const cleanPassword = s => String(s == null ? '' : s).normalize('NFC').trim();
