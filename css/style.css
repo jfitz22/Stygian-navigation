@@ -273,17 +273,13 @@ button { font-family: inherit; cursor: pointer; }
 @keyframes smoke { from { transform: scale(.3); opacity: .9; } to { transform: scale(2.2); opacity: 0; } }
 #resumewatch { display: block; margin: 0 auto 10px; }
 /* SUCCUBUS */
-.succ { position: absolute; z-index: 9; pointer-events: none; }
-.succ canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
-.succ.leg { transform-origin: 0% 65%; animation: succleg 4.5s ease-in-out forwards; }
-@keyframes succleg { 0% { transform: translateX(-100%) rotate(0); } 12% { transform: translateX(0) rotate(0); } 24% { transform: rotate(-9deg); } 34% { transform: rotate(3deg); } 44% { transform: rotate(-11deg); } 54% { transform: rotate(2deg); }
-  62%, 66%, 70% { transform: rotate(-4deg); } 64%, 68% { transform: rotate(-1deg); } 86% { transform: translateX(0) rotate(0); } 100% { transform: translateX(-105%) rotate(0); } }
-.succ.pinup { transform-origin: 50% 100%; animation: succpin 4.5s ease-in-out forwards; }
-@keyframes succpin { 0% { transform: translateY(100%); } 14% { transform: translateY(0) rotate(0); } 30% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } 70% { transform: rotate(-2deg); } 86% { transform: translateY(0) rotate(0); } 100% { transform: translateY(105%); } }
-.succ.vent { transform-origin: 50% 100%; animation: succvent 4.5s ease-in-out forwards; }
-@keyframes succvent { 0% { opacity: 0; transform: scale(.85); } 10% { opacity: 1; transform: scale(1); } 40% { transform: translateY(-4px); } 60% { transform: translateY(0); } 88% { opacity: 1; } 100% { opacity: 0; } }
-.succ .heart { position: absolute; left: 50%; top: 42%; color: #ff3355; font-size: 30px; text-shadow: 0 0 8px rgba(255,51,85,.8); opacity: 0; animation: succheart 1.6s ease-out forwards; }
-@keyframes succheart { 0% { opacity: 0; transform: translate(0, 0) scale(.4); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(70px, -120px) scale(1.4); } }
+.succ { position: absolute; z-index: 9; pointer-events: none; filter: drop-shadow(0 6px 14px rgba(0,0,0,.6)); }
+.succ svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.succ.kiss { transform-origin: 50% 100%; animation: succkiss 4.5s cubic-bezier(.3,.7,.3,1) forwards; }
+@keyframes succkiss { 0% { transform: translateY(100%); } 13% { transform: translateY(-3%); } 18% { transform: translateY(0); } 50% { transform: translateY(0) rotate(-1.5deg); } 84% { transform: translateY(0) rotate(0); } 100% { transform: translateY(105%); } }
+.succ.marilyn { transform-origin: 50% 100%; animation: succmarilyn 4.5s ease-in-out forwards; }
+@keyframes succmarilyn { 0% { opacity: 0; transform: translateY(20px) scale(.9); } 10% { opacity: 1; transform: translateY(0) scale(1); } 30% { transform: translateY(-5px); } 45% { transform: translateY(0); } 60% { transform: translateY(-4px); } 75% { transform: translateY(0); } 88% { opacity: 1; } 100% { opacity: 0; transform: translateY(10px); } }
+
 #intro .keys { color: #9a927e; max-width: 560px; margin: 6px auto 0; }
 #notes .note.c0 { left: 30px; top: 50px; transform: rotate(-1.5deg); }
 #notes .note.c1 { right: 12px; top: 50px; transform: rotate(1.5deg); }
