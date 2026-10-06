@@ -1433,7 +1433,7 @@ function drawCabin() {
 }
 // Jerry plays checkers between shifts. He thinks for a few seconds after your move; leave him waiting too long and
 // he gets bored and pulls a lever on the rune board.
-const JERRY_THINK = [2, 5], JERRY_PATIENCE = 150;
+const JERRY_THINK = [2, 5], JERRY_PATIENCE = 60;
 const JERRY_SAYS = {
   start: ['Fancy a game? Lights are yours.', 'Board is set. Try not to cry.', 'Best of one. Then best of three. Then I win.'],
   take: ['Ha! Mine.', 'Into the pot it goes.', 'That one had it coming.', 'Did you see that? I saw that.'],

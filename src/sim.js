@@ -387,7 +387,7 @@ export function setPriority(w, list) {
   emit(w, 'priority');
 }
 // Heat lost per second with n systems running.
-export const burnRate = (n, burnLever = 1, damper = 'normal') => (T.burnIdle + T.burnPerSystem * n) * burnLever * (damper === 'low' ? T.damperBurn : 1);
+export const burnRate = (n, burnLever = 1, damper = 'normal') => (T.burnIdle + T.burnSteps.slice(0, n).reduce((a, b) => a + b, 0)) * burnLever * (damper === 'low' ? T.damperBurn : 1);
 const slotsAt = h => { const [a, b, c] = T.slotHeat; return h >= a ? 3 : h >= b ? 2 : h >= c ? 1 : 0; };
 // The furnace in plain numbers: what the furnace log (and the GM) needs. Works on a snapshot too.
 export function furnaceState(w) {

@@ -22,8 +22,8 @@ export const TUNING = {
   currentRefresh: 4,       // seconds between current readings while powered
   // furnace
   furnaceStartHeat: 62,
-  burnIdle: 0.1,           // heat lost per second with nothing switched on
-  burnPerSystem: 0.07,     // ...and per system running (three systems: about 0.31 a second)
+  burnIdle: 0.07,          // heat lost per second with nothing switched on
+  burnSteps: [0.1, 0.12, 0.13], // ...plus this for the first, second and third system running (three: 0.42 a second)
   damperBurn: 0.6,         // the LOW damper burns this fraction of the heat...
   damperSlow: 1.6,         // ...but everything powered works this much slower (spin-up, readings, scans, repairs, tracking)
   heatLogEvery: 2,         // seconds between furnace log samples (the log keeps three minutes)

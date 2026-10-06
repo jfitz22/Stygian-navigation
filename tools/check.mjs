@@ -129,8 +129,8 @@ check(JSON.stringify(snapshot(a)) === JSON.stringify(snapshot(b)), 'Same seed gi
 // ---------- furnace ----------
 {
   const w = createWorld(1); light(w); ['sonar', 'currents', 'cameras'].forEach(s => setPower(w, s, true));
-  for (let i = 0; i < 600; i++) step(w, DT);
-  check(slotsAvailable(w) === 3, 'A fresh furnace runs three systems for the first minute');
+  for (let i = 0; i < 400; i++) step(w, DT);
+  check(slotsAvailable(w) === 3, 'A fresh furnace runs three systems for the first forty seconds');
   for (let i = 0; i < 1500; i++) step(w, DT);
   check(slotsAvailable(w) < 3, 'Left alone for over 2 minutes, the furnace loses power slots');
   const w3 = createWorld(1); light(w3); w3.furnace.chute = 0;
@@ -288,6 +288,7 @@ function sharkSetup(seed) {
     let n = 0;
     for (let i = 0; i < 11800; i++) {
       if (i % 50 === 0) keepFurnace(w);
+      w.fatigue = 0;   // a wakeful operator: this test is about the weather
       if (!w.buoy) { w.broken.winch = false; w.buoyRebuildAt = 0; deployBuoy(w, CENTER.x + 500, CENTER.y - 400); }   // a storm took it: put it back in the same place
       if (!w.scanner.calibrated && w.readings && i % 300 === 0) w.scanner.calibrated = true, w.scanner.calCode = null;
       const was = w.scanner.calibrated; step(w, DT); if (was && !w.scanner.calibrated) n++;
@@ -658,6 +659,7 @@ function sharkSetup(seed) {
   const fs0 = furnaceState(w), proj = projectHeat(fs0, 3, 60);
   for (let i = 0; i < 600; i++) step(w, DT);
   check(Math.abs(proj[60].heat - w.furnace.heat) < 1.5, `The furnace log's projection matches the furnace (${proj[60].heat.toFixed(1)} vs ${w.furnace.heat.toFixed(1)})`);
+  w.furnace.heat = 70; ['sonar', 'currents', 'cameras'].forEach(s => setPower(w, s, true)); for (let i = 0; i < 20; i++) step(w, DT);
   setPriority(w, ['cameras', 'currents', 'sonar']);
   w.furnace.heat = T.slotHeat[0] - 0.5; step(w, DT);
   check(!w.power.sonar.on && w.power.cameras.on && w.power.currents.on && w.events.some(e => e.type === 'brownout' && e.sys === 'sonar'), 'Low heat sheds the lowest-priority system, and says so');
