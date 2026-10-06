@@ -1,6 +1,6 @@
 # The Last Watch: running list
 
-What we want to add next, roughly in priority order. Revision 7 is the main game; revision 8 is in testing (2026-10-03).
+What we want to add next, roughly in priority order. Revision 9 is the main game; revision 10 is in testing (2026-10-06). Revisions 11 (the manual split and a beacon workshop) and 12 (player stations with event-triggered minigames) are planned before the next session.
 
 ## Done in revision 4a
 Case board, the echo → metal → radio → Tomb funnel (Hulk circles the Tomb), startup checklist, Jerry's notes, Old Tom and rising storms, Scrying Orbs, the ending cutscene, quieter ice numbers.
@@ -16,6 +16,16 @@ Size cut (20 mi), the focused ping and pitch knob, three shoals, the Graveyard /
 
 ## Done in revision 7
 Beaconed ice reports its own position and drift (aim 100%). The watch autosaves and offers RESUME after a refresh. Message log on the chart. Keys: Space ping, F focused ping, 1–7 orbs, right-click the pitch knob to turn it back. Chart hover shows number and length. CONFETTI and DEVIL runes replace two of the NOTHINGs.
+
+## Done in revision 10
+New rune board (two FUEL, two COFFEE; COOLANT, DECOY, PURGE, SHUTTER, LOCKDOWN, LIGHTS, RADIO with lo-fi music, ALARM, CONFETTI, DEVIL, SUCCUBUS). The password lock (one lock; LOCKDOWN, green, relight, nodding off and the GM as triggers; eight escalating rules; reboot after five wrong tries). Honest aiming: the drift switch is gone, the hit chance is calibrated and the shot rolls against it, with a more generous radius. Clearer lock panel (FROM SONAR / ORB / BEACON, one line of advice). The standing-orders clipboard. Fewer Jerry notes. GM buttons for every effect and the lock. Both manuals updated, with a password page.
+
+## Revision 11 (planned)
+- Split the manual into three books, with every main task needing two of them.
+- A LOOK LEFT beacon workshop instead of the silent red rebuild.
+
+## Revision 12 (planned)
+- Player stations: one page per manual holder, joined with the GM code, each with an event-triggered minigame. A failure hits the main board (power out, lights to red, a screen blacked out, a password lockout).
 
 ## Done in revision 8
 The focused ping and pitch knob are gone: one ping prints every contact's full echo as a live, sweeping trace. Five echo classes (solid, caverns, halls, flooded, frozen monster) with a cold-water rule. Five frozen monsters that a beacon hit lets loose on the buoy. Currents read on every ping and on buoy landing; slower aim decay. One wider Graveyard field (Chain and Crown removed); a fourth shoal (The Anvil). Orb size readout. Case board moved to the top of the right column, larger. Launcher refill bar. The devil wears a top hat, lasts five seconds and appears on every screen. GM: confetti and devil buttons, drag-and-drop ice, map zoom-out, wider and finer sliders. Manuals open with an orientation, suggested order of operations and index.

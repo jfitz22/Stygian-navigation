@@ -42,7 +42,6 @@ export const TUNING = {
   coffeeHeat: 6,           // heat brewing coffee costs
   coffeeBrew: 12,          // seconds to brew
   coffeeSips: 3,
-  ventHeat: 15,            // heat the VENT rune dumps
   // operator fatigue
   fatigueRate: 1 / 420,    // fatigue gained per second (0..1)
   sipRelief: 0.45,
@@ -54,16 +53,26 @@ export const TUNING = {
   blueStock: 6,            // drift logs: the ice's path is recorded from impact. Never rebuild.
   greenStock: 4,           // "this is Elgarz" beacons. They never rebuild.
   driftLogEvery: 5,        // seconds between drift-log points
-  hitLarge: 6,             // beacon hit radius for large ice: hitLarge + length * hitPerMile
-  hitPerMile: 0.45,
-  hitSmall: 8,
+  hitLarge: 14,            // beacon hit radius for large ice: hitLarge + length * hitPerMile
+  hitPerMile: 0.6,
+  hitSmall: 14,
   jamEvery: [4, 7],        // the launcher jams after this many shots (random in range)
   revealDelay: 3.5,        // seconds between the blue light and the win screen
-  // aim quality: each bar is full up to *Full, then falls to zero over *Span
-  aimFixFull: 30, aimFixSpan: 150,         // seconds since the fix
-  aimReadFull: 30, aimReadSpan: 120,       // seconds since the current reading
-  aimDistFull: 90, aimDistSpan: 330,       // miles between the reading and the target
-  aimTrackFull: 30, aimTrackSpan: 120,     // seconds since the orb last measured the drift
+  // hit chance: the expected miss distance (sigma) is the fix's own error plus the ice's speed times how wrong the
+  // drift model might be (relErr) times the time from the fix to impact. Chance = 1 - exp(-R^2 / 2 sigma^2), then a roll.
+  aimFixErr: 3,            // miles: a sonar contact or an orb sighting is good to about this
+  aimTrackRel: 0.03,       // an orb's drift measurement is good to about 3%
+  aimReadRel: 0.025,       // a fresh current reading taken next to the ice
+  aimAgeRel: 0.0004,       // the sea turns: the model gets worse per second since the fix
+  aimDistFull: 90,         // miles: a reading taken closer than this to the ice is as good as it gets
+  aimDistScale: 900,       // ...and much worse beyond that: a reading this far off is no better than none
+  aimReadFull: 30,         // seconds a reading (or an orb's track) stays fresh
+  aimFixFull: 30,          // seconds a fix stays fresh (for the advice line only)
+  aimStale: 0.003,         // per second beyond fresh
+  aimMaxChance: 0.99,      // only a beacon's own telemetry is certain
+  // rune board effects
+  shutterTime: 20,         // seconds the sonar and orb shutters stay down
+  decoyRange: 1.5,         // the decoy lands this many buoy ranges from the buoy
   // frozen monsters: released by a beacon hit, they swim for the buoy at the Grindmaw's speeds
   monsterIdleFade: 20,     // seconds a monster lingers with no buoy in the water before it fades
   monsterFadeTime: 3,      // seconds it takes to fade from the chart
@@ -300,11 +309,13 @@ export const STATIONS = [
 // ---------- rune board ----------
 // Each rune's house and weight pick a function from this grid. On page N, count the rune's weight
 // forward N-1 steps (4 wraps round to 1) before reading the grid.
+// Two FUELs and two COFFEEs, each pair in different houses. COFFEE's neighbours in Ember are consequences,
+// so miscounting the page shift there costs something.
 export const BOARD_GRID = {
-  Ice: ['WIPERS', 'FUEL', 'LAMPS', 'CONFETTI'],
-  Iron: ['LAUNCH', 'FUEL', 'VENT', 'DEVIL'],
-  Ember: ['COFFEE', 'FUEL', 'LAMPS', 'BELL'],
-  Bone: ['WIRELESS', 'COFFEE', 'BELL', 'NOTHING'],
+  Ice: ['COFFEE', 'SUCCUBUS', 'COOLANT', 'CONFETTI'],
+  Iron: ['FUEL', 'SHUTTER', 'LAUNCH', 'DEVIL'],
+  Ember: ['COFFEE', 'PURGE', 'ALARM', 'LIGHTS'],
+  Bone: ['DECOY', 'LOCKDOWN', 'RADIO', 'FUEL'],
 };
 export const BOARD_PAGES = ['I', 'II', 'III', 'IV'];
 
