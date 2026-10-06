@@ -1,18 +1,30 @@
 // Headless scenario checks across many seeds. Run: node tools/check.mjs [seedCount]
 import {
-  createWorld, step, light, stoke, dist, snapshot, setPower, deployBuoy, ping, lockContact, setDrift, fireBeacon,
+  createWorld, step, light, stoke, dist, snapshot, setPower, deployBuoy, ping, lockContact, fireBeacon, runeEffect, sealInput, openSeal, shuttered, hitRadius, ghostAt,
   countSightings, camSees, snowAt, slotsAvailable, pressKey, readingDisplay, radioSignal, setFreq, setGain, gainFor, setMusic, lockOn, DT,
   pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip, camCode, setLever, pressPlate, setCamTurn, camIsUnlocked, selectCam, gm,
-  relockCase, setVerdict, isUp, inShoal, saveWorld, loadWorld, echoSeen,
+  relockCase, setVerdict, isUp, inShoal, saveWorld, loadWorld, echoSeen, SYSTEMS,
 } from '../src/sim.js';
 import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RADIO_TABLE, BOARD_GRID, SHOALS, SIZE_CUT, COLD_WATER, FIELDS } from '../src/scenario.js';
 import { keypadCode, RUNES, REPAIR_RULES, repairAction } from '../src/glyphs.js';
+import { checkPassword, RULES as PW_RULES, WRONG_TRIES } from '../src/password.js';
 
 const SEEDS = Array.from({ length: Number(process.argv[2]) || 40 }, (_, i) => 1000 + i * 37);
 let failures = 0;
 const check = (ok, msg) => { console.log((ok ? 'PASS ' : 'FAIL ') + msg); if (!ok) failures++; };
 const pct = (a, b) => (100 * a / b).toFixed(0) + '%';
 const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+// Fire until it hits (the roll can miss even a good shot). Returns the number of shots it took, or 0.
+function fireUntilHit(w, color, target, tries = 8) {
+  for (let k = 1; k <= tries; k++) {
+    w.broken.launcher = false; w.beacons.stock = Math.max(w.beacons.stock, 1); w.beacons[color === 'red' ? 'stock' : color] = Math.max(1, w.beacons[color === 'red' ? 'stock' : color]);
+    const n0 = w.events.length; fireBeacon(w, color);
+    for (let i = 0; i < 400 && !w.events.slice(n0).some(e => e.type === 'hit' || e.type === 'miss'); i++) step(w, DT);
+    if (w.events.slice(n0).some(e => e.type === 'hit' && (!target || e.berg === target.id))) return k;
+  }
+  return 0;
+}
+const VALID3 = 'Jerry!StygiaV';   // passes the first three password rules
 const keepFurnace = w => { if (w.furnace.heat < 50) { if (!w.furnace.chute) w.furnace.chute = T.chuteMax; stoke(w); } };   // a diligent stoker with a full chute
 
 function run(seed, seconds, each) {
@@ -125,7 +137,8 @@ check(JSON.stringify(snapshot(a)) === JSON.stringify(snapshot(b)), 'Same seed gi
   for (let i = 0; i < 80; i++) step(w2, DT);
   check(!light(w2), 'A blown furnace cracks its grate and cannot be relit');
   startRepair(w2, 'furnace'); for (let i = 0; i < 100; i++) step(w2, DT);
-  check(light(w2), 'After the grate is repaired the furnace relights');
+  light(w2); const asked = w2.seal && w2.seal.reason === 'relight'; sealInput(w2, VALID3);
+  check(asked && w2.furnace.lit, 'After the grate is repaired the furnace relights (once the password is entered)');
 }
 
 // ---------- the Grindmaw ----------
@@ -209,11 +222,11 @@ function sharkSetup(seed) {
     const w = createWorld(seed);
     for (let k = 0; k < 6; k++) {
       const fns = w.board.runes.map(r => runeFunction(r, w.board.page));
-      if (!['FUEL', 'COFFEE', 'WIPERS'].every(f => fns.includes(f))) ok = false;
-      for (let p = 0; p < 4; p++) pressBoard(w, p);
+      if (!['FUEL', 'COFFEE'].every(f => fns.includes(f))) ok = false;
+      for (let p = 0; p < 4; p++) { pressBoard(w, p); w.seal = null; }
     }
   }
-  check(ok, 'Every rune board page has fuel, coffee and wipers');
+  check(ok, 'Every rune board page has fuel and coffee');
   const w = createWorld(3); light(w); const f0 = w.furnace.chute;
   pressBoard(w, w.board.runes.findIndex(r => runeFunction(r, w.board.page) === 'FUEL'));
   check(w.furnace.chute === f0 + 1, 'The FUEL rune fills the chute');
@@ -242,7 +255,14 @@ function sharkSetup(seed) {
   const w5 = createWorld(3); light(w5); w5.board.nextFlip = 1e9; const pg = w5.board.page;
   for (let i = 0; i < T.boardFlipPresses; i++) pressBoard(w5, w5.board.runes.findIndex(r => runeFunction(r, w5.board.page) === 'NOTHING') >= 0 ? w5.board.runes.findIndex(r => runeFunction(r, w5.board.page) === 'NOTHING') : 0);
   check(w5.board.flippedAt === w5.t, 'The board flips after a few presses');
-  check(BOARD_GRID.Ice.includes('CONFETTI') && BOARD_GRID.Iron.includes('DEVIL') && BOARD_GRID.Bone.includes('NOTHING'), 'Ice and Iron have their silly runes; Bone keeps a true dud');
+  {
+    const all = Object.values(BOARD_GRID).flat(), houseOf = fn => Object.keys(BOARD_GRID).filter(h => BOARD_GRID[h].includes(fn));
+    check(all.length === 16 && all.filter(f => f === 'FUEL').length === 2 && all.filter(f => f === 'COFFEE').length === 2 && houseOf('FUEL').length === 2 && houseOf('COFFEE').length === 2,
+      'The board has two FUELs and two COFFEEs, each pair in different houses');
+    const w9 = createWorld(9); light(w9); let ok = true;
+    for (let i = 0; i < 300; i++) { const fns = w9.board.runes.map(r => runeFunction(r, w9.board.page)); if (!fns.includes('FUEL') || !fns.includes('COFFEE')) ok = false; w9.board.nextFlip = 0; step(w9, DT); }
+    check(ok, 'Every board dealt has at least one FUEL and one COFFEE');
+  }
   {
     const w8 = createWorld(3); light(w8); w8.board.nextFlip = 1e9;
     for (const fn of ['CONFETTI', 'DEVIL']) {
@@ -294,10 +314,10 @@ function sharkSetup(seed) {
   const w = createWorld(12); light(w); ['sonar', 'currents'].forEach(s => setPower(w, s, true)); for (let i = 0; i < 20; i++) step(w, DT);
   const b = w.bergs[3]; deployBuoy(w, b.x, b.y); for (let i = 0; i < 60; i++) step(w, DT);
   lockFromCamera(w, b.id);
-  const fresh = aimQuality(w).q;
-  for (let i = 0; i < 600; i++) { step(w, DT); }
+  const fresh = aimQuality(w).q, near = dist(w.lock, b) < 200;
+  for (let i = 0; i < 1500; i++) { keepFurnace(w); step(w, DT); }
   const stale = aimQuality(w).q;
-  check(dist(w.lock, b) < 200 && fresh >= 80 && stale < fresh, `Aim quality is high for a fresh close fix and falls as it ages (${fresh} -> ${stale})`);
+  check(near && fresh >= 90 && stale < fresh, `The hit chance is high for a fresh close fix and falls as it ages (${fresh} -> ${stale})`);
 }
 
 // ---------- case board ----------
@@ -308,7 +328,7 @@ function sharkSetup(seed) {
   deployBuoy(w, b.x + 20, b.y); for (let i = 0; i < 60; i++) step(w, DT); ping(w); for (let i = 0; i < 60; i++) step(w, DT);
   lockContact(w, w.contacts.find(c => c.bergId === b.id));
   check(w.cases.length === 1 && !w.cases[0].permanent && w.obs[b.id].length === Math.round(b.length) && w.obs[b.id].echo && w.obs[b.id].echo.humps.length === b.echo.humps.length, 'Locking ice from sonar puts it on the case board (temporarily) with its length and its printed echo');
-  setDrift(w, 'deep'); fireBeacon(w, 'red'); for (let i = 0; i < 150; i++) step(w, DT);
+  fireUntilHit(w, 'red', b); for (let i = 0; i < 20; i++) step(w, DT);
   check(w.cases[0].permanent, 'A beacon hit pins the ice to the case board');
   const other = w.bergs.find(x => x.id !== b.id); lockOn(w, other.id, other.x, other.y, w.t, 'camera');
   check(w.cases.length === 2 && w.cases.filter(c => !c.permanent).length === 1, 'Locking other ice adds one temporary row');
@@ -318,7 +338,7 @@ function sharkSetup(seed) {
   check(w.lock.bergId === b.id && w.lock.source === 'beacon' && dist(w.lock, b) < 1, 'A beaconed row re-locks from its live position');
   for (let i = 0; i < 600; i++) { keepFurnace(w); step(w, DT); }
   const aqB = aimQuality(w);
-  check(aqB.beacon && aqB.q === 100 && dist(w.lock, b) < 1, 'Beaconed ice reports its own position and drift: aim stays full a minute later');
+  check(aqB.source === 'beacon' && aqB.q === 100 && dist(w.lock, b) < 1, 'Beaconed ice reports its own position and drift: aim stays full a minute later');
   setFreq(w, b.radio.freq); setGain(w, gainFor(dist(b, OBSERVATORY))); for (let i = 0; i < 10; i++) step(w, DT);
   check(w.obs[b.id].radio && w.obs[b.id].radio.shown === b.radio.shown, 'Reading the radio records the signal on the case board');
   for (let f = 100; f <= 1000; f += 10) { setFreq(w, f); relockCase(w, b.id); step(w, DT); }
@@ -339,11 +359,11 @@ function sharkSetup(seed) {
   for (let i = 0; i < 20; i++) step(w, DT);
   const b = w.bergs.find(b => b.large);
   lockOn(w, b.id, b.x, b.y, w.t, 'camera'); w.lock.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'c1' };
-  fireBeacon(w, 'orange'); for (let i = 0; i < 150; i++) step(w, DT);
-  check(w.obs[b.id] && w.obs[b.id].echo && w.obs[b.id].echo.humps.length === b.echo.humps.length && w.beacons.orange === 5, 'An orange sounding charge prints the echo without a ping');
+  w.beacons.orange = 6; const shotsO = fireUntilHit(w, 'orange', b); w.beacons.orange += 0; for (let i = 0; i < 20; i++) step(w, DT);
+  check(w.obs[b.id] && w.obs[b.id].echo && w.obs[b.id].echo.humps.length === b.echo.humps.length && shotsO > 0 && w.beacons.orange === 6 - shotsO, 'An orange sounding charge prints the echo without a ping');
   const c = w.bergs.find(x => x.large && x.id !== b.id);
   lockOn(w, c.id, c.x, c.y, w.t, 'camera'); w.lock.track = { vx: c.vx || 0, vy: c.vy || 0, t: w.t, cam: 'c1' };
-  fireBeacon(w, 'blue'); for (let i = 0; i < 300; i++) step(w, DT);
+  fireUntilHit(w, 'blue', c); for (let i = 0; i < 300; i++) step(w, DT);
   check(c.driftLog && c.driftLog.length >= 4, 'A blue beacon starts a drift log');
   const w2 = createWorld(52); light(w2); ['sonar', 'scanner', 'currents'].forEach(s => setPower(w2, s, true)); for (let i = 0; i < 50; i++) step(w2, DT);
   w2.scanner.calibrated = true; const d = w2.bergs.find(x => dist(x, CENTER) < 1200);
@@ -383,7 +403,7 @@ function sharkSetup(seed) {
   const m = w.bergs.find(b => b.echo.sig === 'monster' && !b.tombDrawn);
   m.x = CENTER.x + 500; m.y = CENTER.y; deployBuoy(w, m.x + 250, m.y); for (let i = 0; i < 50; i++) step(w, DT);
   lockOn(w, m.id, m.x, m.y, w.t, 'camera'); w.lock.track = { vx: m.vx || 0, vy: m.vy || 0, t: w.t, cam: 'c1' };
-  fireBeacon(w, 'red'); for (let i = 0; i < 100 && !w.monsters.length; i++) step(w, DT);
+  fireUntilHit(w, 'red', m); for (let i = 0; i < 100 && !w.monsters.length; i++) step(w, DT);
   check(w.monsters.length === 1 && m.released && m.echo.sig === 'caverns', 'A beacon hit on a frozen monster lets it out (and leaves empty caverns)');
   const d0 = dist(w.monsters[0], w.buoy); for (let i = 0; i < 30; i++) step(w, DT);
   check(dist(w.monsters[0], w.buoy) < d0, 'The monster swims for the buoy');
@@ -398,7 +418,7 @@ function sharkSetup(seed) {
   const m2 = w2.bergs.find(b => b.echo.sig === 'monster' && !b.tombDrawn); m2.x = CENTER.x; m2.y = CENTER.y + 600;
   deployBuoy(w2, m2.x + 200, m2.y); for (let i = 0; i < 50; i++) step(w2, DT);
   lockOn(w2, m2.id, m2.x, m2.y, w2.t, 'camera'); w2.lock.track = { vx: m2.vx || 0, vy: m2.vy || 0, t: w2.t, cam: 'c1' };
-  w2.shark.x = 0; w2.shark.y = 0; w2.lastPing = null; fireBeacon(w2, 'red');
+  w2.shark.x = 0; w2.shark.y = 0; w2.lastPing = null; fireUntilHit(w2, 'red', m2);
   for (let i = 0; i < 1500 && w2.buoy; i++) { keepFurnace(w2); step(w2, DT); }
   check(!w2.buoy && w2.broken.winch && w2.events.some(e => e.type === 'buoydead' && e.who === 'monster'), 'A monster that reaches the buoy destroys it');
   const g = createWorld(65); gm(g, 'move-berg', { id: g.bergs[3].id, x: 1234, y: 2345 });
@@ -496,8 +516,122 @@ function sharkSetup(seed) {
   check(tries >= 10 && hits >= tries - 1, 'Tracking ice on a camera lets a beacon hit it without a buoy');
 }
 
+// ---------- the hit chance is honest ----------
+{
+  let n = 0, sumP = 0, hits = 0, onIce = 0, landed = 0;
+  for (const seed of SEEDS.slice(0, 30)) {
+    const w = createWorld(seed); light(w); ['sonar', 'currents'].forEach(x => setPower(w, x, true)); for (let i = 0; i < 30; i++) step(w, DT);
+    const b = w.bergs.find(b => b.length > SIZE_CUT && !inShoal(b) && !b.tombDrawn && dist(b, CENTER) < 1200);
+    deployBuoy(w, b.x + 40, b.y); for (let i = 0; i < 60; i++) step(w, DT); ping(w); for (let i = 0; i < 60; i++) step(w, DT);
+    const c = w.contacts.find(c => c.bergId === b.id); if (!c) continue; lockContact(w, c);
+    for (const wait of [0, 25, 25, 25, 25, 25]) {
+      for (let i = 0; i < wait * 10; i++) { keepFurnace(w); step(w, DT); }
+      w.broken.launcher = false; w.beacons.stock = 12; b.tag = null; w.tags = []; w.lock.track = null; w.lock.source = 'sonar';   // keep it a sonar shot, not beacon telemetry
+      const aq = aimQuality(w), n0 = w.events.length; fireBeacon(w, 'red'); const fl = w.beacons.flying.at(-1);
+      for (let i = 0; i < 300 && !w.events.slice(n0).some(e => e.type === 'hit' || e.type === 'miss'); i++) step(w, DT);
+      const hit = w.events.slice(n0).some(e => e.type === 'hit' && e.berg === b.id);
+      n++; sumP += aq.chance; hits += hit;
+      if (hit) { landed++; if (dist(b, { x: fl.x1, y: fl.y1 }) < hitRadius(w, b) + 5) onIce++; }
+      b.tag = null; w.tags = [];
+    }
+  }
+  console.log(`Hit chance: stated ${(100 * sumP / n).toFixed(1)}% on average, actual ${(100 * hits / n).toFixed(1)}% over ${n} shots`);
+  check(Math.abs(sumP - hits) / n < 0.06, 'The hit chance shown is the real chance of hitting (within 6 points over many shots)');
+  check(landed > 0 && onIce === landed, 'A hit lands on the ice: the beacon flies to where the ice really is');
+  const w = createWorld(71); light(w); w.levers.drift = 1; for (let i = 0; i < 30; i++) step(w, DT);
+  const b = w.bergs.find(b => b.large); lockOn(w, b.id, b.x, b.y, w.t - 120, 'sonar'); setPower(w, 'currents', true);
+  w.readings = { t: w.t, x: b.x, y: b.y, surface: { x: 0, y: 0 }, deep: { x: 0, y: 0 }, wind: { x: 0, y: 0 }, windFrom: 0, windSpeed: 0, temp: -30 };
+  const slow = aimQuality(w).q; w.levers.drift = 2.5; for (let i = 0; i < 2; i++) step(w, DT); w.readings.t = w.t; const fast = aimQuality(w).q;
+  w.levers.aim = 2; const forgiving = aimQuality(w).q;
+  check(fast < slow && forgiving > fast, `Faster drift lowers the hit chance and beacon forgiveness raises it (${slow} -> ${fast} -> ${forgiving})`);
+}
+
+// ---------- rune board effects ----------
+{
+  const w = createWorld(72); light(w); ['sonar', 'cameras'].forEach(x => setPower(w, x, true)); for (let i = 0; i < 30; i++) step(w, DT);
+  w.cams.forEach(c => c.heat = 80); runeEffect(w, 'COOLANT');
+  check(w.cams.every(c => c.heat === 0), 'COOLANT cools every orb at once');
+  w.furnace.chute = 3; runeEffect(w, 'PURGE');
+  check(w.furnace.chute === 0, 'PURGE empties the fuel chute');
+  deployBuoy(w, CENTER.x + 400, CENTER.y); for (let i = 0; i < 50; i++) step(w, DT);
+  runeEffect(w, 'SHUTTER');
+  check(shuttered(w) && !ping(w), 'SHUTTER covers the sonar: no pinging until it lifts');
+  for (let i = 0; i < (T.shutterTime + 1) * 10; i++) { keepFurnace(w); step(w, DT); }
+  check(!shuttered(w) && ping(w), '...and it lifts by itself after twenty seconds');
+  w.shark.x = CENTER.x + 400; w.shark.y = CENTER.y - 1200; runeEffect(w, 'DECOY');
+  const dd = dist(w.lastPing, w.buoy);
+  check(w.lastPing.decoy && Math.abs(dd - T.decoyRange * T.buoyRadius) < 60 && dist(w.lastPing, CENTER) <= REACH * 0.9 + 1, 'DECOY lands about one and a half buoy ranges from the buoy, and the Grindmaw chases it');
+  const l0 = w.lamps; runeEffect(w, 'LIGHTS'); const l1 = w.lamps; runeEffect(w, 'LIGHTS'); const l2 = w.lamps; runeEffect(w, 'LIGHTS');
+  check(l0 === 0 && l1 === 1 && l2 === 2 && w.lamps === 0, 'LIGHTS cycles normal, red, green, normal');
+  const m0 = w.music; runeEffect(w, 'RADIO'); check(w.music !== m0, 'RADIO switches the cabin radio');
+  w.lock = null; const st = w.beacons.stock; runeEffect(w, 'LAUNCH');
+  check(w.beacons.stock === st - 1 && w.beacons.flying.some(f => f.wild), 'LAUNCH with nothing locked fires a beacon somewhere wild');
+}
+
+// ---------- the password ----------
+{
+  // the rules, one at a time, in order
+  const p8 = (() => { const base = 'Jerry!StygiaV-Pride-Bel-II-'; for (let L = base.length; L < 90; L++) { const ls = String(L); let need = 42 - [...ls].reduce((a, c) => a + +c, 0), fill = ''; while (need > 0) { const d = Math.min(9, need); fill += d; need -= d; } const p = base + ls + fill; if (p.length === L) return p; } })();
+  const ctx = { pages: [1] }, ok = (p, cap) => checkPassword(p, cap, ctx).ok;
+  check(PW_RULES.map(r => r.id).join() === 'jerry,case,hell,length,sin,devil,digits,page', 'The password rules come in the agreed order');
+  check(p8 && ok(p8, 8) && ok('  ' + p8 + '  ', 8), `A password that obeys all eight rules passes (${p8}), with spaces trimmed`);
+  check(!ok('jerry!stygiav', 3) && !ok('JerryStygiaV', 3) && !ok('Jerry!Stygia', 3) && ok('Jerry!DisII', 3) && ok('jErRy?avernusI', 3), 'Rules 1-3: JERRY in any case; a capital and a symbol; a layer of Hell with its numeral in capitals');
+  check(!ok('Jerry😈StygiaV', 3), 'Only keyboard characters: an emoji is refused');
+  check(ok(p8, 8) && !ok(p8.replace('II', 'IV'), 8) && checkPassword(p8.replace('II', 'IV'), 8, { pages: [3] }).ok, 'The page rule wants the numeral of a page shown while the lock was open');
+  check(!ok(p8.slice(0, -1), 8), 'Change one digit and the sum or the length breaks');
+
+  // the lock itself
+  const w = createWorld(73); light(w); ['sonar', 'currents'].forEach(x => setPower(w, x, true)); for (let i = 0; i < 30; i++) step(w, DT);
+  runeEffect(w, 'LOCKDOWN');
+  check(w.seal && w.seal.mode === 'set' && w.pwCap === 3, 'The first LOCKDOWN asks the crew to set a password under three rules');
+  check(!stoke(w) && !fireBeacon(w, 'red') && !setPower(w, 'radio', true), 'While locked, the furnace, the power board and the launcher refuse');
+  check(sealInput(w, 'jerry') === 'rejected' && w.seal, 'A password that breaks a rule is refused');
+  check(sealInput(w, VALID3) === 'ok' && !w.seal && w.password === VALID3, 'A good password is set and the lock lifts');
+  runeEffect(w, 'LOCKDOWN');
+  check(w.seal.mode === 'enter' && w.pwCap === 5, 'The next LOCKDOWN asks for the password, and two more rules will apply');
+  check(sealInput(w, 'nope') === 'wrong' && w.seal.tries === 1, 'A wrong password costs a try');
+  sealInput(w, VALID3);
+  check(w.seal && w.seal.mode === 'set', '...the right one, and a new password must be set');
+  check(sealInput(w, VALID3) === 'rejected', 'The old password no longer satisfies the new rules');
+  const p5 = 'Jerry!StygiaV-Pride' + (() => { for (let L = 20; L < 40; L++) { const t = 'Jerry!StygiaV-Pride' + L; if (t.length === L) return L; } })();
+  check(sealInput(w, p5) === 'ok' && w.password === p5, `A password meeting five rules is accepted (${p5})`);
+  // green asks
+  const b = w.bergs.find(b => b.large && !b.tombDrawn); lockOn(w, b.id, b.x, b.y, w.t, 'camera'); w.lock.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'c1' };
+  const g0 = w.beacons.green; fireBeacon(w, 'green');
+  check(w.seal && w.seal.reason === 'green' && w.beacons.green === g0, 'Firing green asks for the password first');
+  sealInput(w, p5);
+  check(!w.seal && w.beacons.green === g0 - 1, '...and fires the moment it is accepted');
+  // relight asks
+  w.furnace.heat = 0.05; for (let i = 0; i < 5; i++) step(w, DT);
+  check(!w.furnace.lit, '(the furnace has gone out)');
+  light(w);
+  check(w.seal && w.seal.reason === 'relight' && !w.furnace.lit, 'Relighting the furnace asks for the password');
+  sealInput(w, p5);
+  check(w.furnace.lit && !w.seal, '...and lights it once accepted');
+  // nodding off logs the operator out
+  w.fatigue = 0.999; for (let i = 0; i < 20; i++) { keepFurnace(w); step(w, DT); }
+  check(w.seal && w.seal.reason === 'fatigue', 'An operator who nods off is logged out');
+  sealInput(w, p5);
+  check(!w.seal && w.fatigue <= 0.7, '...and logs back in drowsy, not fresh');
+  // five wrong tries reboot the ship; beacons stay
+  b.tag = 'red'; w.tags = [b.id]; w.furnace.chute = 3;
+  openSeal(w, 'gm');
+  for (let i = 0; i < WRONG_TRIES - 1; i++) sealInput(w, 'wrong' + i);
+  check(w.seal && w.seal.tries === WRONG_TRIES - 1, 'Four wrong tries and it is still asking');
+  check(sealInput(w, 'wrong again') === 'reboot', 'The fifth wrong try reboots the system');
+  check(!w.furnace.lit && w.furnace.chute === 0 && SYSTEMS.every(x => !w.power[x].on) && Object.values(w.broken).some(Boolean), 'The reboot: furnace out, chute empty, everything off, something broken');
+  check(b.tag === 'red' && w.tags.includes(b.id) && w.seal && w.seal.mode === 'set' && w.password == null, '...beacons stay where they were, and a fresh password must be set');
+  gm(w, 'unseal');
+  check(!w.seal, 'The GM can unlock it outright');
+  // a board flip while the lock is open: either page counts
+  const w2 = createWorld(74); light(w2); for (let i = 0; i < 10; i++) step(w2, DT);
+  w2.pwCap = 8; runeEffect(w2, 'LOCKDOWN'); w2.pwCap = 8; const pg0 = w2.board.page;
+  let flips = 0; while (w2.board.page === pg0 && flips < 50) { w2.board.nextFlip = 0; step(w2, DT); flips++; }
+  check(w2.seal.pages.includes(pg0) && w2.seal.pages.includes(w2.board.page), 'A board flip while the lock is open: both pages count for the page rule');
+}
+
 // ---------- shots ----------
-function shot(seed, { drift, readNear, delay, color = 'green' }) {
+function shot(seed, { readNear, delay, color = 'green' }) {
   const w = createWorld(seed); light(w);
   for (let i = 0; i < 3000; i++) { if (i % 50 === 0) keepFurnace(w); step(w, DT); }     // 5:00
   ['sonar', 'currents'].forEach(s => setPower(w, s, true));
@@ -507,20 +641,19 @@ function shot(seed, { drift, readNear, delay, color = 'green' }) {
   const bx = OBSERVATORY.x + (e.x - OBSERVATORY.x) * k, by = OBSERVATORY.y + (e.y - OBSERVATORY.y) * k;
   deployBuoy(w, readNear ? bx + 40 : bx, readNear ? by + 40 : by);
   for (let i = 0; i < 100; i++) step(w, DT);
-  if (!readNear) { const near = { x: OBSERVATORY.x + (e.x - OBSERVATORY.x) * Math.min(1, 1600 / dd), y: OBSERVATORY.y + (e.y - OBSERVATORY.y) * Math.min(1, 1600 / dd) }; deployBuoy(w, near.x, near.y); for (let i = 0; i < 50; i++) step(w, DT); ping(w); for (let i = 0; i < 60; i++) step(w, DT); const c = w.contacts.find(c => c.bergId === 'elgarz'); if (!c) return 'no contact'; lockContact(w, c); setDrift(w, drift); deployBuoy(w, bx, by); for (let i = 0; i < 50; i++) step(w, DT); }
-  else { ping(w); for (let i = 0; i < 60; i++) step(w, DT); const c = w.contacts.find(c => c.bergId === 'elgarz'); if (!c) return 'no contact'; lockContact(w, c); setDrift(w, drift); }
+  if (!readNear) { const near = { x: OBSERVATORY.x + (e.x - OBSERVATORY.x) * Math.min(1, 1600 / dd), y: OBSERVATORY.y + (e.y - OBSERVATORY.y) * Math.min(1, 1600 / dd) }; deployBuoy(w, near.x, near.y); for (let i = 0; i < 50; i++) step(w, DT); ping(w); for (let i = 0; i < 60; i++) step(w, DT); const c = w.contacts.find(c => c.bergId === 'elgarz'); if (!c) return 'no contact'; lockContact(w, c); deployBuoy(w, bx, by); for (let i = 0; i < 50; i++) step(w, DT); }
+  else { ping(w); for (let i = 0; i < 60; i++) step(w, DT); const c = w.contacts.find(c => c.bergId === 'elgarz'); if (!c) return 'no contact'; lockContact(w, c); }
   for (let i = 0; i < delay * 10; i++) step(w, DT);
   fireBeacon(w, color);
+  if (w.seal) sealInput(w, VALID3);   // first green: set a password, then it fires
   for (let i = 0; i < 400; i++) { if (i % 50 === 0) keepFurnace(w); step(w, DT); }
   return w.won ? 'win' : e.tag ? 'tag' : 'miss';
 }
-const good = SEEDS.slice(0, 20).map(s => shot(s, { drift: 'deep', readNear: true, delay: 8 }));
-const wrongDrift = SEEDS.slice(0, 20).map(s => shot(s, { drift: 'surface', readNear: true, delay: 8 }));
-const farRead = SEEDS.slice(0, 20).map(s => shot(s, { drift: 'deep', readNear: false, delay: 8 }));
-const amber = SEEDS.slice(0, 5).map(s => shot(s, { drift: 'deep', readNear: true, delay: 8, color: 'orange' }));
-console.log(`Careful green shots: ${good.filter(r => r === 'win').length}/20 win · wrong drift: ${wrongDrift.filter(r => r === 'win').length}/20 · reading far from target: ${farRead.filter(r => r === 'win').length}/20`);
-check(good.filter(r => r === 'win').length >= 18, 'A fresh lock + right drift + nearby reading hits Elgarz (18 of 20 seeds)');
-check(wrongDrift.filter(r => r === 'win').length <= 2, 'The wrong drift setting misses');
+const good = SEEDS.slice(0, 20).map(s => shot(s, { readNear: true, delay: 8 }));
+const farRead = SEEDS.slice(0, 20).map(s => shot(s, { readNear: false, delay: 8 }));
+const amber = SEEDS.slice(0, 5).map(s => shot(s, { readNear: true, delay: 8, color: 'orange' }));
+console.log(`Careful green shots: ${good.filter(r => r === 'win').length}/20 win · reading far from target: ${farRead.filter(r => r === 'win').length}/20`);
+check(good.filter(r => r === 'win').length >= 18, 'A fresh lock with a nearby reading hits Elgarz (18 of 20 seeds), password and all');
 check(farRead.filter(r => r === 'win').length <= 10, 'A reading taken far from the target usually misses');
 check(amber.every(r => r !== 'win'), 'Only a green beacon wins');
 

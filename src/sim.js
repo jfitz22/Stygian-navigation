@@ -6,6 +6,7 @@ import {
   BOARD_GRID, BOARD_PAGES,
 } from './scenario.js';
 import { RUNES, makePlate, keypadCode, shuffle, octantName } from './glyphs.js';
+import { checkPassword, passwordMatches, FIRST_RULES, RULES_PER_LOCKDOWN, RULES as PW_RULES, WRONG_TRIES } from './password.js';
 export const PAYLOAD = { red: 'stock', orange: 'orange', blue: 'blue', green: 'green' };
 
 export const SYSTEMS = ['cameras', 'sonar', 'radio', 'scanner', 'currents'];
@@ -218,7 +219,7 @@ export function runeFunction(runeId, page) {
   const r = RUNES[runeId];
   return BOARD_GRID[r.house][(r.weight - 1 + page) % 4];
 }
-const MUST_HAVE = ['FUEL', 'COFFEE', 'WIPERS'];
+const MUST_HAVE = ['FUEL', 'COFFEE'];
 function dealBoard(w, rng) {
   const b = w.board;
   b.page = Math.floor(rng() * 4);
@@ -308,10 +309,12 @@ export function createWorld(seed = newSeed()) {
     shark: { x: sharkStart.x, y: sharkStart.y, heading: gen() * 6.28, mode: 'roam' },
     readings: null, readingAt: -99,
     lock: null,         // {bergId, x, y, t0, source}
-    drift: 'surface',
     scanner: { calibrated: false, calCode: null, lockoutUntil: 0, plate: makePlate(gen), pressed: [], frozen: null, code: null, lastPress: 0 },
     radio: { freq: 300.0, gain: 5, clipTime: 0 },
-    music: false, lamps: 0, wipe: null,
+    music: false, lamps: 0, wipe: null,   // lamps: 0 normal, 1 red, 2 green
+    shutterUntil: 0,
+    password: null, pwCap: FIRST_RULES, pwSets: 0,
+    seal: null,         // the password lock while it is up: {reason, mode: 'enter'|'set', change, pending, tries, pages}
     coffee: { brewUntil: 0, sips: 0 }, fatigue: 0,
     board: { page: 0, runes: [], presses: 0, nextFlip: 0, flippedAt: -99 },
     color: 'red',
@@ -344,11 +347,14 @@ export function slotsAvailable(w) {
   const [a, b, c] = T.slotHeat;
   return f.heat >= a ? 3 : f.heat >= b ? 2 : f.heat >= c ? 1 : 0;
 }
-export function light(w) {
+export function light(w, opts = {}) {
   const f = w.furnace;
   if (f.lit) return false;
+  if (w.seal && !opts.auth) { emit(w, 'deny', { msg: 'THE FURNACE IS LOCKED · ENTER THE PASSWORD' }); return false; }
   if (w.broken.furnace) { emit(w, 'deny', { msg: 'THE GRATE IS CRACKED · REPAIR IT ON THE OVERHEAD DECK' }); return false; }
   if (w.t < f.outUntil) { emit(w, 'deny', { msg: 'THE GRATE IS STILL TOO HOT TO RELIGHT' }); return false; }
+  // relighting is interlocked: the password first
+  if (f.everLit && !opts.auth) { openSeal(w, 'relight', { pending: 'light' }); return false; }
   f.lit = true; f.heat = f.everLit ? 30 : T.furnaceStartHeat; f.pending = 0;
   f.everLit = true; w.started = true;
   emit(w, 'ignite');
@@ -357,6 +363,7 @@ export function light(w) {
 export function stoke(w) {
   const f = w.furnace;
   if (!f.lit) { emit(w, 'deny', { msg: 'LIGHT THE FURNACE FIRST' }); return false; }
+  if (w.seal) { emit(w, 'deny', { msg: 'THE FURNACE IS LOCKED · ENTER THE PASSWORD' }); return false; }
   if (f.chute <= 0) { emit(w, 'deny', { msg: 'THE FUEL CHUTE IS EMPTY · FILL IT FROM THE RUNE BOARD' }); return false; }
   f.chute--; f.pending += T.stokeAmount; emit(w, 'stoke');
   return true;
@@ -365,6 +372,7 @@ function spendHeat(w, n) { const f = w.furnace; f.heat = Math.max(0.5, f.heat - 
 function allOff(w) { for (const s of SYSTEMS) w.power[s].on = false; }
 export function setPower(w, sys, on) {
   if (!w.furnace.lit) { emit(w, 'deny', { msg: 'THE FURNACE IS COLD' }); return false; }
+  if (w.seal) { emit(w, 'deny', { msg: 'THE POWER BOARD IS LOCKED · ENTER THE PASSWORD' }); return false; }
   const p = w.power[sys];
   if (on === p.on) return true;
   if (on) {
@@ -384,26 +392,103 @@ export function selectCam(w, id) { if (w.activeCam !== id) { w.activeCam = id; e
 export function pressBoard(w, slot) {
   const b = w.board, rid = b.runes[slot];
   if (rid == null) return;
-  const fn = runeFunction(rid, b.page), f = w.furnace;
+  const fn = runeFunction(rid, b.page);
   emit(w, 'board', { fn });
-  const needFire = () => { if (!f.lit) { emit(w, 'deny', { msg: 'THAT NEEDS THE FURNACE LIT' }); return false; } return true; };
+  runeEffect(w, fn);
+  if (++b.presses >= T.boardFlipPresses) flipBoard(w);
+}
+// What each rune function does. The GM can fire any of these directly.
+export const RUNE_FUNCTIONS = ['FUEL', 'COFFEE', 'COOLANT', 'DECOY', 'LAUNCH', 'PURGE', 'SHUTTER', 'LOCKDOWN', 'LIGHTS', 'RADIO', 'ALARM', 'CONFETTI', 'DEVIL', 'SUCCUBUS'];
+export function runeEffect(w, fn) {
+  const f = w.furnace;
   if (fn === 'FUEL') { if (f.chute >= T.chuteMax) emit(w, 'deny', { msg: 'THE FUEL CHUTE IS FULL' }); else { f.chute++; tick(w, 'fuel'); emit(w, 'fuel'); } }
   if (fn === 'COFFEE') {
     if (w.coffee.sips > 0 || w.t < w.coffee.brewUntil) emit(w, 'deny', { msg: 'THE POT IS ALREADY FULL' });
-    else if (needFire()) { spendHeat(w, T.coffeeHeat); w.coffee.brewUntil = w.t + T.coffeeBrew; tick(w, 'coffee'); emit(w, 'brew'); }
+    else if (!f.lit) emit(w, 'deny', { msg: 'THAT NEEDS THE FURNACE LIT' });
+    else { spendHeat(w, T.coffeeHeat); w.coffee.brewUntil = w.t + T.coffeeBrew; tick(w, 'coffee'); emit(w, 'brew'); }
   }
-  if (fn === 'WIPERS') { w.wipe = { cam: w.activeCam, until: w.t + 8 }; emit(w, 'wipers'); }
-  if (fn === 'WIRELESS') { w.music = !w.music; emit(w, 'wireless', { on: w.music }); }
-  if (fn === 'LAMPS') { w.lamps = (w.lamps + 1) % 3; emit(w, 'lamps', { mode: w.lamps }); }
-  if (fn === 'LAUNCH') fireBeacon(w, 'red');
-  if (fn === 'BELL') emit(w, 'bell');
-  if (fn === 'CONFETTI') emit(w, 'confetti');
-  if (fn === 'DEVIL') emit(w, 'devil');
-  if (fn === 'VENT') { if (f.lit) { f.heat = Math.max(0.5, f.heat - T.ventHeat); f.pending = 0; } emit(w, 'vent'); }
-  if (fn === 'NOTHING') emit(w, 'dud');
-  if (++b.presses >= T.boardFlipPresses) flipBoard(w);
+  if (fn === 'COOLANT') { for (const c of w.cams) c.heat = 0; emit(w, 'coolant'); }   // remorhazes give up on a cold orb
+  if (fn === 'DECOY') fireDecoy(w);
+  if (fn === 'LAUNCH') fireBeacon(w, 'red', { rune: true });
+  if (fn === 'PURGE') { const n = f.chute; f.chute = 0; emit(w, 'purge', { n }); }
+  if (fn === 'SHUTTER') { w.shutterUntil = w.t + T.shutterTime; emit(w, 'shutter'); }
+  if (fn === 'LOCKDOWN') { if (w.seal) emit(w, 'deny', { msg: 'ALREADY LOCKED' }); else openSeal(w, 'lockdown', { change: true }); }
+  if (fn === 'LIGHTS') { w.lamps = (w.lamps + 1) % 3; emit(w, 'lights', { mode: w.lamps }); }
+  if (fn === 'RADIO') { w.music = !w.music; emit(w, 'cabinradio', { on: w.music }); }
+  if (fn === 'ALARM' || fn === 'CONFETTI' || fn === 'DEVIL' || fn === 'SUCCUBUS') emit(w, fn.toLowerCase());
 }
-export function flipBoard(w) { dealBoard(w, w.boardRng); w.board.flippedAt = w.t; emit(w, 'flip', { page: BOARD_PAGES[w.board.page] }); }
+export const shuttered = w => w.t < w.shutterUntil;
+// A noisemaker fired from the buoy, landing to the side of the Grindmaw's approach so it swerves off the buoy.
+function fireDecoy(w) {
+  const b = w.buoy;
+  if (!b || w.t < b.landAt) { emit(w, 'deny', { msg: 'NO BUOY TO FIRE THE DECOY FROM' }); return; }
+  const sh = w.shark, d = dist(sh, b), r = T.decoyRange * T.buoyRadius;
+  const ux = d > 1 ? (b.x - sh.x) / d : 1, uy = d > 1 ? (b.y - sh.y) / d : 0;
+  const pick = s => ({ x: b.x - uy * r * s, y: b.y + ux * r * s });
+  let p = [pick(1), pick(-1)].sort((p, q) => dist(p, CENTER) - dist(q, CENTER))[0];
+  const dc = dist(p, CENTER), lim = REACH * 0.9;
+  if (dc > lim) p = { x: CENTER.x + (p.x - CENTER.x) * lim / dc, y: CENTER.y + (p.y - CENTER.y) * lim / dc };
+  w.lastPing = { x: p.x, y: p.y, t: w.t, decoy: true };
+  if (w.shark.mode !== 'hunt') emit(w, 'sharkhunt');
+  w.shark.mode = 'hunt';
+  emit(w, 'decoy', { x: p.x, y: p.y });
+}
+export function flipBoard(w) {
+  dealBoard(w, w.boardRng); w.board.flippedAt = w.t;
+  if (w.seal && !w.seal.pages.includes(w.board.page)) w.seal.pages.push(w.board.page);   // any page seen while the lock is up counts
+  emit(w, 'flip', { page: BOARD_PAGES[w.board.page] });
+}
+
+// ---------- the password lock ----------
+// One lock over the chart, the furnace controls and the launcher. Some triggers only ask for the password;
+// LOCKDOWN changes it (enter the old one, then set a new one under more rules). No password yet: set one.
+export function openSeal(w, reason, { change = false, pending = null } = {}) {
+  if (w.seal) return false;
+  if (change && w.password) w.pwCap = Math.min(PW_RULES.length, w.pwCap + RULES_PER_LOCKDOWN);
+  w.seal = { reason, mode: w.password ? 'enter' : 'set', change: change || !w.password, pending, tries: 0, pages: [w.board.page], opened: w.t };
+  emit(w, 'sealed', { reason, mode: w.seal.mode });
+  return true;
+}
+// The operator types at the terminal. Returns 'ok' | 'wrong' | 'rejected' | 'reboot'.
+export function sealInput(w, text) {
+  const s = w.seal; if (!s) return 'ok';
+  if (s.mode === 'enter') {
+    if (passwordMatches(w.password, text)) {
+      if (s.change) { s.mode = 'set'; emit(w, 'pwaccepted', { next: 'set' }); return 'ok'; }
+      emit(w, 'pwaccepted', {}); finishSeal(w); return 'ok';
+    }
+    s.tries++;
+    if (s.tries >= WRONG_TRIES) { reboot(w); return 'reboot'; }
+    emit(w, 'pwwrong', { left: WRONG_TRIES - s.tries });
+    return 'wrong';
+  }
+  const chk = checkPassword(text, w.pwCap, { pages: s.pages });
+  if (!chk.ok) { emit(w, 'deny', { msg: chk.ascii ? 'THAT PASSWORD BREAKS A RULE' : 'KEYBOARD LETTERS, NUMBERS AND SYMBOLS ONLY' }); return 'rejected'; }
+  w.password = chk.value; w.pwSets++;
+  emit(w, 'pwset', { rules: w.pwCap });
+  finishSeal(w);
+  return 'ok';
+}
+export const sealRules = w => w.seal ? checkPassword('', w.pwCap, { pages: w.seal.pages }).results.map(r => r.text) : [];
+function finishSeal(w) {
+  const p = w.seal && w.seal.pending;
+  w.seal = null; emit(w, 'unsealed');
+  if (p === 'light') light(w, { auth: true });
+  if (p === 'green') fireBeacon(w, 'green', { auth: true });
+  if (p === 'fatigue') w.fatigue = Math.min(w.fatigue, 0.7);
+}
+// Too many wrong tries: the ship reboots. Fire out, chute empty, everything off, one or two things break.
+// Beacons already fired, the case board and the chart all stay. Then a fresh password, under the same rules.
+function reboot(w) {
+  const f = w.furnace;
+  f.lit = false; f.heat = 0; f.pending = 0; f.chute = 0; allOff(w);
+  const pool = ['furnace', 'launcher', 'winch', 'fuse'].filter(k => !w.broken[k]), n = 1 + Math.floor(w.rng() * 2), broke = [];
+  for (let i = 0; i < n && pool.length; i++) { const k = pool.splice(Math.floor(w.rng() * pool.length), 1)[0]; w.broken[k] = true; broke.push(k); if (k === 'winch') w.buoy = null; }
+  w.password = null;
+  w.seal = { reason: 'reboot', mode: 'set', change: true, pending: null, tries: 0, pages: [w.board.page], opened: w.t };
+  emit(w, 'reboot', { broke });
+  for (const k of broke) emit(w, 'broke', { sys: k });
+}
 export function sip(w) {
   if (w.coffee.sips <= 0) return false;
   w.coffee.sips--; w.fatigue = Math.max(0, w.fatigue - T.sipRelief); emit(w, 'sip');
@@ -425,6 +510,7 @@ export function deployBuoy(w, x, y) {
 
 export function ping(w) {
   if (!isUp(w, 'sonar')) { emit(w, 'deny', { msg: 'SONAR IS UNPOWERED' }); return false; }
+  if (shuttered(w)) { emit(w, 'deny', { msg: 'THE SONAR IS SHUTTERED' }); return false; }
   if (!w.buoy || w.t < w.buoy.landAt) { emit(w, 'deny', { msg: 'NO BUOY IN THE WATER' }); return false; }
   if (w.pings.some(p => p.deliverAt > w.t)) { emit(w, 'deny', { msg: 'STILL LISTENING FOR THE LAST ECHO' }); return false; }
   const at = { x: w.buoy.x, y: w.buoy.y };
@@ -474,15 +560,15 @@ export function lockFromCamera(w, bergId) {
   record(w, bergId, 'length', Math.round(b.length));   // the orb estimates its length
   return res;
 }
-export function setDrift(w, mode) { w.drift = mode; emit(w, 'click'); }
 
 // Predicted ("ghost") position of the locked target, using only what the observatory measured.
+// The current is chosen by the ice's measured size: large ice rides the deep water, small ice the surface and wind.
 export function modelVelocity(w) {
   if (w.lock && w.lock.track) return { x: w.lock.track.vx, y: w.lock.track.vy };
-  const r = w.readings;
+  const r = w.readings, b = lockedBerg(w);
   if (!r) return { x: 0, y: 0 };
   const k = w.levers.drift;
-  if (w.drift === 'deep') return { x: r.deep.x * k, y: r.deep.y * k };
+  if (!b || b.large) return { x: r.deep.x * k, y: r.deep.y * k };
   return { x: (r.surface.x + 0.03 * r.wind.x) * k, y: (r.surface.y + 0.03 * r.wind.y) * k };
 }
 export function ghostAt(w, t) {
@@ -495,22 +581,35 @@ export function alignment(w, radius = T.alignRadius) {
   const b = lockedBerg(w); if (!b) return 0;
   return clamp(1 - dist(ghostAt(w, w.t), b) / radius, 0, 1);
 }
-// Aim quality from things the crew can see: fix age, reading age, and how far the reading was taken from the target.
+export const hitRadius = (w, b) => (b.large ? T.hitLarge + b.length * T.hitPerMile : T.hitSmall) * w.levers.aim;
+// The honest hit chance. The shot rolls against exactly this number.
 export function aimQuality(w) {
-  const l = w.lock, r = w.readings;
-  if (!l) return null;
-  const g = ghostAt(w, w.t);
-  const fixAge = w.t - l.t0, readAge = r ? w.t - r.t : null, readDist = r ? dist(r, g) : null;
-  const fFix = clamp(1 - (fixAge - T.aimFixFull) / T.aimFixSpan, 0, 1);
+  const l = w.lock, b = lockedBerg(w);
+  if (!l || !b) return null;
+  const g = ghostAt(w, w.t), flight = dist(OBSERVATORY, g) / T.beaconSpeed, fixAge = w.t - l.t0, R = hitRadius(w, b);
+  const source = l.track && l.track.cam === 'beacon' ? 'beacon' : l.track ? 'orb' : l.source === 'camera' ? 'orb' : l.source;
+  if (source === 'beacon') return { q: 100, chance: 1, source, fixAge: 0, flight, R, sigma: 0, reason: null };
+  const speed = Math.hypot(b.vx || 0, b.vy || 0), span = fixAge + flight, r = w.readings;
+  let rel, reason = null;
   if (l.track) {
-    // the camera measured the drift itself: no buoy needed
-    const trackAge = w.t - l.track.t, fTrack = clamp(1 - (trackAge - T.aimTrackFull) / T.aimTrackSpan, 0, 1);
-    return { q: Math.round(100 * fFix * fTrack), fixAge, readAge, readDist, drift: 'camera', tracked: true, beacon: l.track.cam === 'beacon', trackAge, cam: l.track.cam, flight: dist(OBSERVATORY, g) / T.beaconSpeed, fFix, fTrack, fRead: 1, fDist: 1 };
+    const age = w.t - l.track.t;
+    rel = T.aimTrackRel + Math.max(0, age - T.aimReadFull) * T.aimStale;
+    if (age > T.aimReadFull) reason = `the orb lost sight of it ${Math.round(age)} s ago: find it in an orb again`;
+  } else if (!r) {
+    rel = 1;   // no reading: the prediction cannot move at all
+    reason = l.source === 'camera' ? 'keep it in the orb a few seconds to measure its drift, or read the current with a buoy' : 'no current reading yet: power CURRENTS with the buoy in the water';
+  } else {
+    const rd = dist(r, g), ra = w.t - r.t;
+    rel = T.aimReadRel + Math.min(1, Math.pow(Math.max(0, rd - T.aimDistFull) / T.aimDistScale, 1.5)) + Math.max(0, ra - T.aimReadFull) * T.aimStale;
+    if (rd > 300) reason = `the current was read ${Math.round(rd)} mi from the ice: move the buoy closer`;
+    else if (ra > T.aimReadFull * 2) reason = 'the current reading is old: keep CURRENTS powered, or ping again';
+    else if (l.source === 'camera') reason = 'keep it in the orb a few seconds to measure its drift';
   }
-  const fRead = r ? clamp(1 - (readAge - T.aimReadFull) / T.aimReadSpan, 0, 1) : 0;
-  const fDist = r ? clamp(1 - (readDist - T.aimDistFull) / T.aimDistSpan, 0, 1) : 0;
-  const q = Math.round(100 * fFix * fRead * fDist);
-  return { q, fixAge, readAge, readDist, drift: w.drift, flight: dist(OBSERVATORY, g) / T.beaconSpeed, fFix, fRead, fDist };
+  rel += span * T.aimAgeRel;
+  const sigma = T.aimFixErr + speed * rel * span;
+  if (!reason && fixAge > T.aimFixFull) reason = `the fix is ${Math.round(fixAge)} s old: ping again or find it in an orb`;
+  const chance = Math.min(T.aimMaxChance, 1 - Math.exp(-(R * R) / (2 * sigma * sigma)));
+  return { q: Math.round(chance * 100), chance, source, fixAge, flight, R, sigma, reason: chance < 0.85 ? reason : null };
 }
 
 // ---------- buoy readings ----------
@@ -591,47 +690,79 @@ export function radioSignal(w) {
 }
 
 // ---------- beacons ----------
-export function fireBeacon(w, color) {
+export function fireBeacon(w, color, opts = {}) {
+  if (w.seal) { emit(w, 'deny', { msg: 'THE LAUNCHER IS LOCKED · ENTER THE PASSWORD' }); return false; }
   if (w.broken.launcher) { emit(w, 'deny', { msg: 'THE LAUNCHER IS JAMMED · REPAIR IT' }); return false; }
-  if (!w.lock) { emit(w, 'deny', { msg: 'NO TARGET LOCKED' }); return false; }
   const key = PAYLOAD[color] || 'stock';
   if (w.beacons[key] <= 0) { emit(w, 'deny', { msg: key === 'stock' ? 'BEACON RACK EMPTY' : `NO ${color.toUpperCase()} BEACONS LEFT` }); return false; }
-  const aq = aimQuality(w);
-  let aim = ghostAt(w, w.t);
-  for (let i = 0; i < 4; i++) aim = ghostAt(w, w.t + dist(OBSERVATORY, aim) / T.beaconSpeed);
-  const tf = dist(OBSERVATORY, aim) / T.beaconSpeed;
+  const target = lockedBerg(w);
+  if (!target && !opts.rune) { emit(w, 'deny', { msg: 'NO TARGET LOCKED' }); return false; }
+  // the accusation needs the password
+  if (color === 'green' && !opts.auth) { openSeal(w, 'green', { pending: 'green' }); return false; }
+  let fl;
+  if (target) {
+    const aq = aimQuality(w);
+    let aim = ghostAt(w, w.t);
+    for (let i = 0; i < 4; i++) aim = ghostAt(w, w.t + dist(OBSERVATORY, aim) / T.beaconSpeed);
+    const tf = dist(OBSERVATORY, aim) / T.beaconSpeed;
+    // the roll decides; the flight is drawn to match it: a hit lands on the ice, a miss just beside it
+    const willHit = w.rng() < aq.chance, fut = futureOf(w, target, tf);
+    let x1 = fut.x, y1 = fut.y, by = null;
+    if (!willHit) {
+      const d = dist(aim, fut), ang = d > 1 ? Math.atan2(aim.y - fut.y, aim.x - fut.x) : w.rng() * Math.PI * 2;
+      by = Math.round(hitRadius(w, target) * (1.15 + w.rng() * 1.1)); x1 = fut.x + Math.cos(ang) * by; y1 = fut.y + Math.sin(ang) * by;
+    }
+    fl = { x0: OBSERVATORY.x, y0: OBSERVATORY.y, x1, y1, t0: w.t, t1: w.t + tf, color,
+      bergId: target.id, num: target.num, chance: aq.chance, q: aq.q, reason: aq.reason, willHit, by };
+  } else {
+    // LAUNCH from the rune board with nothing locked: it goes somewhere in reach
+    const a = w.rng() * Math.PI * 2, r = Math.sqrt(w.rng()) * T.buoyDeployRange, x = CENTER.x + Math.cos(a) * r, y = CENTER.y + Math.sin(a) * r;
+    fl = { x0: OBSERVATORY.x, y0: OBSERVATORY.y, x1: x, y1: y, t0: w.t, t1: w.t + dist(OBSERVATORY, { x, y }) / T.beaconSpeed, color, wild: true };
+  }
   w.beacons[key]--;
   if (key === 'stock' && (!w.beacons.nextAt || w.beacons.nextAt < w.t)) w.beacons.nextAt = w.t + T.beaconRebuild;
-  const target = lockedBerg(w);
-  w.beacons.flying.push({
-    x0: OBSERVATORY.x, y0: OBSERVATORY.y, x1: aim.x, y1: aim.y, t0: w.t, t1: w.t + tf, color,
-    report: { bergId: target.id, num: target.num, large: target.large, fixAge: aq.fixAge, readAge: aq.readAge, readDist: aq.readDist, drift: aq.drift, q: aq.q, tracked: !!aq.tracked, beacon: !!aq.beacon, trackAge: aq.trackAge },
-  });
-  emit(w, 'launch', { color });
+  w.beacons.flying.push(fl);
+  emit(w, 'launch', { color, wild: !!fl.wild });
   const bc = w.beacons;
   if (++bc.shots >= bc.jamAt) { w.broken.launcher = true; bc.shots = 0; bc.jamAt = T.jamEvery[0] + Math.floor(w.rng() * (T.jamEvery[1] - T.jamEvery[0] + 1)); emit(w, 'broke', { sys: 'launcher' }); }
   return true;
 }
-// Why a shot missed, in words the crew can act on.
-function missReasons(rep, berg) {
-  const out = [];
-  if (rep.beacon) return ['the ice turned in the current while the beacon was in flight'];
-  if (rep.tracked) {
-    if (rep.fixAge > 25) out.push(`the fix was ${Math.round(rep.fixAge)} s old`);
-    if (rep.trackAge > 20) out.push(`the camera last measured its drift ${Math.round(rep.trackAge)} s before the shot`);
-    if (!out.length) out.push('the ice turned in the current after the camera lost sight of it');
-    return out;
+// Where a berg will be in `seconds`, using the same movement code as the game.
+function futureOf(w, b0, seconds) {
+  const b = { ...b0 }, tomb = { ...w.tomb }, n = Math.max(1, Math.round(seconds / DT));
+  let t = w.t;
+  for (let i = 0; i < n; i++) { advanceTomb(w, tomb, t, DT); t += DT; advanceBerg(w, b, tomb, t, DT); }
+  return { x: b.x, y: b.y };
+}
+function beaconHits(w, b, color, t) {
+  const bc = w.beacons;
+  b.tag = color; if (!w.tags.includes(b.id)) w.tags.push(b.id);
+  if (!w.cases.find(c => c.bergId === b.id && c.permanent)) { caseRow(w, b.id, true); emit(w, 'casepinned', { num: b.num }); }
+  emit(w, 'hit', { berg: b.id, num: b.num, color });
+  if (color === 'orange') record(w, b.id, 'echo', echoSeen(b, tempAt(b.x, b.y, t, w.field, w.tomb)), { length: Math.round(b.length) });
+  if (b.echo.sig === 'monster' && !b.released) releaseMonster(w, b);
+  if (color === 'blue' && !b.driftLog) { b.driftLog = [{ x: b.x, y: b.y, t }]; emit(w, 'driftlog', { num: b.num }); }
+  if (color === 'green') {
+    if (b.elgarz) { if (!w.reveal) { w.reveal = { t, bergId: b.id }; emit(w, 'reveal', { num: b.num }); } }
+    else emit(w, 'greenwrong', { num: b.num });
   }
-  if (rep.drift === 'surface' && berg.large) out.push('the drift switch was on SURFACE, but this ice is large and rides the DEEP current');
-  if (rep.drift === 'deep' && !berg.large) out.push('the drift switch was on DEEP, but this ice is small and rides the SURFACE');
-  if (rep.fixAge > 25) out.push(`the fix was ${Math.round(rep.fixAge)} s old`);
-  if (rep.readAge == null) out.push('there was no current reading, so the prediction never moved');
-  else {
-    if (rep.readDist > 160) out.push(`the current was read ${Math.round(rep.readDist)} mi from the target`);
-    if (rep.readAge > 20) out.push(`the current reading was ${Math.round(rep.readAge)} s old`);
+}
+function resolveBeacon(w, fl, t) {
+  const bc = w.beacons;
+  if (fl.wild) {
+    // nothing was locked: real physics, it hits whatever happens to be there
+    let best = null, bd = 1e9;
+    for (const b of w.bergs) { const d = dist(b, { x: fl.x1, y: fl.y1 }); if (d < hitRadius(w, b) && d < bd) { bd = d; best = b; } }
+    if (best) { bc.last = { t, hit: true, num: best.num, intended: false, color: fl.color, q: null, wild: true }; beaconHits(w, best, fl.color, t); }
+    else { bc.splashes.push({ x: fl.x1, y: fl.y1, t }); bc.last = { t, hit: false, num: null, by: null, color: fl.color, q: null, wild: true, reasons: ['nothing was locked, so it flew wild'] }; emit(w, 'miss', { num: null, by: null, wild: true }); }
+    return;
   }
-  if (!out.length) out.push('the sea moved more than the reading said it would');
-  return out;
+  const target = w.bergs.find(b => b.id === fl.bergId);
+  if (target && fl.willHit) { bc.last = { t, hit: true, num: target.num, intended: true, color: fl.color, q: fl.q }; beaconHits(w, target, fl.color, t); return; }
+  // a miss splashes just outside the hit radius, where the flight was drawn to
+  bc.splashes.push({ x: fl.x1, y: fl.y1, t, tx: target && target.x, ty: target && target.y });
+  bc.last = { t, hit: false, num: fl.num, by: fl.by, color: fl.color, q: fl.q, reasons: [fl.reason || `the odds were ${fl.q}%, and the sea won this one`] };
+  emit(w, 'miss', { num: fl.num, by: fl.by });
 }
 
 // ---------- repairs ----------
@@ -755,6 +886,12 @@ export function gm(w, cmd, arg = {}) {
   if (cmd === 'flip') flipBoard(w);
   if (cmd === 'coffee') { w.coffee.sips = T.coffeeSips; w.fatigue = 0; }
   if (cmd === 'win') win(w);
+  if (cmd === 'rune' && RUNE_FUNCTIONS.includes(arg.fn)) runeEffect(w, arg.fn);
+  if (cmd === 'seal') openSeal(w, 'gm');
+  if (cmd === 'lockdown') openSeal(w, 'lockdown', { change: true });
+  if (cmd === 'unseal' && w.seal) { const p = w.seal.pending; w.seal = null; emit(w, 'unsealed'); if (p === 'fatigue') w.fatigue = Math.min(w.fatigue, 0.7); }
+  if (cmd === 'lights-normal') { w.lamps = 0; emit(w, 'lights', { mode: 0 }); }
+  if (cmd === 'shutter-up') w.shutterUntil = 0;
 }
 function win(w) { if (!w.won) { w.won = true; w.wonAt = w.t; emit(w, 'win'); } }
 
@@ -787,6 +924,7 @@ export function step(w, dt = DT) {
   if (t >= w.board.nextFlip) flipBoard(w);
   if (w.coffee.brewUntil && t >= w.coffee.brewUntil) { w.coffee.brewUntil = 0; w.coffee.sips = T.coffeeSips; emit(w, 'brewed'); }
   w.fatigue = clamp(w.fatigue + T.fatigueRate * w.levers.fatigue * dt, 0, 1);
+  if (w.fatigue >= 1 && !w.seal) openSeal(w, 'fatigue', { pending: 'fatigue' });   // the console logs the operator out
 
   // repairs
   for (const [id, until] of Object.entries(w.repairs)) if (t >= until) finishRepair(w, id);
@@ -913,33 +1051,7 @@ export function step(w, dt = DT) {
   const bc = w.beacons;
   if (bc.stock < T.beaconStock && bc.nextAt && t >= bc.nextAt) { bc.stock++; bc.nextAt = bc.stock < T.beaconStock ? t + T.beaconRebuild : 0; }
   for (const fl of bc.flying) {
-    if (t >= fl.t1 && !fl.done) {
-      fl.done = true;
-      let best = null, bd = 1e9;
-      for (const b of w.bergs) {
-        const d = hyp(b.x - fl.x1, b.y - fl.y1), hitR = (b.large ? T.hitLarge + b.length * T.hitPerMile : T.hitSmall) * w.levers.aim;
-        if (d < hitR && d < bd) { bd = d; best = b; }
-      }
-      const target = w.bergs.find(b => b.id === fl.report.bergId);
-      if (best) {
-        best.tag = fl.color; if (!w.tags.includes(best.id)) w.tags.push(best.id);
-        if (!w.cases.find(c => c.bergId === best.id && c.permanent)) { caseRow(w, best.id, true); emit(w, 'casepinned', { num: best.num }); }
-        bc.last = { t, hit: true, num: best.num, intended: best.id === fl.report.bergId, color: fl.color, q: fl.report.q };
-        emit(w, 'hit', { berg: best.id, num: best.num, color: fl.color });
-        if (fl.color === 'orange') record(w, best.id, 'echo', echoSeen(best, tempAt(best.x, best.y, t, w.field, w.tomb)), { length: Math.round(best.length) });
-        if (best.echo.sig === 'monster' && !best.released) releaseMonster(w, best);
-        if (fl.color === 'blue' && !best.driftLog) { best.driftLog = [{ x: best.x, y: best.y, t }]; emit(w, 'driftlog', { num: best.num }); }
-        if (fl.color === 'green') {
-          if (best.elgarz) { if (!w.reveal) { w.reveal = { t, bergId: best.id }; emit(w, 'reveal', { num: best.num }); } }
-          else emit(w, 'greenwrong', { num: best.num });
-        }
-      } else {
-        const by = target ? Math.round(dist(target, { x: fl.x1, y: fl.y1 })) : null;
-        bc.splashes.push({ x: fl.x1, y: fl.y1, t, tx: target && target.x, ty: target && target.y });
-        bc.last = { t, hit: false, num: fl.report.num, by, color: fl.color, q: fl.report.q, reasons: target ? missReasons(fl.report, target) : [] };
-        emit(w, 'miss', { num: fl.report.num, by });
-      }
-    }
+    if (t >= fl.t1 && !fl.done) { fl.done = true; resolveBeacon(w, fl, t); }
   }
   bc.flying = bc.flying.filter(fl => !fl.done);
   bc.splashes = bc.splashes.filter(s => t - s.t < 40);
@@ -1118,6 +1230,7 @@ export function snapshot(w) {
     beacons: w.beacons.stock, orange: w.beacons.orange, blue: w.beacons.blue, green: w.beacons.green, calibrated: w.scanner.calibrated, broken: brokenList(w).map(b => b.name),
     furnace: { lit: w.furnace.lit, heat: w.furnace.heat, chute: w.furnace.chute }, music: w.music, fatigue: w.fatigue,
     camCode: camCode(w), activeCam: w.activeCam, tom: { x: w.tom.x, y: w.tom.y, mode: w.tom.mode },
+    seal: w.seal ? { reason: w.seal.reason, mode: w.seal.mode, tries: w.seal.tries } : null, password: w.password, pwCap: w.pwCap, lamps: w.lamps, shuttered: shuttered(w),
     shoals: SHOALS, monsters: w.monsters.map(m => ({ x: m.x, y: m.y, num: m.num, fading: m.fadeAt != null })),
     cases: w.cases.map(c => ({ num: (w.bergs.find(b => b.id === c.bergId) || {}).num, permanent: c.permanent, verdict: c.verdict, obs: w.obs[c.bergId] || null })), camUnlocked: Object.keys(w.camUnlocked),
     board: { page: BOARD_PAGES[w.board.page], fns: w.board.runes.map(r => runeFunction(r, w.board.page)) },

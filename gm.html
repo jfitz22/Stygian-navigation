@@ -65,8 +65,18 @@
       <button data-cmd="flip">Flip the rune board</button>
       <button data-cmd="coffee">Fresh coffee</button>
       <button data-cmd="camunlock">Unlock the orb on screen</button>
-      <button data-cmd="confetti">Confetti</button>
-      <button data-cmd="devil">Dancing devil</button>
+    </div>
+    <div class="box"><b>PASSWORD LOCK</b> <span id="pwtruth" style="color:var(--dim)"></span>
+      <div class="grid" style="margin-top:6px">
+        <button data-cmd="seal">Ask for the password</button>
+        <button data-cmd="lockdown">Lockdown (new password)</button>
+        <button data-cmd="unseal">Unlock now</button>
+        <button data-cmd="lights-normal">Lights back to normal</button>
+        <button data-cmd="shutter-up">Raise the shutters</button>
+      </div>
+    </div>
+    <div class="box"><b>RUNE EFFECTS</b> <span style="color:var(--dim)">(fire any of them now)</span>
+      <div class="grid" id="runebtns" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr"></div>
     </div>
     <div class="box"><b>LEVERS</b> (1 = as designed)<div id="levers"></div></div>
     <div class="grid">
@@ -120,6 +130,9 @@ if (NET_ENABLED) {
   setInterval(() => { ch.send({ hello: true }); showNet(); }, 3000);
 }
 ch.postMessage = msg => ch.send(msg);
+const RUNES_GM = ['FUEL', 'COFFEE', 'COOLANT', 'DECOY', 'LAUNCH', 'PURGE', 'SHUTTER', 'LOCKDOWN', 'LIGHTS', 'RADIO', 'ALARM', 'CONFETTI', 'DEVIL', 'SUCCUBUS'];
+document.getElementById('runebtns').innerHTML = RUNES_GM.map(f => `<button data-rune="${f}">${f}</button>`).join('');
+document.querySelectorAll('[data-rune]').forEach(b => b.onclick = () => ch.postMessage({ cmd: 'rune', arg: { fn: b.dataset.rune } }));
 document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => ch.postMessage({ cmd: b.dataset.cmd }));
 let tool = '';
 const toolBtns = document.querySelectorAll('[data-tool]');
@@ -228,6 +241,9 @@ function draw(s) {
     ? `<b>Elgarz #${e.num}</b> is in <b>${ref(e.x, e.y)}</b>. Radio <b>${e.radio.freq}</b> (${e.radio.band}), ${e.radio.carrier}, lamps show ${lampName(e.radio.shown)}.` +
       (p ? `<br>Entered at the rim in ${ref(p.x, p.y)}; planned camera sightings: ${p.sightings}, first at ${fmt(p.firstSighting)}.` : '')
     : `<b>Elgarz</b> is not in the sea yet. It slips in at ${fmt(s.elgarzAt || 0)}.`;
+  document.getElementById('pwtruth').innerHTML = (s.password ? `password <b style="color:#5cff9d">${s.password.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</b>` : 'no password set yet') +
+    ` · ${s.pwCap} rules` + (s.seal ? ` · <b style="color:#ffb347">LOCKED (${s.seal.reason}, ${s.seal.mode === 'set' ? 'setting a password' : s.seal.tries + ' wrong'})</b>` : '') +
+    (s.lamps ? ` · lights ${['', 'red', 'green'][s.lamps]}` : '') + (s.shuttered ? ' · shutters down' : '');
   document.getElementById('tools').innerHTML =
     `<b>Scanner code now</b> (from the latest buoy reading): ${s.code ? s.code.map(i => RUNES[i].name).join(' → ') : 'no reading yet'}<br>` +
     `<b>Cabin wireless</b> (music on only): ${s.stations.map(st => `${st.freq} ${st.band}`).join(', ')}<br>` +

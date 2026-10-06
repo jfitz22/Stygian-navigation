@@ -26,11 +26,10 @@
       <div id="aimbox">
         <div class="lbl">LOCKED TARGET</div>
         <div class="nixie big" id="locknum2">--</div>
-        <div class="lbl" style="margin-top:12px">AIM QUALITY</div>
+        <div class="lbl" style="margin-top:12px">HIT CHANCE</div>
         <div id="aimq"><span id="aimnum">--</span><div id="aimlamp" class="lamp off"></div></div>
-        <div id="aimfactors"></div>
+        <div id="aimwhy" class="aimwhy"></div>
       </div>
-      <div id="aimtip" class="aimtip hidden"></div>
       <div id="firebox">
         <div class="lbl">BEACON COLOUR</div>
         <div id="colors"></div>
@@ -40,6 +39,7 @@
         <div class="lbl" style="margin-top:12px">LAST SHOT</div>
         <div id="shotreport">No beacons fired yet.</div>
       </div>
+      <div class="sealcover hidden"><b>LOCKED</b>PLEASE ENTER THE PASSWORD<small>at the terminal on the chart</small></div>
       <div class="offline hidden" id="jammed">LAUNCHER JAMMED<br><small>REPAIR IT IN THE REPAIR BAY →</small></div>
     </section>
 
@@ -138,6 +138,7 @@
     </div>
     <div id="camsel"></div>
     <div class="hint">Click an iceberg in the view to lock onto it. Unlock and turn the orb with ORB CONTROL below.</div>
+    <div class="shutter"><div class="door"><span>SHUTTERED</span></div></div>
   </section>
 
   <!-- camera control: right under the camera feed -->
@@ -183,6 +184,7 @@
     <div id="heatgauge"><div id="heatzone"></div><div id="heatfill"></div></div><div id="heatlbl">HEAT</div>
     <div id="furnacestat"></div>
     <div id="switches"></div>
+    <div class="sealcover hidden"><b>LOCKED</b>PLEASE ENTER THE PASSWORD<small>at the terminal on the chart</small></div>
   </section>
 
   <!-- map -->
@@ -199,6 +201,7 @@
         <button id="btn-log" class="tool">LOG</button>
       </div>
       <div id="logdrawer" class="hidden"></div>
+      <div id="sealterm" class="hidden"></div>
       <div id="toast"></div>
       <div id="notes"></div>
     </div>
@@ -212,20 +215,22 @@
       <div class="nixie big" id="locknum">--</div>
       <div id="lockinfo">No lock. Click a sonar contact or an iceberg in a scrying orb.</div>
     </div>
-    <div id="driftbox">
-      <div class="lbl">PREDICT DRIFT WITH</div>
-      <div class="toggle2" id="drift">
-        <button data-v="surface">SURFACE<br><small>small ice</small></button>
-        <button data-v="deep">DEEP<br><small>large ice</small></button>
-      </div>
-      <div id="driftinfo"></div>
-    </div>
     <div id="aimmini">
-      <div class="lbl">AIM QUALITY</div>
+      <div class="lbl">HIT CHANCE</div>
       <div id="aimq2"><span id="aimnum2">--</span><div id="aimlamp2" class="lamp off"></div></div>
+      <div id="aimwhy2" class="aimwhy"></div>
       <button id="gofire" class="lookbtn">▲ FIRE FROM THE<br>OVERHEAD DECK</button>
-      <div id="aimtip2" class="aimtip hidden"></div>
     </div>
+    <div id="clipboard"><div class="clip"></div><div class="sheet">
+      <div class="head">STANDING ORDERS</div>
+      <ol>
+        <li><b>FIND</b> large ice: over 20 mi (orbs or sonar).</li>
+        <li><b>LOCK</b> it: from the sonar or an orb. Either works.</li>
+        <li><b>BEACON</b> it: red puts it on the case board, lets the radio hear it, and it reports its own position.</li>
+        <li><b>TEST &amp; JUDGE</b>: echo, metal, the Triad. Mark it on the case board.</li>
+        <li>Everything agrees? Fire <b class="g">GREEN</b>.</li>
+      </ol>
+    </div></div>
   </section>
 
   <!-- sonar -->
@@ -239,6 +244,7 @@
       <div id="echoinfo">Select a contact.</div>
     </div>
     <div class="offline hidden" id="sonaroff">NO POWER</div>
+    <div class="shutter"><div class="door"><span>SHUTTERED</span></div></div>
   </section>
 
   <!-- case board -->

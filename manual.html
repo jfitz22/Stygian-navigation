@@ -85,7 +85,7 @@
     <li><b>Start up.</b> Light the furnace, fill the fuel chute from the rune board and keep it fed (pages 3–4). The wire service on the overhead deck shows a startup checklist.</li>
     <li><b>Look.</b> Power the <b>orbs</b>, the <b>sonar</b> and the <b>currents</b> (only three at once). Watch the orbs for big ice. Drop a buoy near ice and <b>PING once</b>.</li>
     <li><b>Sift.</b> Click through the contacts one by one. Each printout gives the <b>length</b> (20 or under: out) and the <b>echo</b>. You want <b>HALLS</b>. Mind the water temperature (page 5). An orb also gives the length of ice you lock.</li>
-    <li><b>Lock and aim.</b> Lock from the sonar (the buoy's current reading does the aiming) or from an orb (keep the ice in view a few seconds and the orb measures its drift; no buoy needed). Page 6.</li>
+    <li><b>Lock and aim.</b> Lock from the sonar (the buoy's current reading does the aiming) or from an orb (keep the ice in view a few seconds while the orb measures its drift). Either works. The launcher shows your <b>hit chance</b>. Page 6.</li>
     <li><b>Beacon it.</b> A red beacon pins the ice to the <b>case board</b>, lets the <b>radio</b> hear it, and from then on the ice <b>reports its own position</b>, so every later shot at it has full aim.</li>
     <li><b>Prove it.</b> Radio: tune to it and decode the lamps (page 7). Scanner: drop the buoy beside it and scan for metal (page 8). Check it is outside the Tomb's ring.</li>
     <li><b>Accuse.</b> When everything agrees, fire <b>green</b>. You have <span data-t="greenStock"></span>.</li>
@@ -98,8 +98,8 @@
     <tr><td>3</td><td>Furnace and power</td><td>9</td><td>Rune catalogue</td></tr>
     <tr><td>4</td><td>The rune board</td><td>10</td><td>Scrying orbs, orb control, burrowers, storms</td></tr>
     <tr><td>5</td><td>Sonar, echoes, monsters, shoals, hunters</td><td>11</td><td>The repair bay</td></tr>
-    <tr><td>6</td><td>Lock, aim quality, beacons</td><td>12</td><td>The case board</td></tr>
-    <tr><td>7</td><td>The radio</td><td></td><td></td></tr>
+    <tr><td>6</td><td>Lock, hit chance, beacons</td><td>12</td><td>The case board</td></tr>
+    <tr><td>7</td><td>The radio</td><td>13</td><td>The password</td></tr>
   </table>
   <h3>The chart</h3>
   <p>The Last Watch stands on an island in the middle of the sea. Squares are lettered <span class="gridref">A</span>–<span class="gridref">L</span> across and numbered <span class="gridref">1</span>–<span class="gridref">12</span> down; each is <span data-v="CELL"></span> miles. Call positions by square. The shaded corners are beyond your reach.</p>
@@ -110,7 +110,7 @@
   <p>The operator sits at the <b>main board</b>: scrying orbs with their orb control and the furnace on the left, the chart in the middle, and down the right the <b>case board</b>, the <b>sonar</b> and the <b>currents</b>. Above it is the <b>overhead deck</b>. The buttons <span class="mono">▲ LOOK UP</span> and <span class="mono">▼ LOOK DOWN</span> sit side by side on the top bar (the up and down arrow keys work too). Next to them is <span class="mono">❚❚ PAUSE</span>: anyone at the table, or the GM, can pause and resume the watch (key P).</p>
   <table>
     <tr><th>ON THE OVERHEAD DECK</th><th>WHAT IT DOES</th></tr>
-    <tr><td><b>Beacon launcher</b></td><td>Pick a colour and fire. Shows <b>aim quality</b> and a report on every shot (page 6).</td></tr>
+    <tr><td><b>Beacon launcher</b></td><td>Pick a colour and fire. Shows the <b>hit chance</b> and a report on every shot (page 6).</td></tr>
     <tr><td><b>Radio</b></td><td>Tune and decode the locked iceberg (page 7).</td></tr>
     <tr><td><b>Rune board</b></td><td>Twelve unlabelled rune buttons: fuel, coffee, wipers and more. Only this book says which is which (page 4).</td></tr>
     <tr><td><b>Wire service</b></td><td>Starts as the <b>startup checklist</b> (brew coffee, fill the fuel chute, power the sonar, drop a buoy, power the scrying orbs). Each item ticks itself off; then it becomes a ticker with the buoy weather, storms, the hunters and messages from the shore.</td></tr>
@@ -122,7 +122,9 @@
   <h3>The operator gets tired</h3>
   <p>As the watch goes on, the screens darken in from the edges, blur and sway, and the operator starts to <b>blink off</b>. The <b>eye</b> on the top bar shows how tired they are (ALERT, TIRED, DROWSY, NODDING OFF). <b>Coffee</b> fixes it. Brew a pot from the rune board (it costs a little furnace heat), then click the <b>mug</b> on the top bar to drink. Each pot is <span data-t="coffeeSips"></span> sips.</p>
   <h3>Cabin lighting</h3>
-  <p>The <b>LAMPS</b> rune cycles the cabin lighting: normal, <b>night</b> (the board goes dark and only the screens glow) and <b>red</b> (everything turns red, which makes the radio lamps hard to read). Press it again to move on.</p>
+  <p>The <b>LIGHTS</b> rune cycles the cabin lighting: normal, then <b>red</b> emergency lighting (the radio lamps become hard to read), then <b>green</b> night lighting, then normal again. Find it on the board and press it until the lights are back.</p>
+  <h3>Standing orders</h3>
+  <p>A clipboard on the target-lock panel carries the five standing orders from page 1. It is there for the operator; this book has the detail.</p>
 </section>
 
 <section class="page" data-n="3">
@@ -137,7 +139,7 @@
     <tr><td>Near the bottom</td><td>Only <b>one</b> system.</td></tr>
     <tr><td>Empty</td><td>The furnace goes out. Relight it.</td></tr>
   </table>
-  <div class="warn">A shovel adds about <span data-t="stokeAmount"></span> heat. <b>Two shovels from the bottom of the green is safe. Three is not.</b> Left alone, the furnace drops out of the green in about two minutes. Too hot? The <b>VENT</b> rune dumps <span data-t="ventHeat"></span> heat.</div>
+  <div class="warn">A shovel adds about <span data-t="stokeAmount"></span> heat. <b>Two shovels from the bottom of the green is safe. Three is not.</b> Left alone, the furnace drops out of the green in about two minutes.</div>
   <h3>Things that cost heat</h3>
   <ul>
     <li>Brewing coffee: <span data-t="coffeeHeat"></span> heat.</li>
@@ -158,17 +160,21 @@
   <table>
     <tr><th>FUNCTION</th><th>WHAT IT DOES</th></tr>
     <tr><td class="fn">FUEL</td><td>Puts one shovel of fuel in the chute.</td></tr>
-    <tr><td class="fn">COFFEE</td><td>Brews a pot (costs heat).</td></tr>
-    <tr><td class="fn">WIPERS</td><td>Clears snow off the orb on screen.</td></tr>
-    <tr><td class="fn">WIRELESS</td><td>Turns the cabin wireless on or off. It puts false stations on the radio band (page 7).</td></tr>
-    <tr><td class="fn">LAMPS</td><td>Cycles the cabin lighting (page 2).</td></tr>
-    <tr><td class="fn">LAUNCH</td><td>Fires a plain <b>red</b> beacon at the locked target, at once. Careful.</td></tr>
-    <tr><td class="fn">VENT</td><td>Dumps heat from the furnace.</td></tr>
-    <tr><td class="fn">BELL</td><td>Rings the bell.</td></tr>
-    <tr><td class="fn">CONFETTI</td><td>Confetti. No other effect, but it still counts as a press.</td></tr>
-    <tr><td class="fn">DEVIL</td><td>A small devil dances on the chart. No other effect, but it still counts as a press.</td></tr>
-    <tr><td class="fn">NOTHING</td><td>Nothing at all, but it still counts as a press.</td></tr>
+    <tr><td class="fn">COFFEE</td><td>Brews a pot (costs heat). Click the mug on the top bar to drink.</td></tr>
+    <tr><td class="fn">COOLANT</td><td>Cools every scrying orb at once. Any burrower on its way gives up.</td></tr>
+    <tr><td class="fn">DECOY</td><td>Fires a noisemaker from the buoy, well out to one side. The Grindmaw chases it instead of your last ping. Needs a buoy in the water.</td></tr>
+    <tr><td class="fn">LAUNCH</td><td>Fires a red beacon at once. If nothing is locked, it flies wild and lands anywhere.</td></tr>
+    <tr><td class="fn">PURGE</td><td>Dumps the fuel chute. Every shovel waiting in it is lost.</td></tr>
+    <tr><td class="fn">SHUTTER</td><td>Steel shutters drop over the sonar and the orbs for <span data-t="shutterTime"></span> seconds.</td></tr>
+    <tr><td class="fn">LOCKDOWN</td><td>Locks the launcher, the chart and the furnace behind the password, and the password must be changed (page 13).</td></tr>
+    <tr><td class="fn">LIGHTS</td><td>Cycles the cabin lighting: normal, red, green (page 2).</td></tr>
+    <tr><td class="fn">RADIO</td><td>Switches the cabin radio on or off. While it plays, false stations sit on the radio band (page 7).</td></tr>
+    <tr><td class="fn">ALARM</td><td>Sounds the alarm. Nothing else.</td></tr>
+    <tr><td class="fn">CONFETTI</td><td>Confetti. Nothing else.</td></tr>
+    <tr><td class="fn">DEVIL</td><td>A small devil dances. Nothing else.</td></tr>
+    <tr><td class="fn">SUCCUBUS</td><td>A visitor. Nothing else.</td></tr>
   </table>
+  <p>Every press counts towards the next flip, whatever it does.</p>
 </section>
 
 <section class="page" data-n="5">
@@ -202,25 +208,21 @@
   <h3>Old Tom</h3>
   <p>After about ten minutes <b>something else wakes</b>. Old Tom, marked orange on the chart, swims to <b>wherever a buoy last splashed down</b>, as fast as the Grindmaw. It eats a buoy it finds there, then circles the Watch <b>the other way</b> until the next splashdown. A buoy dropped far away makes a fine decoy. After ten minutes the storms come more often too.</p>
   <h3>Big ice or small ice?</h3>
-  <p><b>Over 8 miles is LARGE</b> and rides the <b>DEEP</b> current. <b>8 or less is SMALL</b> and rides the <b>SURFACE</b> and the wind. Set the drift switch to match.</p>
+  <p>Ice over 8 miles long rides the <b>deep</b> current; smaller ice rides the <b>surface</b> and the wind. The machine picks the right one by itself when it aims.</p>
 </section>
 
 <section class="page" data-n="6">
-  <h2>The lock, aim quality and the beacon</h2>
-  <div class="ask"><b>ASK THE OPERATOR FOR:</b> the AIM QUALITY number · which of its three bars is low · the drift switch setting</div>
-  <p>The beacon does not fly at the iceberg. It flies at the <b>PREDICTED</b> circle: where the machine thinks the ice will be when the beacon lands. The prediction uses the last <b>fix</b> (a sonar contact or an orb sighting), the <b>current reading at the buoy</b> and the <b>drift switch</b>. The circle grows as the prediction gets less certain.</p>
-  <h3>Aim quality</h3>
+  <h2>The lock, the hit chance and the beacon</h2>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> the HIT CHANCE · the line written under it · where the fix came from (SONAR, ORB or BEACON)</div>
+  <p>Lock onto ice from the <b>sonar</b> (click a contact) or from an <b>orb</b> (click the ice in the view). Either works. The beacon flies to where the machine predicts the ice will be when it lands, and the launcher shows the <b>HIT CHANCE</b>. That number is honest: a 90% shot hits nine times in ten.</p>
+  <h3>What makes the chance high</h3>
   <table>
-    <tr><th>BAR</th><th>GOOD WHEN</th><th>TO IMPROVE IT</th></tr>
-    <tr><td>FIX AGE</td><td>under about <span data-t="aimFixFull"></span> s</td><td>Ping again, or click the ice in an orb, and re-lock.</td></tr>
-    <tr><td>CURRENT READING AGE</td><td>under about <span data-t="aimReadFull"></span> s</td><td>Keep the Currents system powered. Every ping takes a fresh reading.</td></tr>
-    <tr><td>READING TAKEN FROM TARGET</td><td>under about 100 mi</td><td>Drop the buoy right next to the ice.</td></tr>
+    <tr><th>THE FIX CAME FROM</th><th>WHAT IT NEEDS</th></tr>
+    <tr><td><b>SONAR</b></td><td>The <b>Currents</b> system powered, with the buoy close to the ice. Every ping takes a fresh reading. The fix ages: after about a minute, ping again.</td></tr>
+    <tr><td><b>ORB</b></td><td>Keep the ice in the orb's view for about <span data-t="trackTime"></span> seconds. The feed says <b>TRACKING ✓ DRIFT MEASURED</b>, and the chance climbs to the top. If the orb loses sight of the ice, the chance falls again. Snow on the lens stops tracking.</td></tr>
+    <tr><td><b>BEACON</b></td><td>Ice that already carries a beacon reports where it is. The chance is <b>100%</b>. Use it for the second shot: orange, blue or green.</td></tr>
   </table>
-  <p>Green lamp (70%+): it should hit. Amber: maybe. Red: save your beacon. <b>Aim quality cannot see the drift switch.</b> If the switch is wrong for the ice's size, even 100% misses.</p>
-  <h3>Orb tracking: aiming without a buoy</h3>
-  <p>Lock onto an iceberg and keep it in the orb on screen. After about <span data-t="trackTime"></span> seconds the feed says <b>TRACKING ✓ DRIFT MEASURED</b>: the orb has measured how the ice is really moving. The prediction then uses that measurement instead of the buoy, so <b>no buoy and no drift switch are needed</b>. Aim quality shows a <b>ORB TRACK</b> bar that ages once the ice leaves the view. Snow on the lens stops tracking.</p>
-  <h3>Ice that already carries a beacon</h3>
-  <p>A beacon in the ice <b>reports where the ice is and how it drifts</b>. Lock onto beaconed ice (or re-lock it from the case board) and aim quality reads <b>BEACON TELEMETRY</b> at 100%, with no buoy, orb or drift switch needed. Use it for the second shot: orange, blue or green.</p>
+  <p>When the chance is low, a line under it says what is wrong and what to do. <b>Faster-drifting ice is harder to hit</b>: fire soon after the fix.</p>
   <h3>Beacons</h3>
   <table>
     <tr><td style="background:#ff4b3a;width:110px"><b>RED</b><br>plain</td><td>A plain marker. A shared rack of <span data-t="beaconStock"></span>, rebuilding one every <span data-t="beaconRebuild"></span> seconds (the bar under the rack shows the next one).</td></tr>
@@ -230,20 +232,22 @@
   </table>
   <p>Any beacon that hits a <b>frozen monster</b> lets it out (page 5).</p>
   <h3>When a shot misses</h3>
-  <p>The launcher prints <b>how far it missed by and why</b>, and the chart shows a dotted line from the splash to where the target really was. Read it, fix it, fire again.</p>
+  <p>The launcher prints <b>how far it missed by, the chance it had, and why</b>. The chart shows a dotted line from the splash to where the ice really was.</p>
+  <h3>Green needs the password</h3>
+  <p>Firing <b>green</b> always asks for the password first (page 13). The beacon fires the moment it is accepted.</p>
   <h3>The launcher jams</h3>
   <p>Every few shots the launcher <b>jams</b>. Repair it in the repair bay.</p>
 </section>
 
 <section class="page" data-n="7">
   <h2>The radio</h2>
-  <div class="ask"><b>ASK THE OPERATOR FOR:</b> the frequency · the wave shape · the three lamp colours, left to right · is the wireless on?</div>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> the frequency · the wave shape · the three lamp colours, left to right · can you hear music from the cabin radio?</div>
   <h3><span class="step">1.</span> Tune</h3>
   <p>The radio is on the <b>overhead deck</b>. It does not listen for transmitters; it picks up the <b>energies the ice gives off</b>, and it can only hear them through a <b>beacon lodged in the ice</b>, which amplifies them. <b>Beacon the ice first</b> (any colour), then select it on the case board or lock onto it, slide the <b>frequency</b> along the band and watch the <b>SIGNAL</b> bar. About half the ice gives off something. What it means is up to this book.</p>
   <h3><span class="step">2.</span> Match the gain</h3>
   <p>Move the <b>GAIN</b> until the wave just touches the dashed brass lines; then three lamps flash. Too little and it drowns in static. Too much and the <b>CLIP</b> lamp lights. <b>Leave it clipping and the FUSE bar fills; when it flashes red the fuse is about to blow</b> (repair bay). Distant ice needs more gain.</p>
-  <h3><span class="step">3.</span> Is it the cabin wireless?</h3>
-  <div class="warn">While the <b>WIRELESS</b> rune has it playing, <b>three stations from Dis</b> are on the band. They sound just like ice, and one sounds like the Triad. <b>Turn the wireless off. If the signal stays, it is real.</b></div>
+  <h3><span class="step">3.</span> Is it the cabin radio?</h3>
+  <div class="warn">While the <b>RADIO</b> rune has the cabin radio playing (you will hear the music), <b>three stations from Dis</b> are on the band. They look just like ice, and one sounds like the Triad. <b>Turn the cabin radio off. If the signal stays, it is real.</b></div>
   <h3><span class="step">4.</span> Read the lamps by the wave shape</h3>
   <div class="carriers">
     <div><svg viewBox="0 0 120 44"><polyline fill="none" stroke="#2a1d0c" stroke-width="2" points="0,22 5,12 10,6 15,6 20,12 25,22 30,32 35,38 40,38 45,32 50,22 55,12 60,6 65,6 70,12 75,22 80,32 85,38 90,38 95,32 100,22 105,12 110,6 115,6 120,12"/></svg><b>SMOOTH</b><br>As shown, left to right.</div>
@@ -307,7 +311,7 @@
     <li><b>Switch to another orb</b> and let it cool, and the beast burrows away. If it arrives, the orb is destroyed.</li>
   </ul>
   <h3>Storms</h3>
-  <p>Storms cross the sea often. An orb inside one is snowed out. The <b>WIPERS</b> rune clears the lens for a few seconds.</p>
+  <p>Storms cross the sea often. An orb inside one is snowed out until the storm moves on. Use another orb meanwhile.</p>
 </section>
 
 <section class="page" data-n="11">
@@ -350,9 +354,36 @@
   <div class="warn">The board records what was measured. It never says which iceberg is Elgarz. That is your job.</div>
 </section>
 
+<section class="page" data-n="13">
+  <h2>The password</h2>
+  <div class="ask"><b>ASK THE OPERATOR FOR:</b> what the terminal on the chart asks for · the rules it lists · the rune board PAGE</div>
+  <p>The Watch has one password. When it is needed, a terminal replaces the <b>chart</b>, and the <b>furnace controls</b> and the <b>launcher</b> show <b>LOCKED</b> until it is entered. The sea does not wait: the furnace burns and the hunters keep coming.</p>
+  <table>
+    <tr><th>WHEN</th><th>WHAT IT WANTS</th></tr>
+    <tr><td>The <b>LOCKDOWN</b> rune</td><td>The current password, then a <b>new</b> one. Each lockdown adds two more rules.</td></tr>
+    <tr><td>Firing <b>green</b></td><td>The password. Then the beacon fires.</td></tr>
+    <tr><td><b>Relighting</b> the furnace</td><td>The password. Then it lights.</td></tr>
+    <tr><td>The operator <b>nods off</b></td><td>The password to log back in. They come back drowsy: get them coffee.</td></tr>
+    <tr><td>The watch officer (GM)</td><td>Whatever the officer likes.</td></tr>
+  </table>
+  <p>If there is no password yet, the first lock asks you to <b>set</b> one. <b>Write it down.</b> Unlocking needs it exactly, capitals and all.</p>
+  <div class="warn"><b>Five wrong tries and the system reboots.</b> The furnace goes out, the fuel chute empties, every system switches off and one or two things break. Beacons already fired stay where they are. Then a fresh password must be set.</div>
+  <h3>The rules</h3>
+  <p>A new password must obey every rule in force. The terminal lists them and ticks each one as it is met. The first password needs rules 1 to 3; each lockdown adds two more.</p>
+  <ol id="pwrules"></ol>
+  <table id="hellnums"></table>
+  <p>The rune board page is the Roman numeral on its flip card (I, II, III or IV), as it was while the lock was open.</p>
+</section>
+
 <script type="module">
 import { RUNES, glyphSVG, HOUSES, gaugeSVG, echoAt, ECHO_W, ECHO_EXAMPLES } from './src/glyphs.js';
 import { RADIO_TABLE, TUNING, TOMB_RADIUS, CELL, BOARD_GRID, BOARD_PAGES, PLATE_ORDER, COLD_WATER } from './src/scenario.js';
+import { RULES as PW_RULES, HELL_LAYERS, SINS, ARCHDEVILS } from './src/password.js';
+document.getElementById('pwrules').innerHTML = PW_RULES.map(r => '<li>' + r.text + '</li>').join('');
+const cap = w => w.charAt(0) + w.slice(1).toLowerCase();
+document.getElementById('hellnums').innerHTML = '<tr><th>LAYER OF HELL</th><th>NUMERAL</th><th>LAYER OF HELL</th><th>NUMERAL</th></tr>' +
+  [0, 1, 2, 3, 4].map(i => '<tr>' + [HELL_LAYERS[i], HELL_LAYERS[i + 5]].map(l => l ? '<td>' + cap(l[0]) + '</td><td><b>' + l[1] + '</b></td>' : '<td></td><td></td>').join('') + '</tr>').join('') +
+  '<tr><td colspan="4"><b>Deadly sins:</b> ' + SINS.map(cap).join(', ') + '. <b>Archdevils:</b> ' + ARCHDEVILS.map(cap).join(', ') + '.</td></tr>';
 const V = { TOMB_RADIUS, CELL, COLD_WATER };
 document.querySelectorAll('[data-t]').forEach(e => { e.textContent = TUNING[e.dataset.t]; });
 document.querySelectorAll('[data-v]').forEach(e => { e.textContent = V[e.dataset.v]; });

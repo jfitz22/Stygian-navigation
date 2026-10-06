@@ -48,6 +48,7 @@
   .noprint { text-align: center; margin: 14px; color: #e6dcc0; font-family: 'Courier Prime', monospace; }
   .noprint button { font: 700 14px 'Courier Prime', monospace; padding: 8px 18px; }
   .noprint a { color: #e8cf98; }
+  #t-index td, #t-index th { padding: 1px 6px; }
   @page { size: letter; margin: 0; }
   @media print { body { background: none; } .page { margin: 0; box-shadow: none; page-break-after: always; } .noprint { display: none; } }
 </style>
@@ -82,7 +83,7 @@
     <li><b>Start up.</b> Light the furnace; fill the fuel chute from the rune board; stoke (LW-1, LW-2). The wire service shows a startup checklist.</li>
     <li><b>Look.</b> Power ORBS, SONAR and CURRENTS (three at most). Watch the orbs for big ice. Drop a buoy near ice and <b>PING once</b>.</li>
     <li><b>Sift.</b> Click through the contacts. Each printout gives <b>length</b> (20 or under: out) and the <b>echo</b>. You want <b>HALLS</b>; mind cold water (LW-3). Orbs give length too (LW-4).</li>
-    <li><b>Lock and aim.</b> From the sonar (the buoy reads the current; every ping refreshes it) or from an orb (hold the ice in view and the orb measures its drift: no buoy). LW-5.</li>
+    <li><b>Lock and aim.</b> From the sonar (the buoy reads the current; every ping refreshes it) or from an orb (hold the ice in view while the orb measures its drift). Either works. The launcher shows the <b>hit chance</b>. LW-5.</li>
     <li><b>Beacon it.</b> A red beacon pins the ice to the case board (LW-9), lets the radio hear it (LW-6), and the ice <b>reports its own position</b> from then on: every later shot at it has full aim.</li>
     <li><b>Prove it.</b> Radio for the Triad (LW-6). Scanner for metal, with the buoy beside the ice (LW-7). Outside the Tomb's ring?</li>
     <li><b>Accuse.</b> Fire green only when everything agrees. There are <span data-t="greenStock"></span>.</li>
@@ -111,7 +112,6 @@
   <table>
     <tr><th>Costs heat</th><th>Amount</th></tr>
     <tr><td>Brewing coffee (rune board)</td><td><span data-t="coffeeHeat"></span></td></tr>
-    <tr><td>VENT rune (deliberately dumps heat)</td><td><span data-t="ventHeat"></span></td></tr>
   </table>
   <p>Systems: <b>ORBS</b>, <b>SONAR</b>, <b>RADIO</b>, <b>SCANNER</b>, <b>CURRENTS</b>. Each takes a few seconds to warm up. When heat drops a band, the newest system switches itself off. At the top of the chart the furnace <b>blows out and cracks its grate</b>: repair it (LW-8), then relight.</p>
   <div class="margin" style="right:0.95in;bottom:0.85in">three shovels is fine if you're quick<span class="re">It is not. —Ixtral</span></div>
@@ -129,14 +129,18 @@
   <table>
     <tr><th>Function</th><th>Effect</th></tr>
     <tr><td><b>FUEL</b></td><td>One shovel into the fuel chute.</td></tr>
-    <tr><td><b>COFFEE</b></td><td>Brews a pot (costs heat). Click the mug to drink; coffee clears the operator's fatigue.</td></tr>
-    <tr><td><b>WIPERS</b></td><td>Clears snow off the orb on screen.</td></tr>
-    <tr><td><b>WIRELESS</b></td><td>Cabin wireless on or off. It puts three false stations on the radio band.</td></tr>
-    <tr><td><b>LAMPS</b></td><td>Cabin lighting: normal, night, red.</td></tr>
-    <tr><td><b>LAUNCH</b></td><td>Fires a plain red beacon at the locked ice at once.</td></tr>
-    <tr><td><b>VENT</b></td><td>Dumps heat from the furnace.</td></tr>
-    <tr><td><b>BELL</b> · <b>CONFETTI</b> · <b>DEVIL</b> · <b>NOTHING</b></td><td>No real effect (some are louder than others), but still count as a press.</td></tr>
+    <tr><td><b>COFFEE</b></td><td>Brews a pot (costs heat). Click the mug to drink; it clears the operator's fatigue.</td></tr>
+    <tr><td><b>COOLANT</b></td><td>Cools every orb at once; a burrower on its way gives up.</td></tr>
+    <tr><td><b>DECOY</b></td><td>A noisemaker from the buoy, out to one side. The Grindmaw chases it. Needs a buoy.</td></tr>
+    <tr><td><b>LAUNCH</b></td><td>Fires a red beacon at once. Nothing locked: it flies wild.</td></tr>
+    <tr><td><b>PURGE</b></td><td>Dumps the fuel chute.</td></tr>
+    <tr><td><b>SHUTTER</b></td><td>Shutters over the sonar and the orbs for <span data-t="shutterTime"></span> s.</td></tr>
+    <tr><td><b>LOCKDOWN</b></td><td>Locks up behind the password, and it must be changed (LW-10).</td></tr>
+    <tr><td><b>LIGHTS</b></td><td>Cabin lighting: normal → red → green → normal.</td></tr>
+    <tr><td><b>RADIO</b></td><td>The cabin radio on or off. While it plays, false stations sit on the band (LW-6).</td></tr>
+    <tr><td><b>ALARM</b> · <b>CONFETTI</b> · <b>DEVIL</b> · <b>SUCCUBUS</b></td><td>Noise and spectacle. No other effect.</td></tr>
   </table>
+  <p>Every press counts towards the next flip, whatever it does.</p>
 </section>
 
 <!-- ============ LW-3 SONAR ============ -->
@@ -168,7 +172,7 @@
 <section class="page" data-sec="LW-4" data-title="Scrying orbs">
   <h2><span class="code">LW-4</span> SCRYING ORBS</h2>
   <div class="ask"><b>ASK THE OPERATOR:</b> the WIND and AIR readout in the corner of the orb's feed · the rune board PAGE</div>
-  <p>Seven orbs ring the island. Click ice in an orb to lock it; the orb shows its <b>length</b>, and marks ice of 20 miles or under <b>NOT ELGARZ</b>. Keep it in view about <span data-t="trackTime"></span> s and the orb <b>measures its drift</b>: aim with no buoy. A watched orb heats and draws a <b>remorhaz</b>; look away to let it cool.</p>
+  <p>Seven orbs ring the island. Click ice in an orb to lock it; the orb shows its <b>length</b>, and marks ice of 20 miles or under <b>NOT ELGARZ</b>. Keep it in view about <span data-t="trackTime"></span> s and the orb <b>measures its drift</b>, which is all the aiming needs. A watched orb heats and draws a <b>remorhaz</b>; look away to let it cool.</p>
   <h3>Unlocking an orb to turn it</h3>
   <p><b>1.</b> Plot the orb's own WIND and AIR on FIG. 4.1 and set both levers. <b>2.</b> Press the three plates in the order for the current page (FIG. 4.2). An unlocked orb stays unlocked until it is destroyed.</p>
   <div class="fig"><div id="f-levers"></div><div class="cap"><b>FIG. 4.1</b> Lever chart. Each line is labelled with the first value on its far side: a reading exactly on a line belongs to the region above or to the right of it.</div></div>
@@ -179,15 +183,19 @@
 <!-- ============ LW-5 AIM ============ -->
 <section class="page" data-sec="LW-5" data-title="Aiming and beacons">
   <h2><span class="code">LW-5</span> AIMING &amp; BEACONS</h2>
-  <div class="ask"><b>ASK THE OPERATOR:</b> the AIM QUALITY number · which bar is low · the drift switch</div>
-  <p>A beacon flies to the <b>PREDICTED</b> position: the last fix, moved by either the buoy's current reading and the drift switch, or an orb's drift measurement. AIM QUALITY multiplies three bars:</p>
-  <div class="fig"><div id="f-aim"></div><div class="cap"><b>FIG. 5.1</b> Each bar stays full to the marked point, then falls to nothing. With an orb track, the TRACK bar replaces the two reading bars.</div></div>
+  <div class="ask"><b>ASK THE OPERATOR:</b> the HIT CHANCE · the line under it · where the fix came from (SONAR, ORB or BEACON)</div>
+  <p>Lock from the <b>sonar</b> or from an <b>orb</b>; either works. The beacon flies to where the machine predicts the ice will be, and the launcher shows the <b>HIT CHANCE</b>. It is honest: 90% hits nine times in ten.</p>
+  <table>
+    <tr><th>Fix from</th><th>To keep the chance high</th></tr>
+    <tr><td><b>SONAR</b></td><td>CURRENTS powered, buoy close to the ice. Each ping takes a fresh reading. The fix ages: after about a minute, ping again.</td></tr>
+    <tr><td><b>ORB</b></td><td>Hold the ice in view about <span data-t="trackTime"></span> s until <b>TRACKING ✓ DRIFT MEASURED</b>. Lose sight of it and the chance falls.</td></tr>
+    <tr><td><b>BEACON</b></td><td>Ice already carrying a beacon reports where it is: <b>100%</b>.</td></tr>
+  </table>
   <ul>
-    <li>Green lamp (70%+): should hit. Amber: maybe. Red: save the beacon.</li>
-    <li><b>Aim quality cannot see the drift switch.</b> Large ice: DEEP. Small ice: SURFACE. An orb track ignores the switch.</li>
-    <li><b>Ice that already carries a beacon reports its own position and drift:</b> aim is 100%, nothing else needed.</li>
-    <li>Every miss is reported with its distance and reasons; the chart marks where the target really was.</li>
-    <li>The launcher jams every few shots (repair, LW-8).</li>
+    <li>When the chance is low, one line under it says what is wrong and what to fix.</li>
+    <li>Faster-drifting ice is harder to hit. Fire soon after the fix.</li>
+    <li>Every miss is reported with its distance, its chance and why; the chart marks where the ice really was.</li>
+    <li><b>Green asks for the password first</b> (LW-10), then fires. The launcher jams every few shots (repair, LW-8).</li>
   </ul>
   <h3>What a beacon does on impact</h3>
   <p>Every hit pins the ice to the <b>case board</b> (LW-9) and lets the <b>radio</b> hear it (LW-6). Any hit on a <b>frozen monster</b> lets it out (LW-3).</p>
@@ -197,10 +205,10 @@
 <!-- ============ LW-6 RADIO ============ -->
 <section class="page" data-sec="LW-6" data-title="Radio">
   <h2><span class="code">LW-6</span> THE RADIO</h2>
-  <div class="ask"><b>ASK THE OPERATOR:</b> frequency · wave shape · the three lamps, left to right · is the wireless on?</div>
+  <div class="ask"><b>ASK THE OPERATOR:</b> frequency · wave shape · the three lamps, left to right · is the cabin radio playing music?</div>
   <p>The radio (overhead deck) picks up the energies the ice gives off, <b>through a beacon lodged in it</b>. No beacon, nothing to hear. Select beaconed ice, slide the frequency, then set the <b>GAIN</b> until the wave touches the dashed lines and the lamps flash. Too much gain clips; clip too long and the fuse blows.</p>
   <div class="fig"><div id="f-band"></div><div class="cap"><b>FIG. 6.1</b> The band. The number on each line is the first frequency of the band to its right.</div></div>
-  <div class="warn"><b>Wireless check:</b> if the cabin wireless is on, three stations from Dis share the band, and one sounds like the Triad. Turn the wireless off; if the signal stays, it is real.</div>
+  <div class="warn"><b>Cabin radio check:</b> while the cabin radio plays (you will hear it), three stations from Dis share the band, and one sounds like the Triad. Turn it off with the RADIO rune; if the signal stays, it is real.</div>
   <div class="fig"><div id="f-shapes"></div><div class="cap"><b>FIG. 6.2</b> Read the lamps by the wave shape, then look them up below with the band.</div></div>
   <table id="t-codebook"></table>
   <div class="margin" style="right:0.95in;bottom:0.85in">the dance band station is NOT a clue</div>
@@ -254,9 +262,32 @@
   <div class="margin" style="right:0.95in;bottom:0.85in">excluded #12 three times. it kept coming back.</div>
 </section>
 
+<!-- ============ LW-10 PASSWORD ============ -->
+<section class="page" data-sec="LW-10" data-title="The password">
+  <h2><span class="code">LW-10</span> THE PASSWORD</h2>
+  <div class="ask"><b>ASK THE OPERATOR:</b> what the terminal on the chart asks for · the rules it lists · the rune board PAGE</div>
+  <p>The Watch has one password. When it is needed, a terminal replaces the <b>chart</b> and the <b>furnace controls</b> and <b>launcher</b> show <b>LOCKED</b>. The sea does not wait.</p>
+  <table>
+    <tr><th>When</th><th>It wants</th></tr>
+    <tr><td>The LOCKDOWN rune</td><td>The password, then a <b>new</b> one. Each lockdown adds two rules.</td></tr>
+    <tr><td>Firing green</td><td>The password; then the beacon fires.</td></tr>
+    <tr><td>Relighting the furnace</td><td>The password; then it lights.</td></tr>
+    <tr><td>The operator nods off</td><td>The password to log back in. They return drowsy: coffee.</td></tr>
+    <tr><td>The watch officer</td><td>Whatever the officer likes.</td></tr>
+  </table>
+  <p>No password yet? The first lock asks you to <b>set</b> one, under rules 1–3. <b>Write it down.</b> Unlocking needs it exactly, capitals and all.</p>
+  <div class="warn"><b>Five wrong tries reboot the system:</b> fire out, chute empty, everything off, one or two things broken. Beacons already fired stay. Then set a fresh password.</div>
+  <h3>The rules, in order</h3>
+  <ol id="pwrules" style="margin-top:2px"></ol>
+  <table id="hellnums"></table>
+  <p>The page is the numeral on the rune board's flip card (I–IV) while the lock is open.</p>
+  <div class="margin" style="right:0.95in;bottom:0.85in">the password was on the back of the fuel docket.<span class="re">Not any more. —I.</span></div>
+</section>
+
 <script type="module">
 import { TUNING as T, TOMB_RADIUS, CELL, RADIO_TABLE, BOARD_GRID, BOARD_PAGES, PLATE_ORDER, windLever, tempLever, bandOf, COLD_WATER } from './src/scenario.js';
 import { RUNES, HOUSES, glyphSVG, gaugeSVG, REPAIR_RULES, REPAIR_DEFAULT, leadingHouse, tempBandName, echoAt, ECHO_W, ECHO_EXAMPLES } from './src/glyphs.js';
+import { RULES as PW_RULES, HELL_LAYERS, SINS, ARCHDEVILS } from './src/password.js';
 
 const INK = '#1d1a14', RED = '#9b2116', RULE = '#b9ad8b', FAINT = '#d9cfb3', FONT = "font-family='Courier Prime, monospace'";
 const $ = id => document.getElementById(id);
@@ -275,11 +306,19 @@ document.querySelectorAll('.page').forEach((p, i) => {
   p.insertAdjacentHTML('afterbegin', `<div class="hdr"><span>Observatory of the Fifth · <b>Restricted</b></span><span>LW-OPS-2</span></div><div class="ftr"><span>${p.dataset.sec} · ${p.dataset.title}</span><span>Page ${i + 1}</span></div>`);
 });
 
+// ---------- LW-10 password rules, from the game's own list ----------
+{
+  const cap = w => w.charAt(0) + w.slice(1).toLowerCase();
+  document.getElementById('pwrules').innerHTML = PW_RULES.map(r => '<li>' + r.text + '</li>').join('');
+  document.getElementById('hellnums').innerHTML = '<tr><th>Layer of Hell</th><th>No.</th><th>Layer of Hell</th><th>No.</th><th>Layer of Hell</th><th>No.</th></tr>' +
+    [0, 1, 2].map(i => '<tr>' + [HELL_LAYERS[i], HELL_LAYERS[i + 3], HELL_LAYERS[i + 6]].map(l => '<td>' + cap(l[0]) + '</td><td><b>' + l[1] + '</b></td>').join('') + '</tr>').join('') +
+    '<tr><td colspan="6"><b>Sins:</b> ' + SINS.map(cap).join(', ') + '. <b>Archdevils:</b> ' + ARCHDEVILS.map(cap).join(', ') + '.</td></tr>';
+}
 // ---------- LW-0 index, built from the pages themselves ----------
 {
   const ABOUT = { 'LW-0A': 'the sieve, the chart, the cockpit', 'LW-1': 'heat, stoking, power slots', 'LW-2': 'rune functions by house, weight and page', 'LW-3': 'one ping, reading the printout, the five echoes, cold water, frozen monsters',
-    'LW-3A': 'the Grindmaw, Old Tom, shoals', 'LW-4': 'orb length, tracking, unlocking to turn', 'LW-5': 'aim quality, beacon colours', 'LW-6': 'tuning, gain, decoding the lamps', 'LW-6A': 'every rune, by house and weight',
-    'LW-7': 'setting the scanner from the buoy weather', 'LW-8': 'gauges, lamps, the repair flowchart', 'LW-9': 'what each case board cell means' };
+    'LW-3A': 'the Grindmaw, Old Tom, shoals', 'LW-4': 'orb length, tracking, unlocking to turn', 'LW-5': 'the hit chance, beacon colours', 'LW-6': 'tuning, gain, decoding the lamps', 'LW-6A': 'every rune, by house and weight',
+    'LW-7': 'setting the scanner from the buoy weather', 'LW-8': 'gauges, lamps, the repair flowchart', 'LW-9': 'what each case board cell means', 'LW-10': 'when the password is asked for, its rules, the reboot' };
   const pages = [...document.querySelectorAll('.page')];
   $('t-index').innerHTML = '<tr><th>Section</th><th>Title</th><th>What is there</th><th>Page</th></tr>' + pages.map((p, i) => ABOUT[p.dataset.sec] ? `<tr><td><b>${p.dataset.sec}</b></td><td>${p.dataset.title}</td><td>${ABOUT[p.dataset.sec]}</td><td>${i + 1}</td></tr>` : '').join('');
 }
@@ -390,21 +429,6 @@ $('t-payloads').innerHTML = '<tr><th></th><th>Colour</th><th>Payload</th><th>Eff
   let b = '';
   PLATE_ORDER.forEach((o, i) => { const x0 = 10 + i * 156; b += rect(x0, 4, 146, 54, { stroke: RULE }) + txt(x0 + 8, 20, 'PAGE ' + BOARD_PAGES[i], { bold: true, size: 11 }); o.forEach((s, j) => { b += shape(s, x0 + 30 + j * 44, 40) + (j < 2 ? txt(x0 + 52 + j * 44, 44, '→', { anchor: 'middle', size: 12 }) : ''); }); });
   $('f-plates').innerHTML = svg(640, 62, b);
-}
-
-// ---------- FIG 5.1 aim curves ----------
-{
-  const plot = (x0, title, full, span, unit, maxX) => {
-    const w = 190, h = 104, X = v => x0 + 26 + v / maxX * (w - 36), Y = k => 14 + (1 - k) * (h - 34);
-    let b = rect(x0 + 26, 14, w - 36, h - 34, { stroke: INK }) + txt(x0 + w / 2 + 8, 10, title, { anchor: 'middle', bold: true, size: 10 });
-    b += `<polyline points="${X(0)},${Y(1)} ${X(full)},${Y(1)} ${X(Math.min(maxX, full + span))},${Y(Math.max(0, 1 - (maxX - full) / span) * (full + span > maxX ? 1 : 0))}" fill="none" stroke="${INK}" stroke-width="2"/>`;
-    b += line(X(full), Y(1), X(full), Y(0), { dash: '3 3', stroke: RED }) + txt(X(full), Y(0) + 12, full, { anchor: 'middle', size: 9.5, bold: true, fill: RED });
-    if (full + span <= maxX) b += txt(X(full + span), Y(0) + 12, full + span, { anchor: 'middle', size: 9.5, bold: true });
-    b += txt(x0 + w / 2 + 8, h + 6, unit, { anchor: 'middle', size: 9 }) + txt(x0 + 22, Y(1) + 4, '100%', { anchor: 'end', size: 8.5 }) + txt(x0 + 22, Y(0) + 3, '0', { anchor: 'end', size: 8.5 });
-    return b;
-  };
-  let b = plot(0, 'FIX AGE', T.aimFixFull, T.aimFixSpan, 'seconds since the fix', 200) + plot(210, 'READING AGE', T.aimReadFull, T.aimReadSpan, 'seconds since the reading', 170) + plot(420, 'READING DISTANCE', T.aimDistFull, T.aimDistSpan, 'miles, reading to target', 440);
-  $('f-aim').innerHTML = svg(640, 114, b);
 }
 
 // ---------- FIG 6.1 band ----------

@@ -81,12 +81,12 @@ Top right of the main board. Locking ice gives it a temporary row; a beacon hit 
 
 ## Mechanics
 
-- **Camera tracking.** Locked ice that stays in the camera on screen for 4 s has its real drift measured; the prediction then uses it instead of the buoy and the drift switch. Aim quality shows a CAMERA TRACK bar. The tracking box also shows the ice's size, and "UNDER 20 · NOT ELGARZ" for small ice.
-- **Aim quality decay.** Fix age and reading age stay full for 30 s, then fall to nothing over 150 s and 120 s.
-- **Beacon telemetry.** Ice that already carries a beacon reports its own position and drift every step, so a lock on it has aim quality 100% (BEACON TELEMETRY) with no buoy, orb or drift switch. The second shot at known ice (orange, blue, green) is never an aiming problem.
-- **Aiming.** A beacon flies to the predicted position: last fix + buoy current reading + drift switch. Aim quality (0–100%, with a lamp) is built from fix age, reading age and how far the reading was taken from the target. It can't see whether the drift switch is wrong. Every miss reports the distance and the reasons, and the chart draws a line from the splash to where the target really was. Camera fixes are accurate to 1–3 mi.
+- **Camera tracking.** Locked ice that stays in the camera on screen for 4 s has its real drift measured; the prediction then uses that. The tracking box also shows the ice's size, and "UNDER 20 · NOT ELGARZ" for small ice.
+- **Beacon telemetry.** Ice that already carries a beacon reports its own position and drift, so a lock on it has a 100% hit chance. The second shot at known ice (orange, blue, green) is never an aiming problem.
+- **Aiming: an honest hit chance, then a roll.** There is no drift switch: the prediction uses the deep current for ice over 8 miles and the surface current plus wind for smaller ice. At fire time the game estimates the expected miss distance, sigma = fix error + ice speed × model error × (fix age + flight time), where the model error comes from the source (orb track 3%, a fresh nearby current reading 2.5%, much worse for a reading far from the ice or stale, 100% with no reading) and grows with the time since the fix. The chance is 1 − exp(−R² / 2σ²) against a generous hit radius (14 + 0.6 × length mi), capped at 99% (100% only for beacon telemetry). The shot rolls against exactly that number, and the flight is drawn to match: a hit lands on the ice, a miss splashes just beyond the radius. The drift-speed lever lowers the chance (faster ice), the beacon-forgiveness lever raises it (bigger radius). Over 285 test shots the stated and actual hit rates agree within two points. One plain line under the number says what is wrong when it is low.
 - **Rune board.** Each rune's house and weight index a 4×4 grid of functions. The page numeral on the flip card shifts the weight. The board flips every 60 s and after 4 presses.
-  - Functions: FUEL, COFFEE (costs heat), WIPERS, WIRELESS, LAMPS (normal / night / red), LAUNCH (red, amber or blue only), VENT, BELL, CONFETTI (Ice house), DEVIL (Iron house), NOTHING (Bone house). Confetti and the devil are only for fun; like NOTHING they still count towards the board flip.
+  - Grid (house × weight): Ice COFFEE · SUCCUBUS · COOLANT · CONFETTI; Iron FUEL · SHUTTER · LAUNCH · DEVIL; Ember COFFEE · PURGE · ALARM · LIGHTS; Bone DECOY · LOCKDOWN · RADIO · FUEL. Two FUELs and two COFFEEs in different houses; every board dealt has at least one of each. COFFEE's Ember neighbours are consequences, so miscounting the page shift there costs something.
+  - Effects: FUEL (a shovel in the chute), COFFEE (a pot, costs heat), COOLANT (every orb cold, burrowers give up), DECOY (a noisemaker 1.5 buoy ranges from the buoy, to the side of the Grindmaw's approach; it chases that), LAUNCH (red beacon now; wild if nothing is locked), PURGE (empties the chute), SHUTTER (steel shutters over the sonar and orbs for 20 s), LOCKDOWN (the password lock, and a new password), LIGHTS (normal → red → green → normal), RADIO (the cabin radio: a procedural lo-fi loop, and three false stations on the band), ALARM, CONFETTI, DEVIL (top hat, five seconds, every screen), SUCCUBUS (a 4.5 s pixel-art cameo: a pin-up blowing a kiss on the chart and launcher, the dress-over-a-grate gag on the orb, a stockinged leg kicking out of the other screens).
 - **Furnace.** Stoking draws from a fuel chute (4 shovels) that only the FUEL rune fills. Low heat cuts power slots. Overfeeding blows the furnace out and cracks the grate.
 - **Fatigue.** Over about 7 minutes the screens vignette, blur and sway, and the operator blinks off. Coffee (brew, then click the mug) clears it.
 - **Scanner.** A 3×3 rune keypad. Wind picks the first house, deep vs surface speed picks the direction round the wheel, and temperature picks heaviest, lightest or second lightest. The setting drifts out of tune once the buoy's conditions have disagreed with it for 50 s, about 3–5 times a watch.
@@ -104,6 +104,14 @@ Top right of the main board. Locking ice gives it a temporary row; a beacon hit 
 
 Nothing can end the game early. Every loss is recoverable.
 
+## The password lock
+One lock, several triggers. While it is up, a terminal replaces the chart, and the furnace panel and launcher show LOCKED; the sea keeps moving.
+- **Asks for the password:** firing green (then it fires), relighting the furnace (then it lights), the operator nodding off at full fatigue (logs back in at 0.7), the GM.
+- **Changes it:** the LOCKDOWN rune. The rules in force rise by two each time: 3, 5, 7, 8. No password yet: any trigger asks to set one.
+- **Rules, in order:** includes JERRY; an uppercase letter and a special character; a layer of Hell with its Roman numeral in capitals; its own length; a deadly sin; an archdevil; digits adding to 42; the rune board page in capitals (any page shown while the lock is open). The terminal lists every rule in force and ticks them as you type. Checks are lenient (words found anywhere, any capitals) so a correct password is never refused; only keyboard characters are allowed; ends are trimmed; unlocking is an exact match.
+- **Five wrong tries reboot the system:** furnace out, chute empty, all systems off, one or two of the grate, launcher, winch and fuse broken. Beacons, the case board and the chart stay. Then a fresh password under the same rules.
+- **GM:** sees the password; buttons to ask for it, force a lockdown, or unlock outright.
+
 ## Operator comforts
 - **Refresh survival.** The world (random generators included) autosaves to the browser every 5 s once the watch starts; a reload offers RESUME WATCH or NEW WATCH. A resumed watch carries on exactly as it would have.
 - **Message log.** LOG on the chart lists the last ten toasts with their times.
@@ -119,5 +127,6 @@ Controls:
 - **Click-the-map tools:** place or move Elgarz, drop a storm, send the Grindmaw or Old Tom. **Drag any ice** to move it; it moves when released. The map zooms out to 60%.
 - **Buttons:** pause, refuel (fills the chute and fixes the grate), repair everything, refill beacons, send the shark away, calibrate, bring Elgarz in now, force a win, clear storms, flip the rune board, fresh coffee, reset with a chosen or new seed.
 - **Levers (multipliers):** world drift, Tomb speed, Elgarz speed, Grindmaw speed (0.5–3×, also frozen monsters), furnace burn, remorhaz aggression, beacon forgiveness, fatigue rate. Narrow ranges in 0.05 steps, full-width sliders; double-click a name to reset it to 1×.
-- **Fun buttons:** confetti, and the dancing devil (top hat, five seconds, on every screen).
+- **Rune effects:** a button for every rune function, plus lights back to normal and raise the shutters.
+- **Password lock:** ask for it, force a lockdown, unlock now; the truth view shows the current password and how many rules are in force.
 - **Messages:** sent either as pneumatic notes, which rotate round the chart's four corners, or as wire service ticker lines.
