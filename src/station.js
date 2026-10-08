@@ -634,7 +634,7 @@ function startMissile(g) {
     const t = now();
     for (const w of waves) {
       if (!w.alive || t < w.at) continue;
-      const tw = towers[w.to], dur = 6 / w.speed, k = Math.min(1, (t - w.at) / dur), p = pos(w, tw, k);
+      const tw = towers[w.to], dur = 7.2 / w.speed, k = Math.min(1, (t - w.at) / dur), p = pos(w, tw, k);
       w.x = p.x; w.y = p.y; w.spawned = true; w.trail.push(p); if (w.trail.length > 40) w.trail.shift();
       if (k >= 1) { w.alive = false; booms.push({ x: tw.x, y: GROUND, t0: t }); if (!tw.down) tw.hit = true; audio.sfx.blowout(); }
     }
