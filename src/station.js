@@ -6,7 +6,7 @@ import { mountFleet } from './fleetui.js';
 import * as WS from './workshop.js';
 import * as GA from './games.js';
 import { glyphSVG, echoAt, ECHO_W } from './glyphs.js';
-import { GRID, CELL, CAMERAS } from './scenario.js';
+import { GRID, CELL, CAMERAS, TUNING as T } from './scenario.js';
 import { drawFurnaceLog, furnaceNumbers } from './furnacelog.js';
 import { mulberry32 } from './sim.js';
 import * as audio from './audio.js';
@@ -14,6 +14,11 @@ import * as audio from './audio.js';
 const $ = id => document.getElementById(id);
 const ROLE_NAME = { gunnery: 'GUNNERY & TARGETING', signals: 'SIGNALS & SONAR', engineer: 'ENGINEERING & POWER' };
 const JOB = { gunnery: 'THE BEACON WORKSHOP', signals: 'THE CASE BOARD', engineer: 'THE FURNACE' };
+const FIRST = {
+  gunnery: ['<b>Build beacons</b> at the workshop: your book has the shell; Engineering has the core; Signals has the crystal.', '<b>When devil fire comes</b>, click to burst flak in its path: every tower it reaches is an orb lost.', '<b>The fleet</b> is everyone\'s: pick a rune and a number, then FIRE.'],
+  signals: ['<b>Keep the case board</b>: decode each radio pattern and type in its call sign. The sonar here is a copy of the operator\'s.', '<b>Minesweeping</b> is optional: complete a sweep and the guns beacon a glacier for free.', '<b>When the buoy cable snaps</b>, steer with the arrow keys and collect the ends; the walls wrap round, your own cable does not.'],
+  engineer: ['<b>Keep the furnace alive</b>: the log shows where the heat is heading. Set the shed order and the damper.', '<b>The breaker panel</b> is optional: clear it for a free shovel of fuel.', '<b>When the fuse box blows</b>, drag each wire to the terminal of its colour and stripe.'],
+};
 const SYS_LABEL = { cameras: 'ORBS', sonar: 'SONAR', radio: 'RADIO', scanner: 'SCANNER', currents: 'CURRENTS', repair: 'REPAIR', workshop: 'WORKSHOP' };
 const fmt = s => { s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
 const COLS = 'ABCDEFGHIJKL';
@@ -23,9 +28,20 @@ const gridRef = p => p ? COLS[Math.max(0, Math.min(GRID - 1, Math.floor(p.x / CE
 const params = new URLSearchParams(location.search);
 let role = params.get('role'), code = cleanCode(params.get('code'));
 try { role = role || localStorage.getItem('lastwatch-station-role'); code = code || cleanCode(localStorage.getItem('lastwatch-station-code')); } catch (e) { }
-let snap = null, snapAt = 0, netState = '';
-const link = openLink(m => { if (m.snap) { snap = m.snap; snapAt = performance.now(); } }, s => { netState = s; });
-const send = act => link.send({ station: { role, ...act } });
+let snap = null, snapAt = 0, netState = '', linkedOnce = false;
+const games = {};   // game id -> { born, at }: every game heard on this code
+const link = openLink(m => {
+  if (!m.ss) return;
+  const g = m.ss, now = performance.now();
+  games[g.iid] = { born: g.born, at: now };
+  const live = Object.entries(games).filter(([, v]) => now - v.at < 4000).sort((a, b) => b[1].born - a[1].born);
+  if (live.length && live[0][0] !== g.iid) return;   // an older game still open on this code: follow the newest
+  snap = g; snapAt = now; linkedOnce = true;
+}, s => { netState = s; });
+const send = act => link.send({ station: { role, iid: snap ? snap.iid : null, ...act } });
+// the game's clock, run on between updates
+const ticking = () => snap && !snap.paused && !snap.hold && snap.started && !snap.reinforce;
+const nowT = () => !snap ? 0 : snap.t + (ticking() ? Math.min(2, (performance.now() - snapAt) / 1000) : 0);
 
 document.querySelectorAll('#roles button').forEach(b => b.onclick = () => { role = b.dataset.role; document.querySelectorAll('#roles button').forEach(x => x.classList.toggle('sel', x === b)); });
 if (role) { const b = document.querySelector(`#roles [data-role="${role}"]`); if (b) b.classList.add('sel'); }
@@ -37,6 +53,23 @@ $('go').onclick = () => {
   try { localStorage.setItem('lastwatch-station-role', role); localStorage.setItem('lastwatch-station-code', code); } catch (e) { }
   audio.unlock(); takeStation();
 };
+// sound: on by default; the alarm is the thing to hear
+let muted = false; try { muted = localStorage.getItem('lastwatch-station-mute') === '1'; } catch (e) { }
+audio.setMuted(muted);
+const muteBtn = document.createElement('button'); muteBtn.className = 'small'; muteBtn.id = 'mute';
+const showMute = () => { muteBtn.textContent = muted ? 'SOUND OFF' : 'SOUND ON'; };
+muteBtn.onclick = () => { muted = !muted; audio.setMuted(muted); showMute(); try { localStorage.setItem('lastwatch-station-mute', muted ? '1' : '0'); } catch (e) { } };
+showMute(); $('switch').before(muteBtn);
+// a first-time card for each station, until they say they have it
+function firstCard() {
+  let seen = false; try { seen = localStorage.getItem('lastwatch-station-seen-' + role) === '1'; } catch (e) { }
+  const el = $('firstcard'); el.classList.toggle('hidden', seen);
+  if (seen) return;
+  el.innerHTML = `<b class="ft">${ROLE_NAME[role]}</b><ul>${FIRST[role].map(l => '<li>' + l + '</li>').join('')}</ul><button class="btn">GOT IT</button>`;
+  el.querySelector('button').onclick = () => { el.classList.add('hidden'); try { localStorage.setItem('lastwatch-station-seen-' + role, '1'); } catch (e) { } };
+}
+// reconnect by itself when the relay drops
+setInterval(() => { if (code && /CLOSED|CHANNEL_ERROR|TIMED_OUT|OFFLINE/.test(netState)) link.rejoin(); }, 5000);
 $('switch').onclick = () => { $('desk').classList.add('hidden'); $('join').classList.remove('hidden'); };
 function takeStation() {
   link.join(code);
@@ -45,30 +78,34 @@ function takeStation() {
   $('jobtitle').textContent = JOB[role];
   document.title = 'The Last Watch · ' + ROLE_NAME[role];
   jobKey = ''; $('jobbody').innerHTML = '';
+  if ($('sonarpanel')) $('sonarpanel').classList.add('hidden');
   if (role === 'gunnery') buildWorkshop();
   if (role === 'engineer') buildFurnace();
+  if (role === 'signals') buildSonar();
   buildSteady();
+  firstCard();
 }
 setInterval(() => { if (role && !$('desk').classList.contains('hidden')) send({ hello: true }); }, 2000);
 
 // ---------- the fleet ----------
-const fleetUI = mountFleet($('fleet'), () => ({ fleet: snap && snap.fleet, t: snap ? snap.t : 0 }), a => { send(a); audio.sfx.click(); }, { cell: 30, onShot: l => (l.hit ? audio.sfx.hit : audio.sfx.miss)() });
+const fleetUI = mountFleet($('fleet'), () => ({ fleet: snap && snap.fleet, t: nowT() }), a => { send(a); audio.sfx.click(); }, { cell: 30, onShot: l => (l.hit ? audio.sfx.hit : audio.sfx.miss)() });
 
 // ---------- the main loop ----------
 let jobKey = '';
+const reported = new Set();
+function safely(name, fn) { try { fn(); } catch (e) { if (!reported.has(name)) { reported.add(name); console.error('station panel "' + name + '" failed:', e); } } }
 function frame() {
   const live = snap && performance.now() - snapAt < 4000;
   $('link').innerHTML = `<i class="${live ? 'on' : netState === 'SUBSCRIBED' || netState === 'LOCAL' ? 'wait' : 'off'}"></i><span>${live ? 'linked to the Watch' : code ? 'waiting for the Watch · code ' + code : 'not linked'}</span>`;
+  $('lost').classList.toggle('hidden', !(linkedOnce && !live && !$('desk').classList.contains('hidden')));
   if (snap) {
-    // the game sends its clock once or twice a second: run it on between snapshots
-    const ticking = !snap.paused && !snap.hold && snap.started;
-    $('clock').textContent = snap.hold === 'deploy' ? 'DEPLOY' : fmt(snap.t + (ticking ? Math.min(2, (performance.now() - snapAt) / 1000) : 0));
-    fleetUI.render();
-    if (role === 'gunnery') drawWorkshop();
-    if (role === 'signals') drawCaseBoard();
-    if (role === 'engineer') drawFurnace();
-    drawSteady();
-    checkDefence();
+    $('clock').textContent = snap.hold === 'deploy' ? 'DEPLOY' : fmt(nowT());
+    safely('fleet', () => fleetUI.render());
+    if (role === 'gunnery') safely('workshop', drawWorkshop);
+    if (role === 'signals') { safely('sonar', drawSonar); safely('case board', drawCaseBoard); }
+    if (role === 'engineer') safely('furnace', drawFurnace);
+    safely('steady', () => drawSteady());
+    safely('defence', checkDefence);
     $('alert').classList.toggle('hidden', !snap.reinforce);
     if (snap.reinforce) { $('alerttitle').textContent = 'DEVIL REINFORCEMENTS'; $('alerttext').textContent = 'The fleet is lost and the enemy is landing. The watch is paused until the officer of the watch gives the word.'; }
   }
@@ -236,6 +273,62 @@ function drawWorkshop() {
 }
 
 // =====================================================================
+// SIGNALS: a copy of the sonar, and the detailed case board
+// =====================================================================
+function buildSonar() {
+  $('jobbody').insertAdjacentHTML('beforebegin', '');
+  if (!$('sonarpanel')) $('job').insertAdjacentHTML('beforebegin', `<section id="sonarpanel" class="panel"><h2>THE SONAR <small>a copy of the operator's screen</small></h2>
+    <div class="sonarrow"><canvas id="sonarcv" width="300" height="300"></canvas><div><div class="lbl">ECHO PRINTOUT · the contact the operator has selected</div><canvas id="echocv" width="300" height="160"></canvas><div id="sonarinfo" class="hint"></div></div></div>
+    <div id="stormwarn" class="hidden"></div></section>`);
+  $('sonarpanel').classList.remove('hidden');
+}
+function drawSonar() {
+  const so = snap.sonar; if (!so || !$('sonarcv')) return;
+  const ctx = $('sonarcv').getContext('2d'), R = 140, t = performance.now() / 1000;
+  ctx.fillStyle = '#020a06'; ctx.fillRect(0, 0, 300, 300);
+  ctx.strokeStyle = 'rgba(92,255,157,.18)';
+  for (const r of [R / 3, R * 2 / 3, R]) { ctx.beginPath(); ctx.arc(150, 150, r, 0, 7); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(10, 150); ctx.lineTo(290, 150); ctx.moveTo(150, 10); ctx.lineTo(150, 290); ctx.stroke();
+  ctx.font = '12px IBM Plex Mono'; ctx.textAlign = 'center';
+  if (!so.up || !so.buoy) {
+    ctx.fillStyle = 'rgba(92,255,157,.5)';
+    ctx.fillText(!so.up ? 'SONAR OFF' : so.rebuild > 0 && so.rebuild < 1e6 ? 'BUOY LOST · REBUILDING ' + Math.ceil(so.rebuild) + ' s' : 'NO BUOY IN THE WATER', 150, 145);
+  } else {
+    const xy = p => [150 + (p.x - so.buoy.x) / T.buoyRadius * R, 150 + (p.y - so.buoy.y) / T.buoyRadius * R];
+    const a = t * 1.5; ctx.strokeStyle = 'rgba(92,255,157,.5)'; ctx.beginPath(); ctx.moveTo(150, 150); ctx.lineTo(150 + Math.sin(a) * R, 150 - Math.cos(a) * R); ctx.stroke();
+    for (const c of so.contacts) {
+      const [x, y] = xy(c); if (Math.hypot(x - 150, y - 150) > 150) continue;
+      const fade = Math.max(0.2, 1 - c.age / T.contactFade), r = Math.max(2.5, Math.min(8, 2 + c.length * 0.25));
+      ctx.fillStyle = `rgba(160,255,200,${fade})`; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+      if (snap.selected === c.id) { ctx.strokeStyle = '#ffb347'; ctx.beginPath(); ctx.arc(x, y, r + 5, 0, 7); ctx.stroke(); }
+      if (c.num != null) { ctx.fillStyle = 'rgba(232,223,198,.6)'; ctx.font = '10px IBM Plex Mono'; ctx.fillText('#' + c.num, x, y - r - 4); }
+    }
+    for (const h of so.hunters) {
+      const [x, y] = xy(h), col = { grindmaw: '#ff4b3a', tom: '#ff7a2a', monster: '#ff4b3a' }[h.kind];
+      ctx.fillStyle = col; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 6); ctx.beginPath(); ctx.arc(x, y, 6, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = '#ff9a8a'; ctx.font = '10px IBM Plex Mono'; ctx.fillText({ grindmaw: 'GRINDMAW', tom: 'OLD TOM', monster: 'MONSTER' }[h.kind], x, y - 10);
+    }
+    if (so.pinging) { ctx.fillStyle = 'rgba(92,255,157,.7)'; ctx.font = '11px IBM Plex Mono'; ctx.fillText('LISTENING...', 150, 292); }
+  }
+  // the storm warning
+  const sw = $('stormwarn'), storm = so.buoy && so.buoy.storm > 0;
+  sw.classList.toggle('hidden', !storm);
+  if (storm) sw.textContent = `STORM OVER THE BUOY · IT WILL BE TORN LOOSE IN ${Math.max(0, Math.ceil(T.buoyStormTime - so.buoy.storm))} s · TELL THE OPERATOR TO MOVE IT`;
+  // the selected contact's printout
+  const ec = $('echocv').getContext('2d'), c = so.contacts.find(x => x.id === snap.selected);
+  ec.fillStyle = '#e8dfc6'; ec.fillRect(0, 0, 300, 160);
+  ec.strokeStyle = 'rgba(120,90,60,.22)'; for (let x = 0; x < 300; x += 16) { ec.beginPath(); ec.moveTo(x + .5, 16); ec.lineTo(x + .5, 136); ec.stroke(); }
+  if (!c || !c.echo) { ec.fillStyle = '#6b5a3a'; ec.font = '12px IBM Plex Mono'; ec.textAlign = 'center'; ec.fillText('No contact selected', 150, 84); $('sonarinfo').textContent = ''; return; }
+  const k = Math.floor(t / 2.5), base = 132;
+  ec.strokeStyle = '#2a1a0a'; ec.lineWidth = 1.6; ec.beginPath();
+  for (let x = 0; x <= 300; x++) { const ex = x * ECHO_W / 300, y = base - echoAt(c.echo, c.length, ex, k, 0); x ? ec.lineTo(x, y) : ec.moveTo(x, y); }
+  ec.stroke(); ec.lineWidth = 1;
+  ec.fillStyle = '#3a2a10'; ec.font = '600 11px IBM Plex Mono'; ec.textAlign = 'left'; ec.fillText(c.echo.temp != null ? 'WATER ' + c.echo.temp + '°' : '', 4, 12);
+  ec.textAlign = 'right'; ec.fillText(`#${c.num != null ? c.num : '?'} · ${Math.round(c.length)} mi`, 296, 12);
+  $('sonarinfo').innerHTML = `Length <b${Math.round(c.length) <= 20 ? ' style="color:#ff6a5a"' : ''}>${Math.round(c.length)} mi</b>. Read the bumps and the tail with your book.`;
+}
+
+// =====================================================================
 // SIGNALS: the detailed case board
 // =====================================================================
 const SHAPE = { SMOOTH: 'smooth', STEPPED: 'stepped', JAGGED: 'jagged' };
@@ -285,7 +378,11 @@ let flogAt = 0;
 function drawFurnace() {
   const fs = snap.furnaceState; if (!fs) return;
   const n = furnaceNumbers(fs); if ($('fnums').innerHTML !== n) $('fnums').innerHTML = n;
-  if (performance.now() - flogAt > 500) { flogAt = performance.now(); drawFurnaceLog($('flog'), fs); }
+  if (performance.now() - flogAt > 100) {
+    flogAt = performance.now();
+    const dt = nowT() - snap.t, run = { ...fs, t: fs.t + dt, heat: fs.lit ? Math.max(0, fs.heat - fs.burn * dt) : 0 };
+    drawFurnaceLog($('flog'), run);
+  }
   document.querySelectorAll('[data-m]').forEach(b => b.classList.toggle('sel', b.dataset.m === fs.damper));
   const k = JSON.stringify([fs.priority, fs.on]);
   if (k === jobKey) return;
@@ -307,7 +404,7 @@ function buildSteady() {
   steady.kind = role === 'signals' ? 'mines' : role === 'engineer' ? 'lights' : null;
   $('steady').classList.toggle('hidden', !steady.kind);
   if (!steady.kind) return;
-  $('steadytitle').textContent = steady.kind === 'mines' ? 'THE MINEFIELD · optional' : 'THE BREAKER PANEL · optional';
+  $('steadytitle').innerHTML = steady.kind === 'mines' ? 'MINESWEEPING <small>complete a sweep for a free beacon on a random iceberg</small>' : 'THE BREAKER PANEL <small>clear it for a free shovel of fuel</small>';
   newSteadyBoard();
 }
 const cooldownLeft = () => !snap || !snap.rewards ? 0 : Math.max(0, (snap.rewards[steady.kind === 'mines' ? 'mines' : 'lights'] || 0) - snap.t);
@@ -340,7 +437,7 @@ function drawMinesSteady(cd) {
   $('steadybody').innerHTML = `<div class="steadygrid">
     <div class="ms small">${h}</div>
     <div class="howto" style="max-width:330px">
-      Mines have drifted into the approaches. <b>Clear the field</b> and the Watch's guns are free to fire: <b>a beacon strikes a glacier</b> for the crew.<br><br>
+      Mines have drifted into the approaches. <b>Complete a sweep</b> and the Watch's guns are free to fire: <b>a beacon strikes a random iceberg</b> for the crew.<br><br>
       <b>The numbers:</b> each one says how many of the eight squares touching it hold a mine. A <b>1</b> with only one hidden square beside it: that square is a mine.<br><br>
       <b>Left click</b> opens a square. <b>Right click</b> flags a mine. Start from the open patch; every field can be solved without guessing.<br><br>
       ${M.size - flags.size} mines unflagged. Nothing is lost if you hit one: start a new field.
@@ -394,6 +491,7 @@ function checkDefence() {
   if (a && !current && !finished.has(a.id)) startDefence(a);
 }
 function startDefence(a) {
+  if (!DEF_TITLE[a.kind]) { finished.add(a.id); return; }
   current = { id: a.id, kind: a.kind, rng: mulberry32(a.seed), t0: performance.now(), done: false };
   const title = a.kind === 'missile' && current.rng() < 0.5 ? (current.arc = true, DEF_TITLE.missileArc) : DEF_TITLE[a.kind];
   $('dtitle').textContent = title[0]; $('dsub').textContent = title[1];
@@ -463,12 +561,12 @@ function startSnake(g) {
     for (let y = 0; y <= GA.SN.H; y++) { ctx.beginPath(); ctx.moveTo(0, y * S); ctx.lineTo(W, y * S); ctx.stroke(); }
     ctx.fillStyle = '#ffb347'; ctx.shadowColor = '#ffb347'; ctx.shadowBlur = 12;
     ctx.beginPath(); ctx.arc(food[0] * S + S / 2, food[1] * S + S / 2, S * 0.3, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = dead ? '#a33' : '#c9a24b'; ctx.lineWidth = S * 0.55;
-    ctx.beginPath(); body.forEach(([x, y], i) => { const px = x * S + S / 2, py = y * S + S / 2; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke();
+    ctx.fillStyle = dead ? '#a33' : '#c9a24b';
+    body.forEach(([x, y], i) => { if (i) { ctx.beginPath(); ctx.roundRect(x * S + 3, y * S + 3, S - 6, S - 6, 6); ctx.fill(); } });
     ctx.fillStyle = dead ? '#ff4b3a' : '#5cff9d'; ctx.beginPath(); ctx.arc(body[0][0] * S + S / 2, body[0][1] * S + S / 2, S * 0.36, 0, 7); ctx.fill();
     ctx.lineWidth = 1;
     ctx.fillStyle = '#e8cf98'; ctx.font = '600 16px IBM Plex Mono'; ctx.textAlign = 'left';
-    ctx.fillText(`LOOSE ENDS ${got} / ${GA.SN.need}`, 10, 22);
+    ctx.fillText(`CABLE ${body.length} / ${GA.SN.start + GA.SN.need}`, 10, 22);
     if (since <= READY) { ctx.textAlign = 'center'; ctx.font = '800 30px Cinzel'; ctx.fillText('READY...', W / 2, H / 2); }
   };
   cv.tabIndex = 0; cv.focus({ preventScroll: true });

@@ -3,7 +3,7 @@ import {
   ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
   saveWorld, loadWorld, pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, inShoal, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
-  setDamper, setPriority, furnaceState, sonarStrain, repairWorking, stationAction, ROLES,
+  setDamper, setPriority, furnaceState, sonarStrain, repairWorking, stationAction, ROLES, stationSnapshot,
 } from './sim.js';
 import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES, SHOALS, SIZE_CUT } from './scenario.js';
 import { glyphSVG, echoAt, ECHO_W } from './glyphs.js';
@@ -64,6 +64,8 @@ function canvasPoint(cv, e) {
 
 // ---------- toasts & notes ----------
 let toastTimer = null;
+// A toast that also goes on the wire service ticker, so the result is seen on the stream.
+function wire(msg, kind = '') { toast(msg, kind); ui.tickerQ.push(msg); }
 function toast(msg, kind = '') {
   ui.log.push({ t: world.t, msg, kind }); if (ui.log.length > 40) ui.log.shift(); if (ui.logOpen) drawLog();
   const t = $('toast'); t.textContent = msg; t.className = 'show ' + kind;
@@ -110,10 +112,10 @@ addEventListener('keydown', e => {
 
 // ---------- intro / sound ----------
 const SAVE_KEY = 'lastwatch-save:' + location.pathname;
-function readSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 9 && s.w ? s : null; } catch (e) { return null; } }
+function readSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 10 && s.w ? s : null; } catch (e) { return null; } }
 function writeSave() {
   if (!ui.started) return;
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 9, seed: world.seed, t: world.t, w: saveWorld(world), log: ui.log, notesGone: ui.notesGone })); } catch (e) { /* storage full or blocked: carry on unsaved */ }
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 10, seed: world.seed, t: world.t, w: saveWorld(world), log: ui.log, notesGone: ui.notesGone })); } catch (e) { /* storage full or blocked: carry on unsaved */ }
 }
 function takeWatch() { audio.unlock(); $('intro').classList.add('hidden'); audio.sfx.click(); ui.started = true; writeSave(); }
 const saved = readSave(), seedParam = Number(params.get('seed'));
@@ -715,6 +717,12 @@ function drawSonar() {
   }
   const pending = world.pings.find(p => !p.delivered);
   stat.textContent = pending ? `listening · ${Math.ceil(pending.deliverAt - t)}s` : t < world.buoy.landAt ? 'buoy sinking...' : 'ready · buoy at ' + gridRef(world.buoy.x, world.buoy.y);
+  if (world.buoy.storm > 0) {
+    const left = Math.max(0, Math.ceil(T.buoyStormTime - world.buoy.storm));
+    stat.textContent = `STORM OVER THE BUOY · LOST IN ${left} s`;
+    ctx.fillStyle = `rgba(255,75,58,${0.55 + 0.45 * Math.sin(t * 8)})`; ctx.font = '600 13px IBM Plex Mono'; ctx.textAlign = 'center';
+    ctx.fillText(`STORM OVER THE BUOY · ${left} s`, 150, 290);
+  }
   if (pending) {
     const k = (t - pending.tS) / T.sonarDelay;
     ctx.strokeStyle = `rgba(92,255,157,${1 - k})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(150, 150, SON_R * k, 0, 7); ctx.stroke(); ctx.lineWidth = 1;
@@ -1349,10 +1357,11 @@ function handleEvents() {
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
       case 'defence': audio.sfx.alarm(); toast({ gunnery: 'GUNNERY STATION: DEVIL FIRE INBOUND ON THE TOWERS', signals: 'SIGNALS STATION: THE BUOY CABLE HAS SNAPPED', engineer: e.reason === 'overheat' ? 'THE FURNACE IS IN THE RED · ENGINEERING: THE FUSE BOX HAS BLOWN' : 'ENGINEERING STATION: THE FUSE BOX HAS BLOWN' }[e.role]); break;
-      case 'freebeacon': audio.sfx.launch(); toast(`SIGNALS CLEARED THE MINEFIELD · THE GUNS FIRED · A BEACON STRUCK #${e.num}`, 'info'); break;
-      case 'freefuel': audio.sfx.fuel(); toast(e.full ? 'ENGINEERING CLEARED THE BOILER PANEL · THE CHUTE WAS ALREADY FULL' : 'ENGINEERING CLEARED THE BOILER PANEL · A FREE SHOVEL IN THE CHUTE', 'info'); break;
-      case 'defencedone': if (e.ok) toast({ gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING REWIRED THE FUSE BOX' }[e.role], 'info');
-        else { audio.sfx.camdead(); toast({ gunnery: `DEVIL FIRE STRUCK ${e.n} TOWER${e.n > 1 ? 'S' : ''} · THOSE ORBS ARE DOWN`, signals: 'THE SPLICE FAILED · THE BUOY IS LOST · REPAIR THE WINCH ▲', engineer: `THE FUSE BOX FAILED · ${e.sys ? SYS_LABEL[e.sys] + ' IS OFF, ' : ''}A SHOVEL LOST, LIGHTS RED` }[e.role]); } break;
+      case 'freebeacon': audio.sfx.launch(); wire(`SIGNALS COMPLETED A MINESWEEP · THE GUNS FIRED · A BEACON STRUCK #${e.num}`, 'info'); break;
+      case 'freefuel': audio.sfx.fuel(); wire(e.full ? 'ENGINEERING CLEARED THE BREAKER PANEL · THE CHUTE WAS ALREADY FULL' : 'ENGINEERING CLEARED THE BREAKER PANEL · A FREE SHOVEL IN THE CHUTE', 'info'); break;
+      case 'defencedone': if (e.ok) wire({ gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING REWIRED THE FUSE BOX' }[e.role], 'info');
+        else { audio.sfx.camdead(); wire({ gunnery: `DEVIL FIRE STRUCK ${e.n} TOWER${e.n > 1 ? 'S' : ''} · THOSE ORBS ARE DOWN`, signals: 'THE SPLICE FAILED · THE BUOY IS LOST · REPAIR THE WINCH ▲', engineer: `THE FUSE BOX FAILED · ${e.sys ? SYS_LABEL[e.sys] + ' IS OFF, ' : ''}A SHOVEL LOST, LIGHTS RED` }[e.role]); } break;
+      case 'fleetwin': audio.sfx.reveal(); wire('THE ENEMY FLEET IS SUNK · REDEPLOY THE FLEET · A NEW ENEMY IS ON THE HORIZON', 'info'); break;
       case 'defencelost': break;
       case 'beaconsealed': audio.sfx.clunk(); toast(`GUNNERY SEALED A ${e.color.toUpperCase()} BEACON · IT CURES WHILE THE WORKSHOP IS ON`, 'info'); break;
       case 'beaconready': audio.sfx.calibrated(); toast(`A ${e.color.toUpperCase()} BEACON IS READY IN THE LAUNCHER`, 'info'); break;
@@ -1361,7 +1370,6 @@ function handleEvents() {
       case 'fleetready': audio.sfx.calibrated(); look('main'); toast('THE FLEET IS DEPLOYED · THE WATCH BEGINS', 'info'); break;
       case 'fleetshot': if (e.by === 'them') { if (e.hit) audio.sfx.camdead(); toast(`THE ENEMY FLEET FIRED${e.free ? ' (NOBODY WAS SHOOTING)' : ''} · ${e.sunk >= 0 ? 'THEY SANK ONE OF OURS' : e.hit ? 'A HIT ON OUR FLEET' : 'A MISS'} · LOOK LEFT ◀`, e.hit ? '' : 'info'); }
         else { audio.sfx[e.hit ? 'hit' : 'miss'](); if (e.sunk >= 0) toast('WE SANK AN ENEMY SHIP', 'info'); } break;
-      case 'fleetwin': audio.sfx.reveal(); toast('THE ENEMY FLEET IS SUNK · A NEW ONE IS ON THE HORIZON', 'info'); break;
       case 'reinforcements': audio.sfx.alarm(); break;
       case 'reinforced': toast('THE REINFORCEMENTS ARE BEATEN OFF · THE FLEET IS REFITTED', 'info'); break;
       case 'casepinned': audio.sfx.flip(); toast(`#${e.num} IS PINNED TO THE CASE BOARD`, 'info'); break;
@@ -1439,7 +1447,7 @@ function drawCabin() {
   fleetUI.render();
 }
 // The fleet: the Watch's naval defences, on the cabin wall (and on every officer's station).
-const fleetUI = mountFleet($('fleetwall'), () => ({ fleet: world.fleet, t: world.t }), a => { stationAction(world, 'operator', a); audio.sfx.click(); }, { cell: 40 });
+const fleetUI = mountFleet($('fleetwall'), () => ({ fleet: world.fleet, t: world.t }), a => { stationAction(world, 'operator', a); audio.sfx.click(); }, { cell: 34 });
 
 // ---------- the officers' stations ----------
 // Each station says hello every few seconds; a station not heard from for a while counts as gone, and its defence
@@ -1447,6 +1455,7 @@ const fleetUI = mountFleet($('fleetwall'), () => ({ fleet: world.fleet, t: world
 const stationSeen = {};
 function onStation(m) {
   if (!ROLES.includes(m.role)) return;
+  if (m.iid && m.iid !== GAME_ID) return;   // that station follows another game on this code
   stationSeen[m.role] = performance.now();
   if (!m.hello) { stationAction(world, m.role, m); snapSoon = true; }
 }
@@ -1458,6 +1467,7 @@ function drawStations() {
   const deploying = world.hold === 'deploy' && ui.started;
   $('deploybanner').classList.toggle('hidden', !deploying || lookingLeft());
   $('reinforce').classList.toggle('hidden', !world.reinforce);
+  $('twogames').classList.toggle('hidden', performance.now() - otherGameAt > 5000);
 }
 const STATION_NAME = { gunnery: 'Gunnery', signals: 'Signals', engineer: 'Engineering' };
 
@@ -1475,7 +1485,10 @@ function drawGmLink() {
   const linked = performance.now() - gmSeenAt < 12000, txt = `GM ${roomCode} <i class="${linked ? 'on' : netStatus === 'SUBSCRIBED' ? 'wait' : 'off'}"></i>`;
   if (el.innerHTML !== txt) { el.innerHTML = txt; el.title = linked ? 'The GM page is connected' : netStatus === 'SUBSCRIBED' ? 'Waiting for the GM to connect with this code' : 'Not connected to the GM relay'; }
 }
+const GAME_ID = Math.random().toString(36).slice(2, 10), GAME_BORN = Date.now();
+let otherGameAt = -1e9;
 function onGm(m) {
+  if (m.ss) { if (m.ss.iid !== GAME_ID) otherGameAt = performance.now(); return; }   // another game tab on this code
   if (m.snap) return;                       // our own snapshots, echoed by another game tab
   if (m.station) { onStation(m.station); return; }
   if (m.hello) { gmSeenAt = performance.now(); return; }
@@ -1489,6 +1502,10 @@ function onGm(m) {
 let lastSnap = 0;
 // Over the network once a second on a timer: animation frames stop in a background tab, timers do not.
 setInterval(() => gmLink.send({ snap: snapshot(world) }), 1000);
+// The officers' stations get their own small update, four times a second on this computer and twice over the network.
+let ssTick = 0;
+const sendStations = (remote = true) => { if (ui.started) gmLink.send({ ss: stationSnapshot(world, { iid: GAME_ID, born: GAME_BORN, selected: ui.selected }) }, remote); };
+setInterval(() => sendStations(ssTick++ % 2 === 0), 250);
 
 // ---------- loop ----------
 // The watch runs on the real clock, whether or not this tab is on screen: a browser pauses animation frames in a
@@ -1499,7 +1516,7 @@ function simTick() {
   acc += Math.min(10, (now - last) / 1000); last = now;
   if (!ui.started) acc = 0;
   while (acc >= DT) { step(world, DT); acc -= DT; }
-  if (snapSoon) { snapSoon = false; gmLink.send({ snap: snapshot(world) }); }
+  if (snapSoon) { snapSoon = false; sendStations(); }
   const t = performance.now();
   for (const r of ROLES) world.defence.live[r] = t - (stationSeen[r] || -1e9) < 7000;
 }
@@ -1513,7 +1530,6 @@ function frame(now) {
     gmLink.send({ snap: snapshot(world) }, false);   // twice a second on this computer while the game is in view
   }
   drawGmLink(); drawSeal(); drawShutters(); drawCabin(); drawStations();
-  if (snapSoon) { snapSoon = false; gmLink.send({ snap: snapshot(world) }); }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

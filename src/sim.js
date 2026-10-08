@@ -932,6 +932,7 @@ export function gm(w, cmd, arg = {}) {
   }
   if (cmd === 'restock') { w.beacons.stock = T.beaconStock; w.beacons.orange = T.orangeStock; w.beacons.green = T.greenStock; }
   if (cmd === 'defence' && ROLES.includes(arg.role)) startDefence(w, arg.role, 'gm');
+  if (cmd === 'rehearse') ROLES.forEach((r, i) => { w.defence.next[r] = w.t + 1 + i * 50; });
   if (cmd === 'reinforced') endReinforcements(w);
   if (cmd === 'fleet-auto' && w.fleet.phase === 'deploy') { w.fleet.mine = FL.randomFleet(w.fleetRng); fleetReady(w); }
   if (cmd === 'shark-home' && w.tom.mode !== 'asleep') { const a = Math.atan2(w.tom.y - CENTER.y, w.tom.x - CENTER.x) + Math.PI; w.tom.x = CENTER.x + Math.cos(a) * 1500; w.tom.y = CENTER.y + Math.sin(a) * 1500; w.tom.target = null; w.tom.patrolR = 1500; }
@@ -1180,6 +1181,7 @@ export function fleetPlace(w, i, x, y, dir) { const ok = FL.placeShip(w.fleet, i
 // All ships placed: the watch can begin.
 export function fleetReady(w) {
   const f = w.fleet;
+  if (f.phase === 'redeploy') { f.phase = 'play'; f.idleFrom = w.t; f.prevMine = null; emit(w, 'fleetready', { redeploy: true }); return true; }
   if (f.phase !== 'deploy' || !FL.allPlaced(f)) return false;
   f.phase = 'play'; f.idleFrom = w.t; w.hold = null; emit(w, 'fleetready');
   return true;
@@ -1191,7 +1193,7 @@ export function fleetFire(w, x, y) {
   const r = FL.fireAtEnemy(f, x, y);
   if (!r) return null;
   f.last = { by: 'us', ...r, t: w.t }; FL.logShot(f, 'us', r, w.t); emit(w, 'fleetshot', { by: 'us', ...r });
-  if (r.all) { f.wins++; emit(w, 'fleetwin'); resetFleets(w); return r; }
+  if (r.all) { f.wins++; emit(w, 'fleetwin'); resetFleets(w); f.prevMine = f.prevMineShift; f.phase = 'redeploy'; f.redeployUntil = w.t + FL.REDEPLOY_TIME; return r; }
   f.enemyAt = w.t + FL.ENEMY_DELAY; f.idleFrom = w.t;
   return r;
 }
@@ -1204,6 +1206,7 @@ function enemyShot(w, free) {
 }
 function fleetStep(w) {
   const f = w.fleet;
+  if (f.phase === 'redeploy' && w.t >= f.redeployUntil) fleetReady(w);
   if (f.phase !== 'play' || w.reinforce) return;
   if (f.enemyAt != null && w.t >= f.enemyAt) enemyShot(w, false);
   else if (f.enemyAt == null && w.t - f.idleFrom >= FL.IDLE_SHOT) enemyShot(w, true);
@@ -1211,6 +1214,7 @@ function fleetStep(w) {
 // A new enemy fleet, and ours shifted a few squares and repaired, so play carries on.
 function resetFleets(w) {
   const f = w.fleet;
+  f.prevMineShift = f.mine.map(s => ({ ...s }));
   f.mine = FL.shiftFleet(f.mine, w.fleetRng); f.enemy = FL.randomFleet(w.fleetRng);
   f.myShots = {}; f.theirShots = {}; f.enemyAt = null; f.idleFrom = w.t;
   (f.log = f.log || []).push({ t: w.t, text: 'A new enemy fleet on the horizon. Our ships are refitted and take new stations.', kind: 'info' });
@@ -1488,6 +1492,24 @@ export function cameraView(w, cam) {
   consider(w.tomb, 'tomb');
   items.sort((a, b) => b.d - a.d);
   return items;
+}
+
+// What the officers' stations need, and nothing else: small enough to send twice a second over the network.
+export function stationSnapshot(w, extra = {}) {
+  const sonar = { buoy: w.buoy ? { x: w.buoy.x, y: w.buoy.y, landing: w.t < w.buoy.landAt, storm: w.buoy.storm || 0 } : null,
+    rebuild: w.buoy ? 0 : Math.max(0, w.buoyRebuildAt - w.t), broken: w.broken.sonarhead || w.broken.winch, up: isUp(w, 'sonar'),
+    contacts: w.contacts.map(c => ({ id: c.id, x: c.x, y: c.y, length: c.length, echo: c.echo, age: w.t - c.tD, num: (w.bergs.find(b => b.id === c.bergId) || {}).num })),
+    hunters: [['grindmaw', w.shark], ...(w.tom.mode !== 'asleep' ? [['tom', w.tom]] : []), ...w.monsters.filter(m => m.fadeAt == null).map(m => ['monster', m])]
+      .filter(([, h]) => w.buoy && dist(h, w.buoy) < T.buoyRadius).map(([kind, h]) => ({ kind, x: h.x, y: h.y })),
+    pinging: w.pings.some(p => !p.delivered) };
+  return {
+    ...extra, t: w.t, started: w.started, paused: w.paused, hold: w.hold, reinforce: w.reinforce, won: w.won,
+    furnaceState: furnaceState(w), power: Object.fromEntries(SYSTEMS.map(s => [s, w.power[s].on])),
+    beacons: w.beacons.stock, orange: w.beacons.orange, green: w.beacons.green, workshop: w.workshop,
+    fleet: w.fleet, defence: { active: w.defence.active }, rewards: w.rewards, callsigns: w.callsigns,
+    cams: w.cams.map(c => ({ id: c.id, broken: c.broken })), sonar,
+    cases: w.cases.map(c => ({ bergId: c.bergId, seen: c.seen, callsign: w.callsigns[c.bergId] || null, num: (w.bergs.find(b => b.id === c.bergId) || {}).num, permanent: c.permanent, verdict: c.verdict, obs: w.obs[c.bergId] || null })),
+  };
 }
 
 // Compact truth snapshot for the GM window.

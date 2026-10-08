@@ -221,7 +221,7 @@ export const CAMERAS = [
 ];
 
 // ---------- the ice ----------
-// 60 floes: 20 small (fail the size test) and 40 large. Elgarz is over 20 miles long; anything 20 or under is not Elgarz.
+// 40 floes: 10 small (fail the size test) and 30 large. Elgarz is over 20 miles long; anything 20 or under is not Elgarz.
 // Every floe has an echo class, read from the sonar printout:
 //   solid    no bumps, flat tail
 //   caverns  uneven bumps, flat tail                (natural caves)
@@ -229,7 +229,7 @@ export const CAMERAS = [
 //   flooded  bumps, wavy tail                       (brine-filled caves)
 //   monster  even bumps, pulsing tail               (something frozen inside; a beacon hit lets it out)
 // Below COLD_WATER a monster is too cold to pulse, and reads exactly like halls.
-// Large ice: 15 solid, 6 caverns, 4 flooded, 5 monsters, 10 halls (3 plain, 2 metal, 3 Triad, 2 with everything).
+// Large ice: 6 solid, 5 caverns, 4 flooded, 5 monsters, 10 halls (3 plain, 2 metal, 3 Triad, 2 with everything).
 // Radio: `decoded` after the manual's procedure, in `band`, sent on `carrier` (null = random). Ice over 8 miles rides the deep current.
 export const SIZE_CUT = 20;
 export const ECHO_CLASSES = ['solid', 'caverns', 'halls', 'flooded', 'monster'];
@@ -266,7 +266,7 @@ export const FIELDS = [
   ] },
 ];
 export const FIELD_SPREAD = [120, 300];   // miles from the field's centre to each member
-// Unnamed ice that fills out the 60. { count, large, sig, metal, triad, transmit (share) }
+// Unnamed ice that fills out the 40. { count, large, sig, metal, triad, transmit (share) }
 export const FILLER = [
   { count: 2, large: true, sig: 'halls', metal: false, transmit: 0.5 },
   { count: 1, large: true, sig: 'monster', metal: true, transmit: 0.5 },
@@ -275,13 +275,13 @@ export const FILLER = [
   { count: 1, large: true, sig: 'flooded', metal: false, triad: true },
   { count: 1, large: true, sig: 'caverns', metal: true, transmit: 0.5 },
   { count: 1, large: true, sig: 'caverns', metal: false, triad: true },
-  { count: 2, large: true, sig: 'caverns', metal: false, transmit: 0.5 },
+  { count: 1, large: true, sig: 'caverns', metal: false, transmit: 0.5 },
   { count: 1, large: true, sig: 'solid', metal: false, triad: true },
-  { count: 11, large: true, sig: 'solid', metal: false, transmit: 0.5 },
-  { count: 2, large: false, sig: 'solid', metal: true, transmit: 0.4 },
-  { count: 2, large: false, sig: 'caverns', metal: false, triad: true },
-  { count: 6, large: false, sig: 'caverns', metal: false, transmit: 0.4 },
-  { count: 9, large: false, sig: 'solid', metal: false, transmit: 0.5 },
+  { count: 2, large: true, sig: 'solid', metal: false, transmit: 0.5 },
+  { count: 1, large: false, sig: 'solid', metal: true, transmit: 0.4 },
+  { count: 1, large: false, sig: 'caverns', metal: false, triad: true },
+  { count: 3, large: false, sig: 'caverns', metal: false, transmit: 0.4 },
+  { count: 4, large: false, sig: 'solid', metal: false, transmit: 0.5 },
 ];
 
 // ---------- shoals: rocks that scatter the sonar, each beside an orb (outside its starting view) ----------

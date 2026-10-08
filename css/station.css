@@ -141,3 +141,18 @@ button { font-family: inherit; cursor: pointer; }
 .reward { font-size: 14px; color: var(--phos); margin-top: 8px; min-height: 20px; }
 .wiresvg .term, .wiresvg .end { cursor: pointer; }
 .wiresvg line { pointer-events: none; }
+
+#lost { position: sticky; top: 0; z-index: 30; background: #5a1a12; color: #fdd; border-bottom: 2px solid #ff4b3a; padding: 8px 16px; text-align: center; font: 600 14px 'IBM Plex Mono', monospace; letter-spacing: 2px; }
+#lost small { font-weight: 400; letter-spacing: 0; color: #f0c0b8; }
+#firstcard { grid-column: 1 / -1; border: 2px solid var(--brass); }
+#firstcard .ft { font-family: 'Cinzel', serif; letter-spacing: 3px; color: var(--brass-hi); }
+#firstcard ul { margin: 8px 0 10px; padding-left: 20px; line-height: 1.6; }
+#firstcard li b { color: var(--amber); }
+#bar #mute { margin-left: auto; }
+#bar #mute + #switch { margin-left: 0; }
+.panel h2 small { text-transform: none; }
+.sonarrow { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+#sonarcv { border-radius: 50%; border: 2px solid #2e5a40; background: #020a06; }
+#echocv { border: 1px solid #6e5430; display: block; }
+#stormwarn { margin-top: 10px; background: #5a1a12; color: #fdd; border: 2px solid #ff4b3a; padding: 8px 12px; font: 600 13px 'IBM Plex Mono', monospace; letter-spacing: 1px; animation: blinkwarn .8s steps(2) infinite; }
+@keyframes blinkwarn { 50% { opacity: .55; } }

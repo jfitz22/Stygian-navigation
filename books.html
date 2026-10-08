@@ -161,16 +161,16 @@
   <table>
     <tr><th>Station</th><th>Standing duty</th><th>Defence</th><th>If it fails</th></tr>
     <tr><td><b>GUNNERY</b></td><td>The beacon workshop (GU-5)</td><td><b>Devil fire</b> on the seven orb towers, from the sky or from skiffs on the horizon. Click to burst flak in its path. 30 s.</td><td>Every tower struck: that orb is destroyed.</td></tr>
-    <tr><td><b>SIGNALS</b></td><td>The full case board and the call signs · the minefield (SI-6)</td><td><b>The buoy cable snaps</b>: steer the splice (arrow keys) to collect 8 loose ends without touching the walls or the cable. 45 s.</td><td>The buoy is lost.</td></tr>
+    <tr><td><b>SIGNALS</b></td><td>A copy of the sonar · the full case board and the call signs · minesweeping (SI-6)</td><td><b>The buoy cable snaps</b>: steer the splice (arrow keys) and collect 8 loose ends without touching the cable itself; the walls wrap round. 45 s.</td><td>The buoy is lost.</td></tr>
     <tr><td><b>ENGINEERING</b></td><td>The furnace log, the shed order and the damper · the breaker panel (EN-7)</td><td><b>The fuse box blows</b>, every few minutes and whenever the furnace runs into the red: drag each wire to the terminal of its colour and stripe. 20 s.</td><td>The lowest system in the shed order drops, a shovel is lost, the lights go red.</td></tr>
   </table>
   <h3>The fleet</h3>
   <p>The Watch's naval defences, on the cabin wall and on every station. Columns are marked with runes and rows with numbers.</p>
   <ul>
-    <li><b>Before the watch begins</b>, deploy the fleet: drag the four ships onto the grid (R or right click turns one). The watch holds until all four are placed.</li>
+    <li><b>Before the watch begins</b>, deploy the fleet: drag the four ships onto the table (ROTATE, R or right click turns one). The watch holds until all four are placed.</li>
     <li><b>To fire</b>, choose a rune and a number, then FIRE. Anyone may fire, from any screen.</li>
     <li>The enemy answers every shot. <b>If nobody fires for 45 s, it fires anyway.</b></li>
-    <li>Sink their fleet and another appears on the horizon; ours is refitted and moved a few squares.</li>
+    <li>Sink their fleet and another appears on the horizon. Ours is refitted and moved a few squares; you have 30 s to redeploy it (the enemy holds its fire), or press READY.</li>
     <li>Lose all four ships and <b>devil reinforcements</b> attack. The watch halts until the officer of the watch gives the word.</li>
   </ul>
   <div class="margin" style="right:0.95in;bottom:0.85in">fired at the same square twice.<span class="re">It will not let you. —I.</span></div>
@@ -390,13 +390,13 @@
   <p>Every <b>green</b> beacon carries a transmitter crystal, cut to Signals' design: it is what carries the Navy's call to Elgarz. Gunnery fits it at the bench; this book says which crystal. A crystal is told by its <b>facets</b> (three, five or seven) and its <b>tint</b> (clear, smoky or rose).</p>
   <ol id="rec-signals"></ol>
   <p><b>Example.</b> Serial <b>KTR-47</b>, lamp yellow, call band MID: five facets; the letters are all different and the lamp is yellow, so smoky.</p>
-  <h2 style="margin-top:22px"><span class="code">SI-6</span> THE MINEFIELD &amp; THE CABLE</h2>
-  <p><b>The minefield</b> sits on your station at all times: eight by eight, eight mines, a safe patch already open. <b>Clear it and the Watch's guns are free to fire: a beacon strikes a glacier</b>, pinning it to the case board. One field a minute; a mine costs nothing but the field.</p>
+  <h2 style="margin-top:22px"><span class="code">SI-6</span> MINESWEEPING &amp; THE CABLE</h2>
+  <p><b>Minesweeping</b> sits on your station at all times: eight by eight, eight mines, a safe patch already open. <b>Complete a sweep and the Watch's guns are free to fire: a beacon strikes a random iceberg</b>, pinning it to the case board. One sweep a minute; a mine costs nothing but the sweep.</p>
   <ul>
     <li><b>Left click</b> opens a square. A number is how many of the eight squares around it hold a mine.</li>
     <li><b>Right click</b> flags a square you know is a mine. No guessing is ever needed.</li>
   </ul>
-  <p><b>The buoy cable</b> snaps every few minutes. Steer the splice with the arrow keys (or WASD) and collect eight loose ends within 45 seconds. The cable grows as you go; do not touch the walls or the cable itself.</p>
+  <p><b>The buoy cable</b> snaps every few minutes. Steer the splice with the arrow keys (or WASD) and collect eight loose ends within 45 seconds. The cable starts ten lengths long and grows to eighteen. Run into a wall and you come out the other side; run into the cable itself and the splice fails.</p>
   <div class="warn">If the splice fails, or time runs out, the buoy is lost (the winch must be repaired).</div>
 </section>
 
@@ -500,7 +500,7 @@ $('pwrules').innerHTML = PW_RULES.map(r => '<li>' + r.text + '</li>').join('');
 }
 // ---------- FIG 0.1 sieve ----------
 {
-  const rows = [['ALL ICE IN THE SEA', 'some sixty glaciers'], ['OVER 20 MILES LONG', 'length, from an orb or the sonar'], ['A HALLS ECHO', 'one ping · mind the cold water'], ['WORKED METAL  +  SINGS THE TRIAD', 'scanner and radio, in either order'], ['OUTSIDE THE TOMB RING', 'Levistus keeps his own close']];
+  const rows = [['ALL ICE IN THE SEA', 'some forty glaciers'], ['OVER 20 MILES LONG', 'length, from an orb or the sonar'], ['A HALLS ECHO', 'one ping · mind the cold water'], ['WORKED METAL  +  SINGS THE TRIAD', 'scanner and radio, in either order'], ['OUTSIDE THE TOMB RING', 'Levistus keeps his own close']];
   let b = '';
   rows.forEach(([a, n], i) => { const w = 620 - i * 84, x = (640 - w) / 2, y = 6 + i * 34; b += `<polygon points="${x},${y} ${x + w},${y} ${x + w - 46},${y + 30} ${x + 46},${y + 30}" fill="${i % 2 ? 'rgba(29,26,20,.06)' : 'none'}" stroke="${INK}"/>` + txt(320, y + 14, a, { anchor: 'middle', bold: true }) + txt(320, y + 26, n, { anchor: 'middle', size: 9.5 }); });
   b += `<polygon points="296,178 344,178 320,204" fill="${RED}"/>` + txt(320, 222, 'ELGARZ', { anchor: 'middle', bold: true, size: 15, fill: RED });

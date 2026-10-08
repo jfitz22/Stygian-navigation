@@ -583,3 +583,4 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 20px; border-radius: 
 #reinforce { position: absolute; inset: 0; z-index: 45; background: rgba(40,4,2,.88); display: flex; align-items: center; justify-content: center; }
 #reinforce h1 { color: var(--threat); }
 .csign { font: 600 12px 'Share Tech Mono', monospace; color: var(--amber); margin-right: 4px; letter-spacing: 1px; }
+#twogames { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 50; background: #5a1a12; color: #fdd; border: 2px solid #ff4b3a; padding: 8px 18px; font: 600 14px 'IBM Plex Mono', monospace; letter-spacing: 1px; border-radius: 4px; }

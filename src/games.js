@@ -90,6 +90,7 @@ export const MISSILE_KINDS = ['fall', 'arc'];
 export function missileWaves(rng, watchMinutes, kind = 'fall') {
   const n = Math.round(16 + Math.min(12, watchMinutes / 1.5)), out = [];
   for (let i = 0; i < n; i++) {
+    if (kind === 'arc' && i % 10 >= 7) continue;   // the skiffs' arcing shells are harder to stop: about 30% fewer
     const from = kind === 'arc' ? (rng() < 0.5 ? rng() * 0.18 : 0.82 + rng() * 0.18) : rng();
     out.push({ at: 1.5 + (i / n) * (GAME_TIME.missile - 9) + rng() * 2, from, to: Math.floor(rng() * 7), speed: 1.1 + rng() * 0.5 });
   }
@@ -97,12 +98,12 @@ export function missileWaves(rng, watchMinutes, kind = 'fall') {
 }
 
 // ---------- The cable (Signals' defence): Snake ----------
-// Splice the buoy's cable: steer the splice head round the grid and collect the loose ends. It starts four long and
-// grows with every end; touch the wall or the cable itself and the splice fails.
-export const SN = { W: 20, H: 13, start: 4, need: 8, step: 0.13 };
+// Splice the buoy's cable: steer the splice head round the grid and collect the loose ends. It starts ten long and
+// grows with every end, to eighteen. Through a wall it comes out the other side; touch the cable itself and the splice fails.
+export const SN = { W: 20, H: 13, start: 10, need: 8, step: 0.13 };
 export function snakeStart() {
   const y = Math.floor(SN.H / 2);
-  return Array.from({ length: SN.start }, (_, i) => [SN.start + 1 - i, y]);   // head first, moving right
+  return Array.from({ length: SN.start }, (_, i) => [SN.start + 1 - i, y]);   // head first, moving right, from the left edge
 }
 // A free square for the next loose end, away from the walls.
 export function snakeFood(rng, body) {
@@ -111,10 +112,10 @@ export function snakeFood(rng, body) {
 }
 // One move. Returns { body, ate, dead }.
 export function snakeMove(body, dir, food) {
-  const [hx, hy] = body[0], head = [hx + dir[0], hy + dir[1]];
+  const [hx, hy] = body[0], head = [(hx + dir[0] + SN.W) % SN.W, (hy + dir[1] + SN.H) % SN.H];   // the walls wrap
   const ate = food && head[0] === food[0] && head[1] === food[1];
   const next = [head, ...body.slice(0, ate ? body.length : body.length - 1)];
-  const dead = head[0] < 0 || head[1] < 0 || head[0] >= SN.W || head[1] >= SN.H || next.slice(1).some(c => c[0] === head[0] && c[1] === head[1]);
+  const dead = next.slice(1).some(c => c[0] === head[0] && c[1] === head[1]);
   return { body: next, ate, dead };
 }
 

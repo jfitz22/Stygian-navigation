@@ -11,6 +11,7 @@ export const ENEMY_NAMES = ['THE WAILING TITHE', 'THE BRASS PENITENT', 'THE CIND
 export const square = (x, y) => RUNES[COL_RUNES[x]].name.toUpperCase() + ' ' + (y + 1);
 export const COL_RUNES = [0, 5, 10, 13, 2, 7, 8, 15];   // RUNES indices for the column marks
 export const ENEMY_DELAY = 3;          // seconds before the enemy answers a shot
+export const REDEPLOY_TIME = 30;       // seconds to redeploy after a victory; the enemy holds its fire
 export const IDLE_SHOT = 45;           // seconds of silence before the enemy takes a free shot
 export const ENEMY_CARELESS = 0.3;     // how often the enemy fires blind even when it has a hit to follow
 
@@ -75,7 +76,7 @@ export function newFleet(rng, deploy) {
 export const allPlaced = f => f.mine.every(s => s.x != null);
 // Place (or move) one of our ships during deployment. Returns true if it fits.
 export function placeShip(f, i, x, y, dir) {
-  if (f.phase !== 'deploy' || !f.mine[i]) return false;
+  if ((f.phase !== 'deploy' && f.phase !== 'redeploy') || !f.mine[i]) return false;
   const was = f.mine[i];
   f.mine[i] = { len: was.len, x, y, dir: dir === 'v' ? 'v' : 'h' };
   if (fits(f.mine, i)) return true;
