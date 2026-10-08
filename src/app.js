@@ -1,3 +1,4 @@
+import {installBlackIron,textureIce} from './black-iron.js';
 import {
   createWorld, newSeed, step, light, stoke, slotsAvailable, setPower, isUp, selectCam, deployBuoy, ping, lockContact, lockFromCamera,
   ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
@@ -540,6 +541,7 @@ function drawCamera() {
     const lum = b.look === 'horn' ? [220, 210, 190] : b.look === 'cairn' || b.look === 'arsenal' ? [150, 160, 170] : b.look === 'hulk' ? [214, 205, 170] : [220, 236, 240];
     ig.addColorStop(0, `rgba(${lum.join(',')},${1 - fog})`); ig.addColorStop(1, `rgba(${lum.map(v => v * 0.45).join(',')},${1 - fog * 0.9})`);
     ctx.fillStyle = ig; ctx.fill();
+    textureIce(ctx,x0,base,width,hScale,fog);
     const sg = ctx.createLinearGradient(x0, 0, x0 + width, 0);
     sg.addColorStop(0, 'rgba(255,255,255,0.10)'); sg.addColorStop(0.55, 'rgba(0,0,0,0)'); sg.addColorStop(1, `rgba(10,25,40,${0.45 * (1 - fog)})`);
     ctx.fillStyle = sg; ctx.fill();
@@ -1536,3 +1538,5 @@ requestAnimationFrame(frame);
 window.__world = world;
 // debug hooks for automated playthroughs
 window.__dbg = { step: secs => { for (let i = 0; i < secs / DT; i++) step(world, DT); }, selectContact };
+
+installBlackIron(world);
