@@ -98,9 +98,9 @@ export function missileWaves(rng, watchMinutes, kind = 'fall') {
 }
 
 // ---------- The cable (Signals' defence): Snake ----------
-// Splice the buoy's cable: steer the splice head round the grid and collect the loose ends. It starts ten long and
-// grows with every end, to eighteen. Through a wall it comes out the other side; touch the cable itself and the splice fails.
-export const SN = { W: 20, H: 13, start: 10, need: 8, step: 0.13 };
+// Splice the buoy's cable: steer the splice head round the grid and collect the loose ends. It starts fourteen long and
+// grows with every end, to twenty-two. Through a wall it comes out the other side; touch the cable itself and the splice fails.
+export const SN = { W: 20, H: 13, start: 14, need: 8, step: 0.13 };
 export function snakeStart() {
   const y = Math.floor(SN.H / 2);
   return Array.from({ length: SN.start }, (_, i) => [SN.start + 1 - i, y]);   // head first, moving right, from the left edge

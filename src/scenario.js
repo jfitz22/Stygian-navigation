@@ -47,7 +47,10 @@ export const TUNING = {
   coffeeBrew: 12,          // seconds to brew
   coffeeSips: 3,
   // operator fatigue
-  fatigueRate: 1 / 360,    // fatigue gained per second (0..1): six minutes to nodding off
+  fatigueRate: 1 / 360,    // fatigue gained per second (0..1)
+  fatigueLogout: 0.9,      // the console logs a nodding operator out here (about five and a half minutes)...
+  fatigueBack: 0.6,        // ...and they log back in this drowsy
+  pwUpdateEvery: 540,      // seconds between scheduled password security updates (each descends one layer)
   sipRelief: 0.45,
   // beacons
   beaconSpeed: 200,        // miles per second
@@ -71,12 +74,17 @@ export const TUNING = {
   aimFixErr: 3,            // miles: a sonar contact or an orb sighting is good to about this
   aimTrackRel: 0.03,       // an orb's drift measurement is good to about 3%
   aimReadRel: 0.025,       // a fresh current reading taken next to the ice
-  aimAgeRel: 0.0004,       // the sea turns: the model gets worse per second since the fix
+  aimAgeRel: 0.0008,       // the sea turns: the model gets worse per second since the fix
   aimDistFull: 90,         // miles: a reading taken closer than this to the ice is as good as it gets
   aimDistScale: 900,       // ...and much worse beyond that: a reading this far off is no better than none
   aimReadFull: 30,         // seconds a reading (or an orb's track) stays fresh
   aimFixFull: 30,          // seconds a fix stays fresh (for the advice line only)
-  aimStale: 0.003,         // per second beyond fresh
+  aimStale: 0.006,         // per second beyond fresh
+  // an orb's visual track is only as good as the weather at that orb lets it be
+  orbCapWind: 28,          // knots: no cap at or below this
+  orbCapPerKnot: 0.012,    // the cap falls this much per knot above it
+  orbCapSnow: 0.4,         // and this much more in a full snowfall on the lens
+  orbCapFloor: 0.5,        // never below this
   aimMaxChance: 0.99,      // only a beacon's own telemetry is certain
   // rune board effects
   shutterTime: 20,         // seconds the sonar and orb shutters stay down
@@ -175,13 +183,14 @@ export function windAt(t, F) {
   return { x: Math.sin(toward) * speed, y: -Math.cos(toward) * speed, from: ((from % 360) + 360) % 360, speed };
 }
 
-// Water temperature (°) at a point: Stygia runs from about -125° to -250°. Colder on one side of the sea and much colder
-// near the Tomb.
+// Water temperature (°) at a point: Stygia runs from about -180° to -265°, around -215° on average: within sight of
+// absolute zero. Colder on one side of the sea and much colder near the Tomb.
 export function tempAt(x, y, t, F, tomb) {
   const ax = Math.cos(F.coldAxis), ay = Math.sin(F.coldAxis);
   const along = ((x - CENTER.x) * ax + (y - CENTER.y) * ay) / REACH;     // -1..1
   const d = tomb ? Math.hypot(x - tomb.x, y - tomb.y) : 1e9;
-  return -160 - 26 * along - 40 * Math.exp(-((d / 500) ** 2)) - 16 * Math.min(1, t / 1200) + 8 * Math.sin(t / 170 + F.tempPh);
+  const v = -160 - 26 * along - 40 * Math.exp(-((d / 500) ** 2)) - 16 * Math.min(1, t / 1200) + 8 * Math.sin(t / 170 + F.tempPh);
+  return -216 + (v + 176) * 0.7;
 }
 
 // Storms: each one is aimed to pass over a camera post during the session.
@@ -233,7 +242,7 @@ export const CAMERAS = [
 // Radio: `decoded` after the manual's procedure, in `band`, sent on `carrier` (null = random). Ice over 8 miles rides the deep current.
 export const SIZE_CUT = 20;
 export const ECHO_CLASSES = ['solid', 'caverns', 'halls', 'flooded', 'monster'];
-export const COLD_WATER = -185;          // below this a monster does not pulse
+export const COLD_WATER = -222;          // below this a monster does not pulse
 const TRIAD = { decoded: 'BRW', band: 'MID', carrier: null };
 export const NOTABLES = [
   // halls, metal and the Triad
@@ -346,4 +355,4 @@ export const PLATE_BY_HOUSE = {
 };
 // Levers: set from the weather readout on the camera feed (wind in knots, air temperature in degrees).
 export function windLever(kn) { return kn < 30 ? 'DOWN' : kn <= 38 ? 'MIDDLE' : 'UP'; }
-export function tempLever(deg) { return deg < -185 ? 'DOWN' : deg <= -155 ? 'MIDDLE' : 'UP'; }
+export function tempLever(deg) { return deg < -225 ? 'DOWN' : deg <= -204 ? 'MIDDLE' : 'UP'; }

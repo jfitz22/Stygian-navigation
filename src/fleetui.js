@@ -2,11 +2,11 @@
 // officer's station. It only draws a fleet state and calls `send(action)`; the game decides what happens.
 //   deploy / redeploy: drag the ships onto our table (ROTATE, R or right click turns one), then READY
 //   play: pick a rune and a number (or click the enemy table), FIRE; the enemy answers
-import { SIZE, SHIPS, SHIP_NAMES, ENEMY_NAMES, COL_RUNES, IDLE_SHOT, ENEMY_DELAY, REDEPLOY_TIME, cellsOf, key } from './fleet.js';
+import { SIZE, SHIPS, SHIP_NAMES, ENEMY_NAMES, COL_RUNES, IDLE_SHOT, REDEPLOY_TIME, cellsOf, key } from './fleet.js';
 import { glyphSVG } from './glyphs.js';
 
 const css = `
-.fl { font-family: 'IBM Plex Mono', monospace; color: #e8dfc6; display: grid; gap: 8px; }
+.fl { font-family: 'IBM Plex Mono', monospace; color: #e8dfc6; display: grid; gap: 8px; align-content: start; }
 .fl .top { display: flex; align-items: center; gap: 10px; }
 .fl .status { flex: 1; font-size: 13px; letter-spacing: 1px; color: #cfc6ab; min-height: 18px; }
 .fl .status b { color: #ffb347; }
@@ -40,6 +40,9 @@ const css = `
 .fl .ready { background: #1f4a3a; color: #d9ffe6; border: 2px solid #2bd96b; padding: 8px 16px; font: 600 13px 'Cinzel', serif; letter-spacing: 3px; cursor: pointer; border-radius: 3px; }
 .fl .ready:disabled { opacity: .35; cursor: default; }
 .fl .hint { font-size: 11px; color: #8e9a90; }
+.fl .widegrid { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start; }
+.fl .widegrid .side { display: grid; gap: 8px; align-content: start; }
+.fl .widegrid .log { max-height: 260px; font-size: 13px; }
 @keyframes flshell { from { transform: translate(var(--sx), var(--sy)) scale(1.6); opacity: .2; } 85% { opacity: 1; } to { transform: translate(0, 0) scale(.6); opacity: 0; } }
 @keyframes flring { 0% { transform: scale(.15); opacity: 0; } 40% { opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
 @keyframes flslide { from { transform: translate(var(--fx), var(--fy)); } to { transform: translate(0, 0); } }
@@ -94,6 +97,7 @@ export function mountFleet(el, get, send, opts = {}) {
     ships.forEach((s, i) => {
       if (s.x == null) return;
       const gone = sunk(s);
+      if (!mine && !gone && (f.revealed || []).includes(i)) { b += `<g transform="${place(s)}"><rect x="2" y="${C * 0.18}" width="${s.len * C - 4}" height="${C * 0.64}" rx="${C * 0.3}" fill="rgba(255,179,71,.08)" stroke="#ffb347" stroke-dasharray="5 4" stroke-width="1.5"/><title>${ENEMY_NAMES[i]} (plotted by Signals)</title></g>`; return; }
       if (!mine && !gone) return;
       const color = gone ? '#3a1410' : ui.sel === i && mine ? '#7c8a96' : '#5d6873', stroke = gone ? '#a33' : '#a9b6c2';
       const prev = slide && f.prevMine[i], fx = prev ? P(prev.x, prev.y)[0] - P(s.x, s.y)[0] : 0, fy = prev ? P(prev.x, prev.y)[1] - P(s.x, s.y)[1] : 0;
@@ -123,7 +127,7 @@ export function mountFleet(el, get, send, opts = {}) {
     if (!f || f.phase === 'off') { if (el.innerHTML) el.innerHTML = ''; ui.key = ''; return; }
     const lk = f.last ? f.last.by + f.last.t : null;
     if (lk !== ui.shotKey) { const fresh = ui.shotKey !== null; ui.shotKey = lk; if (fresh && f.last) { ui.anim = lk; if (opts.onShot) opts.onShot(f.last); setTimeout(() => { ui.anim = null; ui.key = ''; }, 1700); } }
-    const k = JSON.stringify([f.phase, f.mine, f.myShots, f.theirShots, f.enemyAt != null, f.wins, f.losses, ui.entry, ui.held, ui.sel, ui.anim, (f.log || []).length, f.prevMine]);
+    const k = JSON.stringify([f.phase, f.mine, f.myShots, f.theirShots, f.enemyAt != null, f.wins, f.losses, ui.entry, ui.held, ui.sel, ui.anim, (f.log || []).length, f.prevMine, f.revealed]);
     if (k !== ui.key) { ui.key = k; build(f); }
     status(f, t);
   }
@@ -132,7 +136,7 @@ export function mountFleet(el, get, send, opts = {}) {
     let text, frac = 0, cls = '';
     if (f.phase === 'deploy') text = 'DEPLOY THE FLEET. Drag each ship onto our table. ROTATE (or R, or right click) turns the ship you hold or last touched.';
     else if (f.phase === 'redeploy') { const s = Math.max(0, Math.ceil(f.redeployUntil - t)); text = `<b>VICTORY.</b> The fleet has moved to new stations. Redeploy if you like: the new enemy holds its fire for <b>${s} s</b>.`; frac = s / REDEPLOY_TIME; cls = 'redeploy'; }
-    else if (f.enemyAt != null) { text = '<b>INCOMING: THE ENEMY IS FIRING...</b>'; frac = Math.max(0, (f.enemyAt - t) / ENEMY_DELAY); cls = 'enemy'; }
+    else if (f.enemyAt != null) { const s = Math.max(0, Math.ceil(f.enemyAt - t)); text = `<b>THE ENEMY IS LAYING ITS GUNS.</b> Incoming fire in <b>${s} s</b>.`; frac = Math.max(0, (f.enemyAt - t) / Math.max(1, f.enemyAt - (f.enemyFrom != null ? f.enemyFrom : f.enemyAt - 12))); cls = 'enemy'; }
     else { const s = Math.max(0, Math.ceil(IDLE_SHOT - (t - f.idleFrom))); text = `<b>YOUR SHOT.</b> Pick a rune and a number, then FIRE. The enemy fires anyway in <b>${s} s</b>.`; frac = s / IDLE_SHOT; }
     if (st.innerHTML !== text) st.innerHTML = text;
     if (bar) { bar.className = 'clockbar ' + cls; bar.firstElementChild.style.width = (Math.min(1, frac) * 100).toFixed(1) + '%'; }
@@ -148,15 +152,16 @@ export function mountFleet(el, get, send, opts = {}) {
       <div class="fire">${[...Array(SIZE).keys()].map(y => `<button data-row="${y}" class="${ui.entry[1] === y ? 'on' : ''}" ${ui.entry.length && f.myShots[key(ui.entry[0], y)] ? 'disabled' : ''}>${y + 1}</button>`).join('')}
         <span class="entry">${ui.entry[0] != null ? glyphSVG(COL_RUNES[ui.entry[0]], 18) : '·'} ${ui.entry[1] != null ? ui.entry[1] + 1 : '·'}</span>
         <button data-back title="Clear">⌫</button><button class="go" ${myTurn && ui.entry.length === 2 && !fired ? '' : 'disabled'}>FIRE</button></div>` : '';
+    const wide = !!opts.wide;
     el.innerHTML = `<div class="top"><div class="status"></div></div><div class="clockbar"><i></i></div>
       ${dock}
-      <div class="tables">
+      <div class="${wide ? 'widegrid' : ''}"><div class="tables">
         ${f.phase === 'play' || f.phase === 'redeploy' ? `<div class="table enemyT"><div class="lbl">ENEMY WATERS · <b>${left(f.enemy, f.myShots)}</b> OF ${ENEMY_NAMES.length} AFLOAT</div>${plot('enemy', f)}</div>` : ''}
         <div class="table ourT${deploying ? ' deploy' : ''}"><div class="lbl">OUR FLEET · <b>${left(f.mine, f.theirShots)}</b> OF ${SHIP_NAMES.length} AFLOAT</div>${plot('mine', f)}</div>
-      </div>
+      </div>${wide ? '<div class="side">' : ''}
       ${pad}
       <div class="log">${(f.log || []).slice(-6).reverse().map(l => `<div class="${l.kind}">${l.text}</div>`).join('') || '<div class="info">The enemy fleet is out there somewhere. Fire when ready.</div>'}</div>
-      <div class="hint">Victories ${f.wins} · losses ${f.losses} · anyone at any station can fire.</div>`;
+      <div class="hint">Victories ${f.wins} · losses ${f.losses} · anyone at any station can fire.</div>${wide ? '</div>' : ''}</div>`;
     if (f.phase === 'redeploy' && f.prevMine) ui.slideFor = f.redeployUntil;
     if (f.phase === 'play') wirePlay(f);
     if (deploying) wireDeploy(f);

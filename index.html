@@ -17,30 +17,27 @@
   <!-- ================= THE CABIN (look left) ================= -->
   <div id="side">
     <header id="sidebar">
-      <div class="plate title">THE CABIN <span>· FURNACE LOG · THE FLEET ·</span></div>
+      <div class="plate title">THE CABIN <span>· FLEET COMMAND · THE CREW · THE FURNACE ·</span></div>
       <button id="lookback" class="lookbtn">LOOK RIGHT ▶</button>
     </header>
-    <section class="panel" id="p-flog" style="left:16px;top:68px;width:1180px;height:996px">
-      <h2>FURNACE LOG <small>the last three minutes, and where the heat is heading</small></h2>
-      <div id="flognums"></div>
-      <canvas id="flogcanvas" width="1148" height="560"></canvas>
-      <div id="floglegend"><span><i style="background:#5cff9d"></i>1 SYSTEM</span><span><i style="background:#9ad0ff"></i>2 SYSTEMS</span><span><i style="background:#ff8a7a"></i>3 SYSTEMS</span><span>SOLID: WHAT IS ON NOW · DOTTED: THE OTHER CHOICES · NO MORE SHOVELS ASSUMED</span></div>
-      <div id="flogctl">
-        <div class="flogbox">
-          <div class="lbl">DAMPER</div>
-          <div id="damper"><button data-m="normal">NORMAL</button><button data-m="low">LOW</button></div>
-          <div class="hint">LOW burns slower, but everything powered works slower: spin-up, readings, scans, repairs and tracking.</div>
-        </div>
-        <div class="flogbox">
-          <div class="lbl">SHED ORDER</div>
-          <ol id="prio"></ol>
-          <div class="hint">Drag to reorder (or use the arrows). When the heat drops, the bottom of the list switches off first.</div>
-        </div>
-      </div>
-    </section>
-    <section class="panel" id="p-fleet" style="left:1212px;top:68px;width:692px;height:996px">
-      <h2>THE FLEET <small>the Watch's naval defences · every officer's station can fire too</small></h2>
+    <section class="panel" id="p-fleet" style="left:16px;top:68px;width:1080px;height:996px">
+      <h2>FLEET COMMAND <small>the Watch's naval defences · every officer's station can fire too</small></h2>
       <div id="fleetwall"></div>
+      <div class="lbl" id="wire2lbl">WIRE SERVICE</div>
+      <div class="wirestrip" id="wire2"></div>
+    </section>
+    <section class="panel" id="p-crew" style="left:1112px;top:68px;width:792px;height:556px">
+      <h2>THE CREW <small>the officers' stations</small></h2>
+      <div id="crew"></div>
+    </section>
+    <section class="panel" id="p-flog" style="left:1112px;top:634px;width:792px;height:430px">
+      <h2>FURNACE <small>the Engineer has the full log</small></h2>
+      <div id="flognums"></div>
+      <canvas id="flogcanvas" width="762" height="186"></canvas>
+      <div id="flogctl">
+        <div><div class="lbl">DAMPER</div><div id="damper"><button data-m="normal">NORMAL</button><button data-m="low">LOW</button></div></div>
+        <div><div class="lbl">SHED ORDER · the bottom goes first</div><ol id="prio"></ol></div>
+      </div>
     </section>
   </div>
 

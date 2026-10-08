@@ -10,9 +10,9 @@ export const ENEMY_NAMES = ['THE WAILING TITHE', 'THE BRASS PENITENT', 'THE CIND
 // A square as the crew says it: the column rune's name, then the row number.
 export const square = (x, y) => RUNES[COL_RUNES[x]].name.toUpperCase() + ' ' + (y + 1);
 export const COL_RUNES = [0, 5, 10, 13, 2, 7, 8, 15];   // RUNES indices for the column marks
-export const ENEMY_DELAY = 3;          // seconds before the enemy answers a shot
+export const ENEMY_DELAY = [10, 15];   // seconds before the enemy answers a shot
 export const REDEPLOY_TIME = 30;       // seconds to redeploy after a victory; the enemy holds its fire
-export const IDLE_SHOT = 45;           // seconds of silence before the enemy takes a free shot
+export const IDLE_SHOT = 60;           // seconds of silence before the enemy takes a free shot
 export const ENEMY_CARELESS = 0.3;     // how often the enemy fires blind even when it has a hit to follow
 
 export const key = (x, y) => x + ',' + y;
@@ -71,6 +71,7 @@ export function newFleet(rng, deploy) {
     idleFrom: 0,      // when the last shot was fired by anyone
     wins: 0, losses: 0, last: null,
     log: [],          // the battle log, newest last: [{ t, text, kind }]
+    revealed: [],     // enemy ships Signals has revealed (their outlines show)
   };
 }
 export const allPlaced = f => f.mine.every(s => s.x != null);

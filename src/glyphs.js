@@ -54,7 +54,7 @@ export function makePlate(rng) {
   return shuffle(ids, rng);
 }
 
-export function tempBandName(temp) { return temp < -185 ? 'BITTER' : temp <= -155 ? 'COLD' : 'RIME'; }
+export function tempBandName(temp) { return temp < -222 ? 'BITTER' : temp <= -201 ? 'COLD' : 'RIME'; }
 
 // The manual's procedure. `cond` is what the Currents panel shows:
 // { windFrom (deg), deepKn, surfKn, temp } with the numbers exactly as displayed.

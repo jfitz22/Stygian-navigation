@@ -1,11 +1,12 @@
 // Headless scenario checks across many seeds. Run: node tools/check.mjs [seedCount]
 import {
   createWorld, step, light, stoke, dist, snapshot, setPower, deployBuoy, ping, lockContact, fireBeacon, runeEffect, sealInput, openSeal, shuttered, hitRadius, ghostAt,
-  countSightings, camSees, snowAt, slotsAvailable, pressKey, readingDisplay, radioSignal, setFreq, setGain, gainFor, setMusic, lockOn, DT,
+  countSightings, camSees, snowAt, slotsAvailable, pressKey, readingDisplay, radioSignal, setFreq, setGain, gainFor, setMusic, lockOn, DT, mulberry32,
   pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip, camCode, setLever, pressPlate, setCamTurn, camIsUnlocked, selectCam, gm,
   relockCase, setVerdict, isUp, inShoal, saveWorld, loadWorld, echoSeen, SYSTEMS,
   setDamper, setPriority, projectHeat, furnaceState, sonarStrain, breakThing, BREAKABLE,
   sealBeacon, fleetPlace, fleetReady, fleetFire, startDefence, defenceResult, stationAction, ROLES, stationSnapshot,
+  orbCap, canReveal, artifactIn, camWeather,
 } from '../src/sim.js';
 import * as FL from '../src/fleet.js';
 import * as WS from '../src/workshop.js';
@@ -14,7 +15,7 @@ import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RA
 import { keypadCode, RUNES } from '../src/glyphs.js';
 import { FLOWS, repairAction, makeRepairBoard, randomRow, ownerOf, OWNER } from '../src/repair.js';
 import { tempAt, makeField, PLATE_BY_HOUSE } from '../src/scenario.js';
-import { checkPassword, RULES as PW_RULES, WRONG_TRIES } from '../src/password.js';
+import { checkPassword, RULES as PW_RULES, WRONG_TRIES, DEFAULT_PASSWORD, BASE_RULES, revealPair } from '../src/password.js';
 
 const SEEDS = Array.from({ length: Number(process.argv[2]) || 40 }, (_, i) => 1000 + i * 37);
 let failures = 0;
@@ -31,7 +32,7 @@ function fireUntilHit(w, color, target, tries = 8) {
   }
   return 0;
 }
-const VALID3 = 'Jerry!StygiaV';   // passes the first three password rules
+const VALID3 = DEFAULT_PASSWORD;   // the factory password, which passes the base rules
 const keepFurnace = w => { if (w.furnace.heat < 50) { if (!w.furnace.chute) w.furnace.chute = T.chuteMax; stoke(w); } };   // a diligent stoker with a full chute
 
 function run(seed, seconds, each) {
@@ -583,39 +584,57 @@ function sharkSetup(seed) {
   check(w.beacons.stock === st - 1 && w.beacons.flying.some(f => f.wild), 'LAUNCH with nothing locked fires a beacon somewhere wild');
 }
 
-// ---------- the password ----------
+// ---------- the password: the Descent ----------
 {
-  // the rules, one at a time, in order
-  const p8 = (() => { const base = 'Jerry!StygiaV-Pride-Bel-II-'; for (let L = base.length; L < 90; L++) { const ls = String(L); let need = 42 - [...ls].reduce((a, c) => a + +c, 0), fill = ''; while (need > 0) { const d = Math.min(9, need); fill += d; need -= d; } const p = base + ls + fill; if (p.length === L) return p; } })();
-  const ctx = { pages: [1] }, ok = (p, cap) => checkPassword(p, cap, ctx).ok;
-  check(PW_RULES.map(r => r.id).join() === 'jerry,case,hell,length,sin,devil,digits,page', 'The password rules come in the agreed order');
-  check(p8 && ok(p8, 8) && ok('  ' + p8 + '  ', 8), `A password that obeys all eight rules passes (${p8}), with spaces trimmed`);
-  check(!ok('jerry!stygiav', 3) && !ok('JerryStygiaV', 3) && !ok('Jerry!Stygia', 3) && ok('Jerry!DisII', 3) && ok('jErRy?avernusI', 3), 'Rules 1-3: JERRY in any case; a capital and a symbol; a layer of Hell with its numeral in capitals');
-  check(!ok('Jerry😈StygiaV', 3), 'Only keyboard characters: an emoji is refused');
-  check(ok(p8, 8) && !ok(p8.replace('II', 'IV'), 8) && checkPassword(p8.replace('II', 'IV'), 8, { pages: [3] }).ok, 'The page rule wants the numeral of a page shown while the lock was open');
-  check(!ok(p8.slice(0, -1), 8), 'Change one digit and the sum or the length breaks');
+  const ok = (p, cap) => checkPassword(p, cap).ok, fails = (p, cap) => checkPassword(p, cap).results.filter(r => !r.ok).map(r => r.id);
+  const FULL = 'JerRy###1###$97-273ENVY666+2=5IAGReE!39';
+  check(PW_RULES.map(r => r.id).join() === 'capital,special,jerry,chain,neighbour,price,vice,zero,six,lie,prime,agree', 'Three base rules, then one per layer of Hell, in order');
+  check(PW_RULES.filter(r => r.layer).map(r => r.layer[1]).join() === 'I,II,III,IV,V,VI,VII,VIII,IX', '...nine layers, Avernus to Nessus');
+  check(ok(DEFAULT_PASSWORD, BASE_RULES) && !ok(DEFAULT_PASSWORD, BASE_RULES + 1), 'JerryRulz! meets the base rules and nothing deeper');
+  check(ok(FULL, 12) && ok('  ' + FULL + '  ', 12), `A password can meet all twelve rules (${FULL}), with spaces trimmed`);
+  check(!ok('jerryrulz!', 3) && !ok('JerryRulz', 3) && !ok('Rulz!', 3), 'Base: a capital, a special character, JERRY');
+  check(!ok('JerryRulz!😈', 3), 'Only keyboard characters: an emoji is refused');
+  // each layer, pass and fail
+  check(ok('JerRy###1###', 4) && !ok('JerRy1######', 4) && !ok('JerRy###1###1', 4) && !ok('JerRy###2###', 4) && ok('JerRy##x#1##y#', 4) === false && ok('JerRy###a1b###', 4), 'I · Avernus: one 1, with ### before and after it');
+  check(!ok('JerRy###1###aa', 5) && ok('JerRy###1###aA', 5) && fails('JerryRulz!', 5).includes('neighbour'), 'II · Dis: no letter beside the same letter (capitals differ)');
+  check(ok('JerRy###1###$99', 6) && !ok('JerRy###1###$9', 6) && !ok('JerRy###1###99', 6), "III · Minauros: $ and a number bigger than the length");
+  check(ok('JerRy###1###$99sloth', 7) && ok('JerRy###1###$99GrEeD', 7) && !ok('JerRy###1###$99', 7), 'IV · Phlegethos: a deadly sin, any capitals');
+  const z = t => checkPassword('JerRy###1###$99Envy' + t, 8).results.find(r => r.id === 'zero').ok;
+  check(['-273', '-273.15', '-273.1', '0K', '0 k', '-459.67', '-460', '-273°C'].every(z) && !z('-27') && !z('10K') && !z('-170'), 'V · Stygia: absolute zero in any scale (and not a near miss)');
+  check(checkPassword('JerRy###1###$99Envy-170', 8).results.find(r => r.id === 'zero').hint.startsWith('Colder'), '...a wrong temperature gets a hint: colder');
+  check(ok('JerRy###1###$99Envy0K666', 9) && !ok('JerRy###1###$99Envy0K66', 9) && !ok('JerRy###1###$99Envy0K6666', 9), 'VI · Malbolge: exactly three sixes');
+  check(ok('JerRy###1###$99Envy0K666 2+2=5', 10) && !ok('JerRy###1###$99Envy0K666 2+2=4', 10) && ok('JerRy###1###$99Envy0K666 3x3=8', 10), "VII · Maladomini: a sum that is wrong");
+  check(ok(FULL, 11) && !ok(FULL.replace('$97', '$99'), 11) && !ok(FULL + '!', 11), 'VIII · Cania: a prime over 20, ending with the length, which is odd');
+  check(ok(FULL, 12) && !ok(FULL.replace('IAGReE', 'IAGRE'), 12), 'IX · Nessus: IAGREE (Dis means it must be written IAGReE or similar)');
+  // the hints: two neighbouring characters per failed attempt
+  { const shown = []; let rnd = mulberry32(5); for (let k = 0; k < 4; k++) for (const i of revealPair('JerryRulz!', shown, rnd)) if (!shown.includes(i)) shown.push(i);
+    check(shown.length >= 6, `Four failed attempts show most of JerryRulz! (${shown.length} of 10 characters)`); }
 
   // the lock itself
   const w = createWorld(73); light(w); ['sonar', 'currents'].forEach(x => setPower(w, x, true)); for (let i = 0; i < 30; i++) step(w, DT);
+  check(w.password === DEFAULT_PASSWORD && w.pwCap === BASE_RULES, 'The Watch starts on the factory password, at the gate');
   runeEffect(w, 'LOCKDOWN');
-  check(w.seal && w.seal.mode === 'set' && w.pwCap === 3, 'The first LOCKDOWN asks the crew to set a password under three rules');
+  check(w.seal && w.seal.mode === 'enter' && w.pwCap === BASE_RULES + 1, 'LOCKDOWN: enter the CURRENT password; the new one will need layer I');
   check(stoke(w) && !fireBeacon(w, 'red') && !setPower(w, 'radio', true), 'While locked, the power board and the launcher refuse, but the stoker can still stoke');
-  check(sealInput(w, 'jerry') === 'rejected' && w.seal, 'A password that breaks a rule is refused');
-  check(sealInput(w, VALID3) === 'ok' && !w.seal && w.password === VALID3, 'A good password is set and the lock lifts');
-  runeEffect(w, 'LOCKDOWN');
-  check(w.seal.mode === 'enter' && w.pwCap === 4, 'The next LOCKDOWN asks for the password, and one more rule will apply');
-  check(sealInput(w, 'nope') === 'wrong' && w.seal.tries === 1, 'A wrong password costs a try');
-  sealInput(w, VALID3);
+  check(sealInput(w, 'nope') === 'wrong' && w.seal.tries === 1 && w.seal.shown.length === 2 && w.seal.shown[1] === w.seal.shown[0] + 1, 'A wrong password costs a try and shows two neighbouring characters');
+  sealInput(w, DEFAULT_PASSWORD);
   check(w.seal && w.seal.mode === 'set', '...the right one, and a new password must be set');
-  check(sealInput(w, VALID3) === 'rejected', 'The old password no longer satisfies the new rules');
-  const p5 = 'Jerry!StygiaV-Pride' + (() => { for (let L = 20; L < 40; L++) { const t = 'Jerry!StygiaV-Pride' + L; if (t.length === L) return L; } })();
-  check(sealInput(w, p5) === 'ok' && w.password === p5, `A password meeting four rules is accepted (${p5})`);
+  check(sealInput(w, DEFAULT_PASSWORD) === 'rejected', 'The old password does not meet the new layer');
+  const p4 = 'JerryRulz!###1###';
+  let set = null; w.events.length = 0;
+  check(sealInput(w, p4) === 'ok' && w.password === p4 && w.pwMet === 4 && (set = w.events.find(e => e.type === 'pwset')) && set.password === p4, `The new password is accepted and printed (${p4})`);
+  // the scheduled update, every nine minutes
+  check(Math.abs(w.pwNext - (w.t + T.pwUpdateEvery)) < 0.2, 'A lockdown restarts the nine-minute clock');
+  w.pwNext = w.t + 0.5; for (let i = 0; i < 10; i++) { keepFurnace(w); step(w, DT); }
+  check(w.seal && w.seal.reason === 'lockdown' && w.pwCap === 5, 'Nine minutes on, the next update comes by itself (layer II)');
+  sealInput(w, p4); const p5 = 'JerRyRulz!###1###';
+  check(sealInput(w, p5) === 'ok', `Layer II accepted (${p5})`);
   // green asks
   const b = w.bergs.find(b => b.large && !b.tombDrawn); lockOn(w, b.id, b.x, b.y, w.t, 'camera'); w.lock.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'c1' };
   const g0 = w.beacons.green; fireBeacon(w, 'green');
-  check(w.seal && w.seal.reason === 'green' && w.beacons.green === g0, 'Firing green asks for the password first');
+  check(w.seal && w.seal.reason === 'green' && w.seal.mode === 'enter' && w.beacons.green === g0, 'Firing green asks for the current password first');
   sealInput(w, p5);
-  check(!w.seal && w.beacons.green === g0 - 1, '...and fires the moment it is accepted');
+  check(!w.seal && w.beacons.green === g0 - 1 && w.pwCap === 5, '...and fires the moment it is accepted; no new rule');
   // relight asks
   w.furnace.heat = 0.05; w.furnace.pending = 0; for (let i = 0; i < 30; i++) step(w, DT);
   check(!w.furnace.lit, '(the furnace has gone out)');
@@ -623,35 +642,30 @@ function sharkSetup(seed) {
   check(w.seal && w.seal.reason === 'relight' && !w.furnace.lit, 'Relighting the furnace asks for the password');
   sealInput(w, p5);
   check(w.furnace.lit && !w.seal, '...and lights it once accepted');
-  // nodding off logs the operator out
-  w.fatigue = 0.999; for (let i = 0; i < 20; i++) { keepFurnace(w); step(w, DT); }
-  check(w.seal && w.seal.reason === 'fatigue', 'An operator who nods off is logged out');
+  // nodding off logs the operator out at 90%
+  w.fatigue = 0.895; for (let i = 0; i < 40; i++) { keepFurnace(w); step(w, DT); }
+  check(w.seal && w.seal.reason === 'fatigue', 'An operator at 90% fatigue is logged out');
   sealInput(w, p5);
-  check(!w.seal && w.fatigue <= 0.7, '...and logs back in drowsy, not fresh');
-  // five wrong tries reboot the ship; beacons stay
+  check(!w.seal && Math.abs(w.fatigue - 0.6) < 0.01, '...and logs back in at 60%');
+  // five wrong tries reboot the ship; beacons stay; back to JerryRulz!, layer kept
   b.tag = 'red'; w.tags = [b.id]; w.furnace.chute = 3;
   openSeal(w, 'gm');
   for (let i = 0; i < WRONG_TRIES - 1; i++) sealInput(w, 'wrong' + i);
-  check(w.seal && w.seal.tries === WRONG_TRIES - 1, 'Four wrong tries and it is still asking');
+  check(w.seal && w.seal.tries === WRONG_TRIES - 1 && w.seal.shown.length >= 6, 'Four wrong tries, still asking, and most of the password showing');
   check(sealInput(w, 'wrong again') === 'reboot', 'The fifth wrong try reboots the system');
   check(!w.furnace.lit && w.furnace.chute === 0 && SYSTEMS.every(x => !w.power[x].on) && Object.values(w.broken).some(Boolean), 'The reboot: furnace out, chute empty, everything off, something broken');
-  check(b.tag === 'red' && w.tags.includes(b.id) && w.seal && w.seal.mode === 'set' && w.password == null, '...beacons stay where they were, and a fresh password must be set');
-  gm(w, 'unseal');
+  check(b.tag === 'red' && w.tags.includes(b.id) && !w.seal && w.password === DEFAULT_PASSWORD && w.pwCap === 5 && w.pwMet === BASE_RULES, '...beacons stay, the password is JerryRulz! again, and the layer is kept');
+  openSeal(w, 'gm'); gm(w, 'unseal');
   check(!w.seal, 'The GM can unlock it outright');
-  // a board flip while the lock is open: either page counts
-  const w2 = createWorld(74); light(w2); for (let i = 0; i < 10; i++) step(w2, DT);
-  w2.pwCap = 8; runeEffect(w2, 'LOCKDOWN'); w2.pwCap = 8; const pg0 = w2.board.page;
-  let flips = 0; while (w2.board.page === pg0 && flips < 50) { w2.board.nextFlip = 0; step(w2, DT); flips++; }
-  check(w2.seal.pages.includes(pg0) && w2.seal.pages.includes(w2.board.page), 'A board flip while the lock is open: both pages count for the page rule');
 }
 
 // ---------- revision 11: the cold, the furnace log, the damper, repairs and the new breakdowns ----------
 {
-  // Stygia is cold: -125 to -250 everywhere, all session
+  // Stygia is cold: about -180 to -265 everywhere, all session, never down to absolute zero
   let lo = 0, hi = -999;
   for (const seed of SEEDS.slice(0, 10)) { const F = makeField(() => (seed % 97) / 97); for (let t = 0; t <= 2400; t += 300) for (let k = 0; k < 40; k++) { const v = tempAt(300 + (k * 811) % 3000, 300 + (k * 433) % 3000, t, F, { x: 1800 + (k % 3) * 200, y: 1800 }); lo = Math.min(lo, v); hi = Math.max(hi, v); } }
   console.log(`Water temperature range: ${lo.toFixed(0)}° to ${hi.toFixed(0)}°`);
-  check(lo >= -260 && hi <= -115 && hi - lo > 80, 'The water runs from about -125° to -250°');
+  check(lo >= -268 && hi <= -175 && hi - lo > 55 && (lo + hi) / 2 < -180 && (lo + hi) / 2 > -250, 'The water runs from about -180° to -265°, well above absolute zero');
   // the furnace burns more with more running, and sheds the lowest priority first
   const w = createWorld(81); light(w); ['sonar', 'currents', 'cameras'].forEach(s => setPower(w, s, true));
   for (let i = 0; i < 20; i++) step(w, DT);
@@ -776,9 +790,11 @@ function sharkSetup(seed) {
   const f = wf.fleet;
   const shot = fleetFire(wf, 0, 0);
   check(shot && fleetFire(wf, 1, 1) === null, 'One shot, then the enemy answers before the next');
-  for (let i = 0; i < 35; i++) step(wf, DT);
+  const wait = f.enemyAt - wf.t;
+  check(wait >= 10 && wait <= 15, `The enemy takes 10 to 15 s to answer (${wait.toFixed(1)} s)`);
+  for (let i = 0; i < 155; i++) step(wf, DT);
   check(Object.keys(f.theirShots).length === 1 && fleetFire(wf, 1, 1), 'The enemy fires back, and it is our turn again');
-  for (let i = 0; i < 35; i++) step(wf, DT);
+  for (let i = 0; i < 155; i++) step(wf, DT);
   const n0 = Object.keys(f.theirShots).length;
   for (let i = 0; i < (FL.IDLE_SHOT + 1) * 10; i++) { keepFurnace(wf); step(wf, DT); }
   check(Object.keys(f.theirShots).length === n0 + 1, 'Nobody fires for 45 s: the enemy takes a free shot');
@@ -848,8 +864,8 @@ function sharkSetup(seed) {
   wr.furnace.chute = 1; stationAction(wr, 'engineer', { act: 'lightsout' }); const c1 = wr.furnace.chute; stationAction(wr, 'engineer', { act: 'lightsout' });
   check(c1 === 2 && wr.furnace.chute === 2, 'Clearing the breaker panel puts a free shovel in the chute, once a minute');
   // the defence games themselves
-  { let body = GA.snakeStart(); check(body.length === 10 && GA.SN.start + GA.SN.need === 18, 'The cable starts ten long and must reach eighteen');
-    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 11 && !r.dead, 'Each loose end makes the cable longer');
+  { let body = GA.snakeStart(); check(body.length === 14 && GA.SN.start + GA.SN.need === 22, 'The cable starts fourteen long and must reach twenty-two');
+    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 15 && !r.dead, 'Each loose end makes the cable longer');
     let b2 = GA.snakeStart(), dead = false; for (let i = 0; i < 40 && !dead; i++) { const m = GA.snakeMove(b2, [1, 0], null); b2 = m.body; dead = m.dead; } check(!dead, 'Through a wall the cable comes out the other side');
     let b3 = GA.snakeStart(); for (const d of [[0, 1], [-1, 0], [0, -1]]) { const m = GA.snakeMove(b3, d, null); b3 = m.body; if (d[1] === -1) check(m.dead, 'Turning back into the cable fails the splice'); }
     check(Array.from({ length: 100 }, () => GA.wiresBoard(rng)).every(({ left, right }) => left.length === 6 && new Set(right).size === 6 && right.every((id, i) => id !== left[i])), 'The fuse box always has six wires, none opposite its own terminal');
@@ -862,6 +878,60 @@ function sharkSetup(seed) {
   // a station's actions go through one door
   stationAction(wo, 'signals', { act: 'callsign', bergId: wo.bergs[0].id, text: 'brw!' });
   check(wo.callsigns[wo.bergs[0].id] === 'BRW', 'Signals can enter a call sign on the case board');
+}
+
+// ---------- revision 13: artifacts, the orb cap, plotting enemy ships ----------
+{
+  // six artifacts: five hidden in metal glaciers, the sixth given to the first metal the scanner finds; never Elgarz
+  let ok = true, firstOk = true;
+  for (const seed of SEEDS.slice(0, 20)) {
+    const w = createWorld(seed), all = [...w.bergs, ...w.reserve];
+    const placed = w.artifacts.filter(a => a.bergId);
+    if (w.artifacts.length !== 6 || placed.length !== 5 || placed.some(a => { const b = all.find(x => x.id === a.bergId); return !b || !b.metal || b.elgarz; })) ok = false;
+    light(w); ['scanner'].forEach(x => setPower(w, x, true)); for (let i = 0; i < 50; i++) step(w, DT);
+    const b = w.bergs.find(x => x.metal && !x.elgarz && x.large);
+    if (!b) continue;
+    w.scanner.calibrated = true; lockOn(w, b.id, b.x, b.y, w.t, 'camera');
+    for (let i = 0; i < (T.scanTime + 2) * 10; i++) { w.buoy = { x: b.x, y: b.y, landAt: 0 }; keepFurnace(w); step(w, DT); }
+    if (!(b.scanned && artifactIn(w, b.id) && artifactIn(w, b.id).found && w.obs[b.id].artifact) || w.artifacts.filter(a => a.bergId && a.bergId !== 'none').length !== 6) firstOk = false;
+  }
+  check(ok, 'Five artifacts are hidden in metal glaciers (never Elgarz)');
+  check(firstOk, 'The first metal the scanner finds always holds an artifact, and the scanner names it; six in all');
+  // a green beacon recovers it
+  const w = createWorld(1001); light(w); for (let i = 0; i < 20; i++) step(w, DT);
+  const a = w.artifacts.find(x => x.bergId && w.bergs.some(b => b.id === x.bergId)), b = w.bergs.find(x => x.id === a.bergId);
+  lockOn(w, b.id, b.x, b.y, w.t, 'camera'); w.lock.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'c1' };
+  w.password = VALID3;
+  for (let k = 0; k < 8 && !a.recovered; k++) {   // green asks for the password, then fires; the roll may miss
+    w.beacons.green = 3; w.broken.launcher = false; w.lock.t0 = w.t; w.lock.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'c1' };
+    fireBeacon(w, 'green'); if (w.seal) sealInput(w, VALID3);
+    for (let i = 0; i < 400 && w.beacons.flying.length; i++) step(w, DT);
+  }
+  check(a.recovered && w.events.some(e => e.type === 'artifactrecovered') || a.recovered, 'A green beacon on that glacier recovers the artifact');
+  // the wind and snow cap an orb's track
+  const wo = createWorld(1002); light(wo); for (let i = 0; i < 20; i++) step(wo, DT);
+  const c = wo.cams[0], wx = camWeather(wo, c), oc = orbCap(wo, c.id);
+  check(oc.cap <= 0.99 && oc.cap >= 0.5 && (wx.windKn <= 28 ? oc.cap === 0.99 : oc.cap < 0.99), `An orb's track is capped by its wind (${wx.windKn} kn → ${Math.round(oc.cap * 100)}%), never below 50%`);
+  let capsOk = true;
+  for (let k = 0; k < 400; k++) { const t0 = 30 + k * 6; while (wo.t < t0) { keepFurnace(wo); step(wo, DT); } for (const cc of wo.cams) { const q = orbCap(wo, cc.id); if (q.cap < 0.5 || q.cap > 0.99) capsOk = false; } }
+  check(capsOk, 'The cap always stays between 50% and 99%');
+  // an orb-tracked lock in high wind is held to the cap; a fresh nearby reading can beat it
+  { const w2 = createWorld(1003); light(w2); for (let i = 0; i < 20; i++) step(w2, DT);
+    const b2 = w2.bergs.find(x => x.large); lockOn(w2, b2.id, b2.x, b2.y, w2.t, 'camera'); w2.lock.track = { vx: b2.vx || 0, vy: b2.vy || 0, t: w2.t, cam: 'c1' };
+    w2.field.windBase = 0; const real = orbCap(w2, 'c1');
+    const T0 = { ...T }; T.orbCapWind = -100; const q = aimQuality(w2); T.orbCapWind = T0.orbCapWind;
+    check(q.chance <= 0.5 + 1e-9 && /orb track at/.test(q.reason || ''), `A gale at the orb holds the track to the cap, and says why ("${q.reason}")`);
+    w2.readings = { t: w2.t, x: b2.x, y: b2.y, surface: { x: 0, y: 0 }, deep: { x: 0, y: 0 }, wind: { x: 0, y: 0 }, windFrom: 0, windSpeed: 0, temp: -170 };
+    T.orbCapWind = -100; const q2 = aimQuality(w2); T.orbCapWind = T0.orbCapWind;
+    check(q2.chance > q.chance, 'A fresh current reading beside the ice beats the capped orb track'); }
+  // Signals can plot an enemy ship instead of beaconing a glacier
+  const wf = createWorld(1004, { deploy: true }); light(wf); gm(wf, 'fleet-auto'); for (let i = 0; i < 20; i++) step(wf, DT);
+  check(canReveal(wf), 'With the fleet in action, there is an enemy ship to plot');
+  const tags0 = wf.tags.length; stationAction(wf, 'signals', { act: 'minesweeper', choice: 'reveal' });
+  const ri = wf.fleet.revealed[0];
+  check(wf.fleet.revealed.length === 1 && wf.tags.length === tags0 && FL.cellsOf(wf.fleet.enemy[ri]).every(cc => !wf.fleet.myShots[FL.key(...cc)]), 'Plotting reveals one enemy ship that has not been hit');
+  stationAction(wf, 'signals', { act: 'minesweeper', choice: 'reveal' });
+  check(wf.fleet.revealed.length === 1, '...once a minute');
 }
 
 // ---------- shots ----------
@@ -878,8 +948,9 @@ function shot(seed, { readNear, delay, color = 'green' }) {
   if (!readNear) { const near = { x: OBSERVATORY.x + (e.x - OBSERVATORY.x) * Math.min(1, 1600 / dd), y: OBSERVATORY.y + (e.y - OBSERVATORY.y) * Math.min(1, 1600 / dd) }; deployBuoy(w, near.x, near.y); for (let i = 0; i < 50; i++) step(w, DT); ping(w); for (let i = 0; i < 60; i++) step(w, DT); const c = w.contacts.find(c => c.bergId === 'elgarz'); if (!c) return 'no contact'; lockContact(w, c); deployBuoy(w, bx, by); for (let i = 0; i < 50; i++) step(w, DT); }
   else { ping(w); for (let i = 0; i < 60; i++) step(w, DT); const c = w.contacts.find(c => c.bergId === 'elgarz'); if (!c) return 'no contact'; lockContact(w, c); }
   for (let i = 0; i < delay * 10; i++) step(w, DT);
+  if (w.seal && w.seal.reason === 'fatigue') sealInput(w, VALID3);   // a drowsy operator logs back in first
   fireBeacon(w, color);
-  if (w.seal) sealInput(w, VALID3);   // first green: set a password, then it fires
+  if (w.seal) sealInput(w, VALID3);   // green: the current password, then it fires
   for (let i = 0; i < 400; i++) { if (i % 50 === 0) keepFurnace(w); step(w, DT); }
   return w.won ? 'win' : e.tag ? 'tag' : 'miss';
 }
