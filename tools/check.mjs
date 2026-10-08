@@ -6,6 +6,7 @@ import {
   relockCase, setVerdict, isUp, inShoal, saveWorld, loadWorld, echoSeen, SYSTEMS,
   setDamper, setPriority, projectHeat, furnaceState, sonarStrain, breakThing, BREAKABLE,
   sealBeacon, fleetPlace, fleetReady, fleetFire, startDefence, defenceResult, stationAction, ROLES, stationSnapshot,
+  orbCap, canReveal, artifactIn, camWeather,
 } from '../src/sim.js';
 import * as FL from '../src/fleet.js';
 import * as WS from '../src/workshop.js';
@@ -776,9 +777,11 @@ function sharkSetup(seed) {
   const f = wf.fleet;
   const shot = fleetFire(wf, 0, 0);
   check(shot && fleetFire(wf, 1, 1) === null, 'One shot, then the enemy answers before the next');
-  for (let i = 0; i < 35; i++) step(wf, DT);
+  const wait = f.enemyAt - wf.t;
+  check(wait >= 10 && wait <= 15, `The enemy takes 10 to 15 s to answer (${wait.toFixed(1)} s)`);
+  for (let i = 0; i < 155; i++) step(wf, DT);
   check(Object.keys(f.theirShots).length === 1 && fleetFire(wf, 1, 1), 'The enemy fires back, and it is our turn again');
-  for (let i = 0; i < 35; i++) step(wf, DT);
+  for (let i = 0; i < 155; i++) step(wf, DT);
   const n0 = Object.keys(f.theirShots).length;
   for (let i = 0; i < (FL.IDLE_SHOT + 1) * 10; i++) { keepFurnace(wf); step(wf, DT); }
   check(Object.keys(f.theirShots).length === n0 + 1, 'Nobody fires for 45 s: the enemy takes a free shot');
@@ -848,8 +851,8 @@ function sharkSetup(seed) {
   wr.furnace.chute = 1; stationAction(wr, 'engineer', { act: 'lightsout' }); const c1 = wr.furnace.chute; stationAction(wr, 'engineer', { act: 'lightsout' });
   check(c1 === 2 && wr.furnace.chute === 2, 'Clearing the breaker panel puts a free shovel in the chute, once a minute');
   // the defence games themselves
-  { let body = GA.snakeStart(); check(body.length === 10 && GA.SN.start + GA.SN.need === 18, 'The cable starts ten long and must reach eighteen');
-    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 11 && !r.dead, 'Each loose end makes the cable longer');
+  { let body = GA.snakeStart(); check(body.length === 14 && GA.SN.start + GA.SN.need === 22, 'The cable starts fourteen long and must reach twenty-two');
+    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 15 && !r.dead, 'Each loose end makes the cable longer');
     let b2 = GA.snakeStart(), dead = false; for (let i = 0; i < 40 && !dead; i++) { const m = GA.snakeMove(b2, [1, 0], null); b2 = m.body; dead = m.dead; } check(!dead, 'Through a wall the cable comes out the other side');
     let b3 = GA.snakeStart(); for (const d of [[0, 1], [-1, 0], [0, -1]]) { const m = GA.snakeMove(b3, d, null); b3 = m.body; if (d[1] === -1) check(m.dead, 'Turning back into the cable fails the splice'); }
     check(Array.from({ length: 100 }, () => GA.wiresBoard(rng)).every(({ left, right }) => left.length === 6 && new Set(right).size === 6 && right.every((id, i) => id !== left[i])), 'The fuse box always has six wires, none opposite its own terminal');
@@ -862,6 +865,60 @@ function sharkSetup(seed) {
   // a station's actions go through one door
   stationAction(wo, 'signals', { act: 'callsign', bergId: wo.bergs[0].id, text: 'brw!' });
   check(wo.callsigns[wo.bergs[0].id] === 'BRW', 'Signals can enter a call sign on the case board');
+}
+
+// ---------- revision 13: artifacts, the orb cap, plotting enemy ships ----------
+{
+  // six artifacts: five hidden in metal glaciers, the sixth given to the first metal the scanner finds; never Elgarz
+  let ok = true, firstOk = true;
+  for (const seed of SEEDS.slice(0, 20)) {
+    const w = createWorld(seed), all = [...w.bergs, ...w.reserve];
+    const placed = w.artifacts.filter(a => a.bergId);
+    if (w.artifacts.length !== 6 || placed.length !== 5 || placed.some(a => { const b = all.find(x => x.id === a.bergId); return !b || !b.metal || b.elgarz; })) ok = false;
+    light(w); ['scanner'].forEach(x => setPower(w, x, true)); for (let i = 0; i < 50; i++) step(w, DT);
+    const b = w.bergs.find(x => x.metal && !x.elgarz && x.large);
+    if (!b) continue;
+    w.scanner.calibrated = true; lockOn(w, b.id, b.x, b.y, w.t, 'camera');
+    for (let i = 0; i < (T.scanTime + 2) * 10; i++) { w.buoy = { x: b.x, y: b.y, landAt: 0 }; keepFurnace(w); step(w, DT); }
+    if (!(b.scanned && artifactIn(w, b.id) && artifactIn(w, b.id).found && w.obs[b.id].artifact) || w.artifacts.filter(a => a.bergId && a.bergId !== 'none').length !== 6) firstOk = false;
+  }
+  check(ok, 'Five artifacts are hidden in metal glaciers (never Elgarz)');
+  check(firstOk, 'The first metal the scanner finds always holds an artifact, and the scanner names it; six in all');
+  // a green beacon recovers it
+  const w = createWorld(1001); light(w); for (let i = 0; i < 20; i++) step(w, DT);
+  const a = w.artifacts.find(x => x.bergId && w.bergs.some(b => b.id === x.bergId)), b = w.bergs.find(x => x.id === a.bergId);
+  lockOn(w, b.id, b.x, b.y, w.t, 'camera'); w.lock.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'c1' };
+  w.password = VALID3;
+  for (let k = 0; k < 8 && !a.recovered; k++) {   // green asks for the password, then fires; the roll may miss
+    w.beacons.green = 3; w.broken.launcher = false; w.lock.t0 = w.t; w.lock.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'c1' };
+    fireBeacon(w, 'green'); if (w.seal) sealInput(w, VALID3);
+    for (let i = 0; i < 400 && w.beacons.flying.length; i++) step(w, DT);
+  }
+  check(a.recovered && w.events.some(e => e.type === 'artifactrecovered') || a.recovered, 'A green beacon on that glacier recovers the artifact');
+  // the wind and snow cap an orb's track
+  const wo = createWorld(1002); light(wo); for (let i = 0; i < 20; i++) step(wo, DT);
+  const c = wo.cams[0], wx = camWeather(wo, c), oc = orbCap(wo, c.id);
+  check(oc.cap <= 0.99 && oc.cap >= 0.5 && (wx.windKn <= 28 ? oc.cap === 0.99 : oc.cap < 0.99), `An orb's track is capped by its wind (${wx.windKn} kn → ${Math.round(oc.cap * 100)}%), never below 50%`);
+  let capsOk = true;
+  for (let k = 0; k < 400; k++) { const t0 = 30 + k * 6; while (wo.t < t0) { keepFurnace(wo); step(wo, DT); } for (const cc of wo.cams) { const q = orbCap(wo, cc.id); if (q.cap < 0.5 || q.cap > 0.99) capsOk = false; } }
+  check(capsOk, 'The cap always stays between 50% and 99%');
+  // an orb-tracked lock in high wind is held to the cap; a fresh nearby reading can beat it
+  { const w2 = createWorld(1003); light(w2); for (let i = 0; i < 20; i++) step(w2, DT);
+    const b2 = w2.bergs.find(x => x.large); lockOn(w2, b2.id, b2.x, b2.y, w2.t, 'camera'); w2.lock.track = { vx: b2.vx || 0, vy: b2.vy || 0, t: w2.t, cam: 'c1' };
+    w2.field.windBase = 0; const real = orbCap(w2, 'c1');
+    const T0 = { ...T }; T.orbCapWind = -100; const q = aimQuality(w2); T.orbCapWind = T0.orbCapWind;
+    check(q.chance <= 0.5 + 1e-9 && /orb track at/.test(q.reason || ''), `A gale at the orb holds the track to the cap, and says why ("${q.reason}")`);
+    w2.readings = { t: w2.t, x: b2.x, y: b2.y, surface: { x: 0, y: 0 }, deep: { x: 0, y: 0 }, wind: { x: 0, y: 0 }, windFrom: 0, windSpeed: 0, temp: -170 };
+    T.orbCapWind = -100; const q2 = aimQuality(w2); T.orbCapWind = T0.orbCapWind;
+    check(q2.chance > q.chance, 'A fresh current reading beside the ice beats the capped orb track'); }
+  // Signals can plot an enemy ship instead of beaconing a glacier
+  const wf = createWorld(1004, { deploy: true }); light(wf); gm(wf, 'fleet-auto'); for (let i = 0; i < 20; i++) step(wf, DT);
+  check(canReveal(wf), 'With the fleet in action, there is an enemy ship to plot');
+  const tags0 = wf.tags.length; stationAction(wf, 'signals', { act: 'minesweeper', choice: 'reveal' });
+  const ri = wf.fleet.revealed[0];
+  check(wf.fleet.revealed.length === 1 && wf.tags.length === tags0 && FL.cellsOf(wf.fleet.enemy[ri]).every(cc => !wf.fleet.myShots[FL.key(...cc)]), 'Plotting reveals one enemy ship that has not been hit');
+  stationAction(wf, 'signals', { act: 'minesweeper', choice: 'reveal' });
+  check(wf.fleet.revealed.length === 1, '...once a minute');
 }
 
 // ---------- shots ----------

@@ -351,14 +351,39 @@ export function createWorld(seed = newSeed(), opts = {}) {
     reinforce: false,   // devil reinforcements: paused until the GM resumes
     defence: { next: {}, active: {}, live: {}, overheatAt: -999, seq: 0 }, defRng: mulberry32(seed + 0xDEF0),
     rewards: { mines: 0, lights: 0 },   // when each steady puzzle can pay out again
+    artifacts: null,    // set below: [{ name, bergId, found, recovered }]
     monsters: [],       // released from frozen ice by a beacon hit
     tags: [], events: [],
     elgarzPlan: null,
   };
   w.beacons.jamAt = T.jamEvery[0] + Math.floor(rng() * (T.jamEvery[1] - T.jamEvery[0] + 1));
   dealBoard(w, w.boardRng);
+  // Infernal artifacts in the metal glaciers: five hidden at random, and a sixth given to the first metal glacier
+  // the scanner finds (never Elgarz).
+  const artRng = mulberry32(seed + 0xA27F), metal = [...w.bergs, ...w.reserve].filter(b => b.metal && !b.elgarz);
+  const pick = metal.map(b => b.id); for (let i = pick.length - 1; i > 0; i--) { const j = Math.floor(artRng() * (i + 1)); [pick[i], pick[j]] = [pick[j], pick[i]]; }
+  w.artifacts = ARTIFACTS.map((name, i) => ({ name, bergId: i === 0 ? null : pick[i - 1] || null, found: false, recovered: false }));
+  w.artRng = artRng;
   return w;
 }
+export const ARTIFACTS = ['The Choir-Bell of Avernus', 'A Hellforged Signet of Dis', 'The Brass Censer of Stygia', 'A Phylactery of Black Ice', 'Geryon\'s Horn-Comb', 'The Lantern of the Drowned Legion'];
+export const artifactIn = (w, bergId) => w.artifacts && w.artifacts.find(a => a.bergId === bergId);
+// The scanner found worked metal in this glacier: is there an artifact? The first metal glacier always has one.
+function scanArtifact(w, b) {
+  if (!w.artifacts || b.elgarz) return;
+  const first = w.artifacts[0];
+  if (first.bergId == null) {
+    if (!artifactIn(w, b.id)) first.bergId = b.id;
+    else {   // this one already holds one: the sixth goes to another metal glacier
+      const free = [...w.bergs, ...w.reserve].filter(x => x.metal && !x.elgarz && !artifactIn(w, x.id));
+      first.bergId = free.length ? free[Math.floor(w.artRng() * free.length)].id : 'none';
+    }
+  }
+  const a = artifactIn(w, b.id);
+  if (a && !a.found) { a.found = true; record(w, b.id, 'artifact', a.name); emit(w, 'artifact', { num: b.num, name: a.name }); }
+}
+// The GM can rename the artifacts before (or during) the session.
+export function nameArtifacts(w, names) { (names || []).slice(0, w.artifacts.length).forEach((n, i) => { if (n && String(n).trim()) w.artifacts[i].name = String(n).trim().slice(0, 60); }); for (const a of w.artifacts) if (a.found && a.bergId && w.obs[a.bergId]) w.obs[a.bergId].artifact = a.name; }
 
 function emit(w, type, data = {}) { w.events.push({ type, t: w.t, ...data }); }
 
@@ -643,33 +668,46 @@ export function alignment(w, radius = T.alignRadius) {
 }
 export const hitRadius = (w, b) => (b.large ? T.hitLarge + b.length * T.hitPerMile : T.hitSmall) * w.levers.aim;
 // The honest hit chance. The shot rolls against exactly this number.
+// What the weather at an orb lets its visual track be worth (0.5..0.99), and the wind there.
+export function orbCap(w, camId) {
+  const cam = w.cams.find(c => c.id === camId); if (!cam) return { cap: T.aimMaxChance, windKn: 0, snow: 0 };
+  const wx = camWeather(w, cam), snow = snowAt(w, cam.x, cam.y, w.t);
+  const cap = Math.max(T.orbCapFloor, Math.min(T.aimMaxChance, T.aimMaxChance - Math.max(0, wx.windKn - T.orbCapWind) * T.orbCapPerKnot - snow * T.orbCapSnow));
+  return { cap, windKn: wx.windKn, snow, name: cam.name };
+}
+// The honest hit chance. The shot rolls against exactly this number.
+// A fix ages; the drift model comes from the best source to hand: an orb's track (capped by the weather at that orb)
+// or a current reading (better the closer to the ice and the fresher). The launcher takes whichever is better.
 export function aimQuality(w) {
   const l = w.lock, b = lockedBerg(w);
   if (!l || !b) return null;
   const g = ghostAt(w, w.t), flight = dist(OBSERVATORY, g) / T.beaconSpeed, fixAge = w.t - l.t0, R = hitRadius(w, b);
-  const source = l.track && l.track.cam === 'beacon' ? 'beacon' : l.track ? 'orb' : l.source === 'camera' ? 'orb' : l.source;
-  if (source === 'beacon') return { q: 100, chance: 1, source, fixAge: 0, flight, R, sigma: 0, reason: null };
+  const beacon = l.track && l.track.cam === 'beacon';
+  if (beacon) return { q: 100, chance: 1, source: 'beacon', fixAge: 0, flight, R, sigma: 0, reason: null };
   const speed = Math.hypot(b.vx || 0, b.vy || 0), span = fixAge + flight, r = w.readings;
-  let rel, reason = null;
+  const chanceFor = rel => { const sigma = T.aimFixErr + speed * (rel + span * T.aimAgeRel) * span; return { sigma, chance: Math.min(T.aimMaxChance, 1 - Math.exp(-(R * R) / (2 * sigma * sigma))) }; };
+  const options = [];
   if (l.track) {
-    const age = w.t - l.track.t;
-    rel = T.aimTrackRel + Math.max(0, age - T.aimReadFull) * T.aimStale;
-    if (age > T.aimReadFull) reason = `the orb lost sight of it ${Math.round(age)} s ago: find it in an orb again`;
-  } else if (!r) {
-    rel = 1;   // no reading: the prediction cannot move at all
-    reason = l.source === 'camera' ? 'keep it in the orb a few seconds to measure its drift, or read the current with a buoy' : 'no current reading yet: power CURRENTS with the buoy in the water';
-  } else {
-    const rd = dist(r, g), ra = w.t - r.t;
-    rel = T.aimReadRel + Math.min(1, Math.pow(Math.max(0, rd - T.aimDistFull) / T.aimDistScale, 1.5)) + Math.max(0, ra - T.aimReadFull) * T.aimStale;
-    if (rd > 300) reason = `the current was read ${Math.round(rd)} mi from the ice: move the buoy closer`;
-    else if (ra > T.aimReadFull * 2) reason = 'the current reading is old: keep CURRENTS powered, or ping again';
-    else if (l.source === 'camera') reason = 'keep it in the orb a few seconds to measure its drift';
+    const age = w.t - l.track.t, oc = orbCap(w, l.track.cam), c = chanceFor(T.aimTrackRel + Math.max(0, age - T.aimReadFull) * T.aimStale);
+    const capped = Math.min(c.chance, oc.cap);
+    options.push({ source: 'orb', ...c, chance: capped,
+      reason: age > T.aimReadFull ? `the orb lost sight of it ${Math.round(age)} s ago: find it in an orb again`
+        : capped < c.chance ? `${oc.snow > 0.2 ? 'snow and wind' : 'wind ' + oc.windKn + ' kn'} at ${oc.name} ${oc.snow > 0.2 ? 'cap' : 'caps'} the orb track at ${Math.round(oc.cap * 100)}%: read the current near the ice to do better` : null });
   }
-  rel += span * T.aimAgeRel;
-  const sigma = T.aimFixErr + speed * rel * span;
+  if (r) {
+    const rd = dist(r, g), ra = w.t - r.t;
+    const c = chanceFor(T.aimReadRel + Math.min(1, Math.pow(Math.max(0, rd - T.aimDistFull) / T.aimDistScale, 1.5)) + Math.max(0, ra - T.aimReadFull) * T.aimStale);
+    options.push({ source: l.source === 'camera' ? 'orb' : l.source, ...c,
+      reason: rd > 300 ? `the current was read ${Math.round(rd)} mi from the ice: move the buoy closer` : ra > T.aimReadFull * 2 ? 'the current reading is old: keep CURRENTS powered, or ping again' : null });
+  }
+  if (!options.length) {
+    const c = chanceFor(1);
+    options.push({ source: l.source === 'camera' ? 'orb' : l.source, ...c, reason: l.source === 'camera' ? 'unlock the orb and hold the ice in view to measure its drift, or read the current with a buoy' : 'no current reading yet: power CURRENTS with the buoy in the water' });
+  }
+  const best = options.sort((x, y) => y.chance - x.chance)[0];
+  let reason = best.reason;
   if (!reason && fixAge > T.aimFixFull) reason = `the fix is ${Math.round(fixAge)} s old: ping again or find it in an orb`;
-  const chance = Math.min(T.aimMaxChance, 1 - Math.exp(-(R * R) / (2 * sigma * sigma)));
-  return { q: Math.round(chance * 100), chance, source, fixAge, flight, R, sigma, reason: chance < 0.85 ? reason : null };
+  return { q: Math.round(best.chance * 100), chance: best.chance, source: best.source, fixAge, flight, R, sigma: best.sigma, reason: best.chance < 0.85 ? reason : null };
 }
 
 // ---------- buoy readings ----------
@@ -801,6 +839,8 @@ function beaconHits(w, b, color, t) {
   emit(w, 'hit', { berg: b.id, num: b.num, color });
   if (color === 'orange') record(w, b.id, 'echo', echoSeen(b, tempAt(b.x, b.y, t, w.field, w.tomb)), { length: Math.round(b.length) });
   if (b.echo.sig === 'monster' && !b.released) releaseMonster(w, b);
+  const art = color === 'green' && artifactIn(w, b.id);
+  if (art && !art.recovered) { art.recovered = true; art.found = true; record(w, b.id, 'artifact', art.name); emit(w, 'artifactrecovered', { num: b.num, name: art.name }); }
   if (color === 'green') {
     if (b.elgarz) { if (!w.reveal) { w.reveal = { t, bergId: b.id }; emit(w, 'reveal', { num: b.num }); } }
     else emit(w, 'greenwrong', { num: b.num });
@@ -932,6 +972,7 @@ export function gm(w, cmd, arg = {}) {
   }
   if (cmd === 'restock') { w.beacons.stock = T.beaconStock; w.beacons.orange = T.orangeStock; w.beacons.green = T.greenStock; }
   if (cmd === 'defence' && ROLES.includes(arg.role)) startDefence(w, arg.role, 'gm');
+  if (cmd === 'artifacts') nameArtifacts(w, arg.names);
   if (cmd === 'rehearse') ROLES.forEach((r, i) => { w.defence.next[r] = w.t + 1 + i * 50; });
   if (cmd === 'reinforced') endReinforcements(w);
   if (cmd === 'fleet-auto' && w.fleet.phase === 'deploy') { w.fleet.mine = FL.randomFleet(w.fleetRng); fleetReady(w); }
@@ -1058,6 +1099,7 @@ export function step(w, dt = DT) {
     lb.scan += dt / (T.scanTime * slowK(w));
     if (lb.scan >= 1) {
       lb.scan = 1; lb.scanned = true; record(w, lb.id, 'metal', lb.metal); emit(w, 'scandone', { metal: lb.metal });
+      if (lb.metal) scanArtifact(w, lb);
       // a positive reading sometimes blows the scanner's fuse: the reading counts, then it needs repairing
       if (lb.metal && w.rng() < T.scannerBlowChance) { w.broken.scanner = true; emit(w, 'broke', { sys: 'scanner' }); }
     }
@@ -1194,7 +1236,7 @@ export function fleetFire(w, x, y) {
   if (!r) return null;
   f.last = { by: 'us', ...r, t: w.t }; FL.logShot(f, 'us', r, w.t); emit(w, 'fleetshot', { by: 'us', ...r });
   if (r.all) { f.wins++; emit(w, 'fleetwin'); resetFleets(w); f.prevMine = f.prevMineShift; f.phase = 'redeploy'; f.redeployUntil = w.t + FL.REDEPLOY_TIME; return r; }
-  f.enemyAt = w.t + FL.ENEMY_DELAY; f.idleFrom = w.t;
+  f.enemyFrom = w.t; f.enemyAt = w.t + FL.ENEMY_DELAY[0] + w.fleetRng() * (FL.ENEMY_DELAY[1] - FL.ENEMY_DELAY[0]); f.idleFrom = w.t;
   return r;
 }
 function enemyShot(w, free) {
@@ -1216,7 +1258,7 @@ function resetFleets(w) {
   const f = w.fleet;
   f.prevMineShift = f.mine.map(s => ({ ...s }));
   f.mine = FL.shiftFleet(f.mine, w.fleetRng); f.enemy = FL.randomFleet(w.fleetRng);
-  f.myShots = {}; f.theirShots = {}; f.enemyAt = null; f.idleFrom = w.t;
+  f.myShots = {}; f.theirShots = {}; f.enemyAt = null; f.idleFrom = w.t; f.revealed = [];
   (f.log = f.log || []).push({ t: w.t, text: 'A new enemy fleet on the horizon. Our ships are refitted and take new stations.', kind: 'info' });
 }
 // The GM has fought off the reinforcements at the table: the watch resumes.
@@ -1288,14 +1330,29 @@ export function defenceResult(w, role, id, res = {}) {
 export function setCallsign(w, bergId, text) { w.callsigns[bergId] = String(text || '').toUpperCase().replace(/[^RWB]/g, '').slice(0, 3); emit(w, 'callsign'); }
 // ---------- the steady puzzles: optional, with a small reward ----------
 // Signals' Minesweeper: a red beacon strikes a glacier for free (always large, never Elgarz; the crew is not told).
-export function minesReward(w) {
+export function minesReward(w, choice = 'beacon') {
   if (w.t < w.rewards.mines) return false;
+  if (choice === 'reveal') return revealEnemy(w);
   const pool = w.bergs.filter(b => b.large && !b.elgarz && !b.tag && b.echo.sig !== 'monster' && inReach(b));
   if (!pool.length) return false;
   const b = pool[Math.floor(w.defRng() * pool.length)];
   w.rewards.mines = w.t + T.rewardCooldown;
   beaconHits(w, b, 'red', w.t);
   emit(w, 'freebeacon', { num: b.num });
+  return true;
+}
+// ...or the outline of one enemy ship that has not been hit yet.
+export function canReveal(w) {
+  const f = w.fleet; if (!f || f.phase !== 'play') return false;
+  return f.enemy.some((s, i) => !f.revealed.includes(i) && FL.cellsOf(s).every(c => !f.myShots[FL.key(...c)]));
+}
+function revealEnemy(w) {
+  if (!canReveal(w)) return false;
+  const f = w.fleet, pool = f.enemy.map((s, i) => i).filter(i => !f.revealed.includes(i) && FL.cellsOf(f.enemy[i]).every(c => !f.myShots[FL.key(...c)]));
+  const i = pool[Math.floor(w.defRng() * pool.length)];
+  f.revealed.push(i); w.rewards.mines = w.t + T.rewardCooldown;
+  f.log.push({ t: w.t, text: `Signals has swept the approaches: ${FL.ENEMY_NAMES[i]} is plotted.`, kind: 'info' });
+  emit(w, 'enemyrevealed', { name: FL.ENEMY_NAMES[i] });
   return true;
 }
 // Engineering's Lights Out: a free shovel in the fuel chute.
@@ -1309,7 +1366,7 @@ export function lightsReward(w) {
 }
 export function stationAction(w, role, a) {
   if (!a || !a.act) return;
-  if (a.act === 'minesweeper' && role === 'signals') minesReward(w);
+  if (a.act === 'minesweeper' && role === 'signals') minesReward(w, a.choice);
   if (a.act === 'lightsout' && role === 'engineer') lightsReward(w);
   if (a.act === 'seal' && role === 'gunnery') sealBeacon(w, a.color);
   if (a.act === 'defence') defenceResult(w, role, a.id, a.res);
@@ -1506,7 +1563,7 @@ export function stationSnapshot(w, extra = {}) {
     ...extra, t: w.t, started: w.started, paused: w.paused, hold: w.hold, reinforce: w.reinforce, won: w.won,
     furnaceState: furnaceState(w), power: Object.fromEntries(SYSTEMS.map(s => [s, w.power[s].on])),
     beacons: w.beacons.stock, orange: w.beacons.orange, green: w.beacons.green, workshop: w.workshop,
-    fleet: w.fleet, defence: { active: w.defence.active }, rewards: w.rewards, callsigns: w.callsigns,
+    fleet: w.fleet, defence: { active: w.defence.active }, rewards: w.rewards, callsigns: w.callsigns, canReveal: canReveal(w),
     cams: w.cams.map(c => ({ id: c.id, broken: c.broken })), sonar,
     cases: w.cases.map(c => ({ bergId: c.bergId, seen: c.seen, callsign: w.callsigns[c.bergId] || null, num: (w.bergs.find(b => b.id === c.bergId) || {}).num, permanent: c.permanent, verdict: c.verdict, obs: w.obs[c.bergId] || null })),
   };
@@ -1530,6 +1587,7 @@ export function snapshot(w) {
     camCode: camCode(w), activeCam: w.activeCam, tom: { x: w.tom.x, y: w.tom.y, mode: w.tom.mode },
     furnaceState: furnaceState(w), sonarStrain: sonarStrain(w), camRune: w.camRune, brokenIds: Object.keys(w.broken).filter(k => w.broken[k]),
     seal: w.seal ? { reason: w.seal.reason, mode: w.seal.mode, tries: w.seal.tries } : null, password: w.password, pwCap: w.pwCap, lamps: w.lamps, shuttered: shuttered(w),
+    artifacts: w.artifacts.map(a => ({ ...a, num: a.bergId && a.bergId !== 'none' ? ([...w.bergs, ...w.reserve].find(b => b.id === a.bergId) || {}).num : null })),
     shoals: SHOALS, monsters: w.monsters.map(m => ({ x: m.x, y: m.y, num: m.num, fading: m.fadeAt != null })),
     cases: w.cases.map(c => ({ bergId: c.bergId, seen: c.seen, callsign: w.callsigns[c.bergId] || null, num: (w.bergs.find(b => b.id === c.bergId) || {}).num, permanent: c.permanent, verdict: c.verdict, obs: w.obs[c.bergId] || null })), camUnlocked: Object.keys(w.camUnlocked),
     board: { page: BOARD_PAGES[w.board.page], fns: w.board.runes.map(r => runeFunction(r, w.board.page)) },

@@ -85,7 +85,15 @@ function takeStation() {
   buildSteady();
   firstCard();
 }
-setInterval(() => { if (role && !$('desk').classList.contains('hidden')) send({ hello: true }); }, 2000);
+setInterval(() => { if (role && !$('desk').classList.contains('hidden')) send({ hello: true, doing: doing() }); }, 2000);
+// a few words for the operator's crew board
+function doing() {
+  if (current && !current.done) return 'defending';
+  if (role === 'gunnery') return ws.casing ? 'building a ' + ws.color + ' beacon' : 'at the bench';
+  if (role === 'signals') return steady.state && steady.state.choosing ? 'choosing a reward' : steady.state && !steady.state.over ? 'minesweeping' : 'keeping the case board';
+  if (role === 'engineer') return steady.state && !steady.state.over ? 'on the breaker panel' : 'watching the furnace';
+  return '';
+}
 
 // ---------- the fleet ----------
 const fleetUI = mountFleet($('fleet'), () => ({ fleet: snap && snap.fleet, t: nowT() }), a => { send(a); audio.sfx.click(); }, { cell: 30, onShot: l => (l.hit ? audio.sfx.hit : audio.sfx.miss)() });
@@ -349,7 +357,7 @@ function drawCaseBoard() {
       <td><span class="num">#${c.num}</span><br><small${o.length != null && o.length <= 20 ? ' style="color:#ff6a5a"' : ''}>${o.length != null ? o.length + ' mi' : ''}</small></td>
       <td>${gridRef(c.seen)}</td>
       <td>${o.echo ? miniEcho(o.echo) + `<br><small>water ${o.echo.temp}°</small>` : '<span class="tile">?</span>'}</td>
-      <td>${o.metal == null ? '<span class="tile">?</span>' : o.metal ? '<span class="tile T">METAL</span>' : '<span class="tile F">NONE</span>'}</td>
+      <td>${o.metal == null ? '<span class="tile">?</span>' : o.metal ? '<span class="tile T">METAL</span>' + (o.artifact ? '<br><small style="color:#c58cff">✦ ' + o.artifact + '</small>' : '') : '<span class="tile F">NONE</span>'}</td>
       <td>${r ? [...r.shown].map(x => `<span class="rl ${x}"></span>`).join('') + `<br><small>${SHAPE[r.carrier] || ''} · ${r.band} · ${Math.round(r.freq)}</small>` : o.swept ? '<span class="tile F">SILENT</span>' : '<span class="tile">?</span>'}</td>
       <td>${c.permanent ? `<input data-id="${c.bergId}" value="${c.callsign || ''}" maxlength="3" placeholder="RWB">` : ''}</td>
       <td>${c.permanent ? `<button class="btn" data-v="${c.bergId}">${c.verdict}</button>` : '<small>beacon it to keep it</small>'}</td></tr>`;
@@ -418,7 +426,7 @@ let steadyKey = '';
 function drawSteady(force) {
   if (!steady.kind || !steady.state) return;
   const cd = Math.ceil(cooldownLeft()), waiting = steady.state.over && cd > 0;
-  const k = JSON.stringify([waiting ? cd : -1, steady.msg]) + (force ? Math.random() : '');
+  const k = JSON.stringify([waiting ? cd : -1, steady.msg, snap && snap.canReveal]) + (force ? Math.random() : '');
   if (k === steadyKey && !force) return;
   steadyKey = k;
   // after a win, wait for the game's cooldown to arrive and run out before the next board
@@ -437,20 +445,23 @@ function drawMinesSteady(cd) {
   $('steadybody').innerHTML = `<div class="steadygrid">
     <div class="ms small">${h}</div>
     <div class="howto" style="max-width:330px">
-      Mines have drifted into the approaches. <b>Complete a sweep</b> and the Watch's guns are free to fire: <b>a beacon strikes a random iceberg</b> for the crew.<br><br>
+      Mines have drifted into the approaches. <b>Complete a sweep</b> and choose your reward: <b>a beacon strikes a random iceberg</b>, or <b>an enemy ship is plotted</b> on the fleet tables.<br><br>
       <b>The numbers:</b> each one says how many of the eight squares touching it hold a mine. A <b>1</b> with only one hidden square beside it: that square is a mine.<br><br>
       <b>Left click</b> opens a square. <b>Right click</b> flags a mine. Start from the open patch; every field can be solved without guessing.<br><br>
       ${M.size - flags.size} mines unflagged. Nothing is lost if you hit one: start a new field.
     </div></div>
-    <div class="reward">${steady.msg}${st.over && !st.won ? ' <button class="btn" id="msnew">NEW FIELD</button>' : ''}${st.over && st.won && cd > 0 ? ` The next field opens in ${cd} s.` : ''}</div>`;
+    <div class="reward">${steady.msg}${st.over && !st.won ? ' <button class="btn" id="msnew">NEW FIELD</button>' : ''}${st.choosing ? ` <button class="btn" id="rwbeacon">BEACON AN ICEBERG</button> <button class="btn" id="rwreveal" ${snap && snap.canReveal ? '' : 'disabled title="No enemy ship left to plot (or the fleet is not in action)"'}>PLOT AN ENEMY SHIP</button>` : ''}${st.over && st.won && !st.choosing && cd > 0 ? ` The next sweep opens in ${cd} s.` : ''}</div>`;
   const nb = $('msnew'); if (nb) nb.onclick = newSteadyBoard;
+  const choose = c => { st.choosing = false; st.wonAt = performance.now(); steady.msg = c === 'reveal' ? 'SWEEP COMPLETE. An enemy ship is plotted on the fleet tables.' : 'SWEEP COMPLETE. The guns are firing.'; send({ act: 'minesweeper', choice: c }); audio.sfx.calibrated(); drawSteady(true); };
+  if ($('rwbeacon')) $('rwbeacon').onclick = () => choose('beacon');
+  if ($('rwreveal')) $('rwreveal').onclick = () => choose('reveal');
   if (st.over) return;
   $('steadybody').querySelectorAll('.ms [data-i]').forEach(d => {
     d.onclick = () => {
       const i = Number(d.dataset.i); if (flags.has(i)) return;
       if (M.has(i)) { st.boom = i; st.over = true; st.won = false; steady.msg = 'A mine. The field is lost: start another.'; audio.sfx.blowout(); drawSteady(true); return; }
       GA.msOpen(M, open, i); audio.sfx.click();
-      if (open.size === GA.MS * GA.MS - M.size) { st.over = true; st.won = true; st.wonAt = performance.now(); steady.msg = 'THE FIELD IS CLEAR. The guns are firing.'; send({ act: 'minesweeper' }); audio.sfx.calibrated(); }
+      if (open.size === GA.MS * GA.MS - M.size) { st.over = true; st.won = true; st.choosing = true; steady.msg = 'THE SWEEP IS COMPLETE. Choose:'; audio.sfx.calibrated(); }
       drawSteady(true);
     };
     d.oncontextmenu = e => { e.preventDefault(); const i = Number(d.dataset.i); flags.has(i) ? flags.delete(i) : flags.add(i); drawSteady(true); };

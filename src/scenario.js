@@ -71,12 +71,17 @@ export const TUNING = {
   aimFixErr: 3,            // miles: a sonar contact or an orb sighting is good to about this
   aimTrackRel: 0.03,       // an orb's drift measurement is good to about 3%
   aimReadRel: 0.025,       // a fresh current reading taken next to the ice
-  aimAgeRel: 0.0004,       // the sea turns: the model gets worse per second since the fix
+  aimAgeRel: 0.0008,       // the sea turns: the model gets worse per second since the fix
   aimDistFull: 90,         // miles: a reading taken closer than this to the ice is as good as it gets
   aimDistScale: 900,       // ...and much worse beyond that: a reading this far off is no better than none
   aimReadFull: 30,         // seconds a reading (or an orb's track) stays fresh
   aimFixFull: 30,          // seconds a fix stays fresh (for the advice line only)
-  aimStale: 0.003,         // per second beyond fresh
+  aimStale: 0.006,         // per second beyond fresh
+  // an orb's visual track is only as good as the weather at that orb lets it be
+  orbCapWind: 28,          // knots: no cap at or below this
+  orbCapPerKnot: 0.012,    // the cap falls this much per knot above it
+  orbCapSnow: 0.4,         // and this much more in a full snowfall on the lens
+  orbCapFloor: 0.5,        // never below this
   aimMaxChance: 0.99,      // only a beacon's own telemetry is certain
   // rune board effects
   shutterTime: 20,         // seconds the sonar and orb shutters stay down
