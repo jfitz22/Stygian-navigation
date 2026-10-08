@@ -75,6 +75,16 @@
         <button data-cmd="shutter-up">Raise the shutters</button>
       </div>
     </div>
+    <div class="box"><b>OFFICERS' STATIONS</b> <span id="stationinfo" style="color:var(--dim)"></span>
+      <div class="grid" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr">
+        <button data-defence="gunnery">Gunnery: devil fire</button>
+        <button data-defence="signals">Signals: the cable</button>
+        <button data-defence="engineer">Engineering: the wires</button>
+        <button data-cmd="reinforced" style="grid-column:1 / 3">Reinforcements beaten: resume the watch</button>
+        <button data-cmd="fleet-auto">Deploy the fleet for them</button>
+        <button data-cmd="rehearse" style="grid-column:1 / -1">Rehearsal: every station's event, one after another (connected stations only)</button>
+      </div>
+    </div>
     <div class="box"><b>BREAK SOMETHING</b> <span style="color:var(--dim)">(the owner's flowchart fixes it)</span>
       <div class="grid" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr">
         <button data-break="furnace">Furnace grate</button>
@@ -148,6 +158,7 @@ document.getElementById('runebtns').innerHTML = RUNES_GM.map(f => `<button data-
 document.querySelectorAll('[data-rune]').forEach(b => b.onclick = () => ch.postMessage({ cmd: 'rune', arg: { fn: b.dataset.rune } }));
 document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => ch.postMessage({ cmd: b.dataset.cmd }));
 document.querySelectorAll('[data-break]').forEach(b => b.onclick = () => { const id = b.dataset.break === 'cam' ? lastSnap && lastSnap.activeCam : b.dataset.break; if (id) ch.postMessage({ cmd: 'break', arg: { id } }); });
+document.querySelectorAll('[data-defence]').forEach(b => b.onclick = () => ch.postMessage({ cmd: 'defence', arg: { role: b.dataset.defence } }));
 document.querySelectorAll('[data-damper]').forEach(b => b.onclick = () => ch.postMessage({ cmd: 'damper', arg: { mode: b.dataset.damper } }));
 let tool = '';
 const toolBtns = document.querySelectorAll('[data-tool]');
@@ -204,11 +215,13 @@ document.getElementById('zout').onclick = () => setZoom(zoom - 0.1);
 document.getElementById('zin').onclick = () => setZoom(zoom + 0.1);
 cv.addEventListener('wheel', e => { e.preventDefault(); setZoom(zoom + (e.deltaY < 0 ? 0.05 : -0.05)); }, { passive: false });
 const fmt = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(Math.floor(s % 60)).padStart(2, '0');
-const COLORS = { red: '#ff4b3a', orange: '#ffb347', green: '#5cff9d', blue: '#6fa8ff' };
+const COLORS = { red: '#ff4b3a', orange: '#ffb347', green: '#5cff9d' };
 const COLS = 'ABCDEFGHIJKL';
 const ref = (x, y) => COLS[Math.max(0, Math.min(11, Math.floor(x / CELL)))] + (Math.max(0, Math.min(11, Math.floor(y / CELL))) + 1);
 const lampName = s => s ? [...s].map(c => ({ R: 'red', W: 'white', B: 'blue' })[c]).join('-') : '';
 function onSnap(s) { lastSnap = s; draw(s); }
+// how many ships of a fleet are still afloat
+const fleetLeft = (ships, shots) => ships.filter(sh => { const cells = []; for (let i = 0; i < sh.len; i++) cells.push(sh.dir === 'h' ? (sh.x + i) + ',' + sh.y : sh.x + ',' + (sh.y + i)); return !cells.every(k => shots[k] === 'hit'); }).length;
 function draw(s) {
   document.getElementById('status').textContent = `seed ${s.seed} · watch ${fmt(s.t)}${s.paused ? ' · PAUSED' : ''}${s.won ? ' · ELGARZ MARKED' : ''} · furnace ${s.furnace.lit ? Math.round(s.furnace.heat) + '°' : 'OUT'}, chute ${s.furnace.chute} · fatigue ${Math.round(s.fatigue * 100)}% · beacons red ${s.beacons} orange ${s.orange} blue ${s.blue} green ${s.green} · scanner ${s.calibrated ? 'calibrated' : 'not calibrated'} · music ${s.music ? 'ON' : 'off'}`;
   document.getElementById('seed').placeholder = `seed (now ${s.seed})`;
@@ -256,6 +269,8 @@ function draw(s) {
     ? `<b>Elgarz #${e.num}</b> is in <b>${ref(e.x, e.y)}</b>. Radio <b>${e.radio.freq}</b> (${e.radio.band}), ${e.radio.carrier}, lamps show ${lampName(e.radio.shown)}.` +
       (p ? `<br>Entered at the rim in ${ref(p.x, p.y)}; planned camera sightings: ${p.sightings}, first at ${fmt(p.firstSighting)}.` : '')
     : `<b>Elgarz</b> is not in the sea yet. It slips in at ${fmt(s.elgarzAt || 0)}.`;
+  const d = s.defence || { live: {}, next: {}, active: {} };
+  document.getElementById('stationinfo').innerHTML = ['gunnery', 'signals', 'engineer'].map(r => `${r}: ${d.live[r] ? '<b style="color:#5cff9d">linked</b>' : 'not linked'}${d.active[r] ? ' · <b style="color:#ffb347">PLAYING</b>' : d.next[r] != null ? ' · next ' + fmt(d.next[r]) : ''}`).join(' &nbsp;|&nbsp; ');
   document.getElementById('pwtruth').innerHTML = (s.password ? `password <b style="color:#5cff9d">${s.password.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</b>` : 'no password set yet') +
     ` · ${s.pwCap} rules` + (s.seal ? ` · <b style="color:#ffb347">LOCKED (${s.seal.reason}, ${s.seal.mode === 'set' ? 'setting a password' : s.seal.tries + ' wrong'})</b>` : '') +
     (s.lamps ? ` · lights ${['', 'red', 'green'][s.lamps]}` : '') + (s.shuttered ? ' · shutters down' : '');
@@ -265,6 +280,8 @@ function draw(s) {
     `<b>Rune board</b> page ${s.board.page}: ${s.board.fns.join(' · ')}<br>` +
     `<b>Orb unlock code</b> (the orb on screen): housing rune ${RUNES[s.camCode.rune].name} (${s.camCode.house}); levers WIND ${s.camCode.wind}, TEMP ${s.camCode.temp}; plates ${s.camCode.order.join(' → ')}${s.camUnlocked.length ? ' · unlocked: ' + s.camUnlocked.join(', ') : ''}<br>` +
     `<b>Furnace</b>: ${s.furnaceState.lit ? `heat ${s.furnaceState.heat.toFixed(1)}, burning ${s.furnaceState.burn.toFixed(2)}/s, ${s.furnaceState.n} on` : 'out'} · damper ${s.furnaceState.damper.toUpperCase()} · shed order ${s.furnaceState.priority.join(' > ')}<br>` +
+    `<b>Beacons</b>: red ${s.beacons} · orange ${s.orange} · green ${s.green}${s.workshop.curing.length ? ' · in the rack: ' + s.workshop.curing.map(q => q.color + ' ' + Math.ceil(q.left) + 's').join(', ') : ''} · built ${s.workshop.made}<br>` +
+    `<b>Fleet</b>: ${!s.fleet || s.fleet.phase === 'off' ? 'none' : s.fleet.phase === 'deploy' ? 'being deployed (the watch is holding)' : 'our ships left ' + fleetLeft(s.fleet.mine, s.fleet.theirShots) + ', theirs ' + fleetLeft(s.fleet.enemy, s.fleet.myShots) + ' · victories ' + s.fleet.wins + ', losses ' + s.fleet.losses}${s.reinforce ? ' · <b style="color:#ff8a7a">REINFORCEMENTS: resume when the fight is over</b>' : ''}<br>` +
     `<b>Sonar head</b>: ${s.sonarStrain.length} recent ping${s.sonarStrain.length === 1 ? '' : 's'} (three in 20 s cracks it)<br>` +
     `<b>Broken</b>: ${s.broken.length ? s.broken.join(', ') : 'nothing'}<br>` +
     `<b>Case board</b>: ${s.cases.length ? s.cases.map(c => `#${c.num}${c.permanent ? '' : ' (temp)'} ${c.verdict}`).join(' · ') : 'empty'}`;

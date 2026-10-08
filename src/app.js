@@ -3,13 +3,13 @@ import {
   ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
   saveWorld, loadWorld, pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, inShoal, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
-  setDamper, setPriority, furnaceState, sonarStrain, repairWorking,
+  setDamper, setPriority, furnaceState, sonarStrain, repairWorking, stationAction, ROLES, stationSnapshot,
 } from './sim.js';
 import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES, SHOALS, SIZE_CUT } from './scenario.js';
 import { glyphSVG, echoAt, ECHO_W } from './glyphs.js';
 import { makeRepairBoard, repairAction, ownerOf, DEPTS } from './repair.js';
 import { drawFurnaceLog, furnaceNumbers, N_COLOR } from './furnacelog.js';
-import * as ck from './checkers.js';
+import { mountFleet } from './fleetui.js';
 import * as audio from './audio.js';
 import { openLink, newRoomCode, cleanCode, NET_ENABLED } from './link.js';
 import { checkPassword, keyboardOnly, WRONG_TRIES } from './password.js';
@@ -18,7 +18,7 @@ import { succubus } from './succubus.js';
 
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-const world = createWorld(Number(params.get('seed')) || newSeed());
+const world = createWorld(Number(params.get('seed')) || newSeed(), { deploy: true });
 
 const HOME = () => ({ cx: CENTER.x, cy: CENTER.y, z: Math.min(744, 708) / MAP * 0.97 });
 const ui = {
@@ -42,9 +42,9 @@ const ui = {
 };
 const fmt = s => { s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
 const ago = s => fmt(s) + ' ago';
-const COLORS = { red: '#ff4b3a', orange: '#ffb347', blue: '#6fa8ff', green: '#5cff9d' };
+const COLORS = { red: '#ff4b3a', orange: '#ffb347', green: '#5cff9d' };
 const COLOR_LABEL = { red: 'RED<br><small>PLAIN</small>', orange: 'ORANGE<br><small>SOUNDING</small>', blue: 'BLUE<br><small>DRIFT LOG</small>', green: 'THIS IS<br>ELGARZ' };
-const STOCK = { red: 'stock', orange: 'orange', blue: 'blue', green: 'green' };
+const STOCK = { red: 'stock', orange: 'orange', green: 'green' };
 const REVEAL = '#7fd8ff';
 const COLS = 'ABCDEFGHIJKL';
 const gridRef = (x, y) => COLS[Math.max(0, Math.min(GRID - 1, Math.floor(x / CELL)))] + (Math.max(0, Math.min(GRID - 1, Math.floor(y / CELL))) + 1);
@@ -64,6 +64,8 @@ function canvasPoint(cv, e) {
 
 // ---------- toasts & notes ----------
 let toastTimer = null;
+// A toast that also goes on the wire service ticker, so the result is seen on the stream.
+function wire(msg, kind = '') { toast(msg, kind); ui.tickerQ.push(msg); }
 function toast(msg, kind = '') {
   ui.log.push({ t: world.t, msg, kind }); if (ui.log.length > 40) ui.log.shift(); if (ui.logOpen) drawLog();
   const t = $('toast'); t.textContent = msg; t.className = 'show ' + kind;
@@ -93,6 +95,7 @@ $('gofire').onclick = () => look('up');
 $('lookdown').onclick = () => look('main');
 $('lookleft').onclick = () => look('left');
 $('lookback').onclick = () => look('main');
+$('godeploy').onclick = () => look('left');
 const togglePause = () => gm(world, 'pause');
 $('pausebtn').onclick = togglePause;
 $('resume').onclick = () => { if (world.paused) togglePause(); };
@@ -109,10 +112,10 @@ addEventListener('keydown', e => {
 
 // ---------- intro / sound ----------
 const SAVE_KEY = 'lastwatch-save:' + location.pathname;
-function readSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 8 && s.w ? s : null; } catch (e) { return null; } }
+function readSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 10 && s.w ? s : null; } catch (e) { return null; } }
 function writeSave() {
   if (!ui.started) return;
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 8, seed: world.seed, t: world.t, w: saveWorld(world), log: ui.log, notesGone: ui.notesGone, checkers: game })); } catch (e) { /* storage full or blocked: carry on unsaved */ }
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 10, seed: world.seed, t: world.t, w: saveWorld(world), log: ui.log, notesGone: ui.notesGone })); } catch (e) { /* storage full or blocked: carry on unsaved */ }
 }
 function takeWatch() { audio.unlock(); $('intro').classList.add('hidden'); audio.sfx.click(); ui.started = true; writeSave(); }
 const saved = readSave(), seedParam = Number(params.get('seed'));
@@ -125,7 +128,6 @@ if (saved && (!seedParam || seedParam === saved.seed)) {
     for (const k of Object.keys(world)) delete world[k];
     Object.assign(world, w);
     ui.log = saved.log || []; ui.notesGone = saved.notesGone || [];
-    if (saved.checkers && saved.checkers.board) { Object.assign(game, saved.checkers); game.t0 = world.t; ckKey = ''; }
     document.querySelectorAll('#jnotes .jnote').forEach(n => { if (ui.notesGone.includes(n.dataset.k)) n.remove(); });
     $('watchno').innerHTML = 'WATCH<br>No. ' + world.seed;
     takeWatch();
@@ -147,7 +149,7 @@ addEventListener('keydown', e => { if ((e.key === 'm' || e.key === 'M') && e.tar
 $('ignite').onclick = () => light(world);
 $('mug').onclick = () => sip(world);
 $('stoke').onclick = () => stoke(world);
-const SYS_LABEL = { cameras: 'ORBS', sonar: 'SONAR', radio: 'RADIO', scanner: 'SCANNER', currents: 'CURRENTS', repair: 'REPAIR' };
+const SYS_LABEL = { cameras: 'ORBS', sonar: 'SONAR', radio: 'RADIO', scanner: 'SCANNER', currents: 'CURRENTS', repair: 'REPAIR', workshop: 'WORKSHOP' };
 for (const s of SYSTEMS) {
   const d = document.createElement('div'); d.className = 'sw'; d.id = 'sw-' + s;
   d.innerHTML = `<div class="lamp"></div><div class="slot"><div class="knob"></div></div><div>${SYS_LABEL[s]}</div>`;
@@ -399,14 +401,6 @@ function drawMap() {
     ctx.fillStyle = 'rgba(232,226,208,.55)'; ctx.font = '9px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText('#' + b.num, p.x + 7, p.y + 3);
     ctx.globalAlpha = 1;
   }
-  // drift log of the selected ice (blue beacons): very light, only while it is the locked case
-  { const lb = lockedBerg(world);
-    if (lb && lb.driftLog && lb.driftLog.length) {
-      ctx.strokeStyle = 'rgba(111,168,255,.4)'; ctx.setLineDash([2, 6]); ctx.lineWidth = 1.2; ctx.beginPath();
-      lb.driftLog.forEach((p, i) => { const q = W2S(p.x, p.y); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
-      const q = W2S(lb.x, lb.y); ctx.lineTo(q.x, q.y); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1;
-      const s0 = W2S(lb.driftLog[0].x, lb.driftLog[0].y); ctx.fillStyle = 'rgba(111,168,255,.6)'; ctx.font = '9px IBM Plex Mono'; ctx.textAlign = 'left'; ctx.fillText('DRIFT LOG FROM ' + fmt(lb.driftLog[0].t), s0.x + 5, s0.y - 4);
-    } }
   // the blue light of Coldsteel
   if (world.reveal) {
     const b = world.bergs.find(b => b.id === world.reveal.bergId), p = W2S(b.x, b.y), k = t - world.reveal.t;
@@ -723,6 +717,12 @@ function drawSonar() {
   }
   const pending = world.pings.find(p => !p.delivered);
   stat.textContent = pending ? `listening · ${Math.ceil(pending.deliverAt - t)}s` : t < world.buoy.landAt ? 'buoy sinking...' : 'ready · buoy at ' + gridRef(world.buoy.x, world.buoy.y);
+  if (world.buoy.storm > 0) {
+    const left = Math.max(0, Math.ceil(T.buoyStormTime - world.buoy.storm));
+    stat.textContent = `STORM OVER THE BUOY · LOST IN ${left} s`;
+    ctx.fillStyle = `rgba(255,75,58,${0.55 + 0.45 * Math.sin(t * 8)})`; ctx.font = '600 13px IBM Plex Mono'; ctx.textAlign = 'center';
+    ctx.fillText(`STORM OVER THE BUOY · ${left} s`, 150, 290);
+  }
   if (pending) {
     const k = (t - pending.tS) / T.sonarDelay;
     ctx.strokeStyle = `rgba(92,255,157,${1 - k})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(150, 150, SON_R * k, 0, 7); ctx.stroke(); ctx.lineWidth = 1;
@@ -902,15 +902,16 @@ function drawLock() {
   $('fire').innerHTML = `FIRE ${world.color.toUpperCase()} · ${left} LEFT`;
   $('jammed').classList.toggle('hidden', !world.broken.launcher);
   $('launchstat').textContent = world.broken.launcher ? 'JAMMED' : bc.flying.length ? 'beacon in flight' : 'ready';
-  const rack = $('rack'), key = [bc.stock, bc.orange, bc.blue, bc.green].join('/');
+  const rack = $('rack'), key = [bc.stock, bc.orange, bc.green].join('/');
   if (rack.dataset.n !== key) {
     rack.dataset.n = key;
     const pips = (n, max, cls) => Array.from({ length: max }, (_, i) => `<i class="${cls} ${i < n ? '' : 'empty'}"></i>`).join('');
-    rack.innerHTML = pips(bc.stock, T.beaconStock, 'r') + '<b></b>' + pips(bc.orange, T.orangeStock, 'o') + '<b></b>' + pips(bc.blue, T.blueStock, 'bl') + '<b></b>' + pips(bc.green, T.greenStock, 'g');
+    rack.innerHTML = pips(bc.stock, Math.max(T.beaconStock, bc.stock), 'r') + '<b></b>' + pips(bc.orange, Math.max(T.orangeStock, bc.orange), 'o') + '<b></b>' + pips(bc.green, Math.max(T.greenStock, bc.green), 'g');
   }
-  const full = bc.stock >= T.beaconStock, k = full || !bc.nextAt ? 1 : 1 - Math.max(0, bc.nextAt - world.t) / T.beaconRebuild;
+  // beacons now come from the Gunnery workshop: show what is curing
+  const cq = world.workshop.curing[0], k = cq ? 1 - cq.left / T.cureTime : 0;
   $('rackfill').firstElementChild.firstElementChild.style.width = (k * 100).toFixed(1) + '%';
-  $('rackfill').lastElementChild.textContent = full ? 'RED RACK FULL' : `NEXT RED BEACON IN ${Math.ceil(Math.max(0, bc.nextAt - world.t))} s`;
+  $('rackfill').lastElementChild.textContent = !cq ? 'NEW BEACONS COME FROM THE GUNNERY WORKSHOP' : isUp(world, 'workshop') ? `${cq.color.toUpperCase()} BEACON CURING · ${Math.ceil(cq.left)} s${world.workshop.curing.length > 1 ? ' · ' + (world.workshop.curing.length - 1) + ' MORE' : ''}` : `${world.workshop.curing.length} SEALED · SWITCH THE WORKSHOP ON TO CURE`;
   const last = bc.last, rep = $('shotreport'), rkey = last ? last.t : 0;
   if (rep.dataset.t !== String(rkey) && last) {
     rep.dataset.t = String(rkey);
@@ -999,14 +1000,14 @@ function drawCases() {
     return { c, b, o, sq };
   }).sort((a, z) => (a.c.verdict === 'EXCLUDED') - (z.c.verdict === 'EXCLUDED') || (a.c.permanent - z.c.permanent) || a.c.added - z.c.added);
   const lockId = world.lock && world.lock.bergId;
-  const key = JSON.stringify(rows.map(r => [r.c.bergId, r.c.permanent, r.c.verdict, r.sq, r.o])) + lockId;
+  const key = JSON.stringify(rows.map(r => [r.c.bergId, r.c.permanent, r.c.verdict, r.sq, r.o, world.callsigns[r.c.bergId]])) + lockId;
   if (key === caseKey) return;
   caseKey = key;
   $('caserows').innerHTML = rows.map(({ c, b, o, sq }) => {
     const prev = caseCache[c.bergId] || {}, now = { sq, h: JSON.stringify(o.echo), m: o.metal, r: JSON.stringify(o.radio) + o.swept, v: c.verdict };
     const fl = k => prev[k] !== undefined && prev[k] !== now[k] ? ' flip' : '';
     caseCache[c.bergId] = now;
-    const radio = o.radio ? `<span class="rdots">${[...o.radio.shown].map(x => `<i class="${x}"></i>`).join('')}</span><span class="rtext">${Math.round(o.radio.freq)} ${o.radio.band} ${CARRIER_GLYPH[o.radio.carrier]}${o.swept ? ' · SWEPT' : ''}</span>`
+    const cs = world.callsigns[c.bergId], radio = o.radio ? `${cs ? `<span class="csign">${cs}</span>` : ''}<span class="rdots">${[...o.radio.shown].map(x => `<i class="${x}"></i>`).join('')}</span><span class="rtext">${Math.round(o.radio.freq)} ${o.radio.band} ${CARRIER_GLYPH[o.radio.carrier]}${o.swept ? ' · SWEPT' : ''}</span>`
       : o.swept ? '<span class="tile F">SWEPT</span>' : '<span class="tile q">?</span>';
     return `<div class="caserow${c.permanent ? '' : ' temp'}${c.verdict === 'EXCLUDED' ? ' excluded' : ''}${lockId === c.bergId ? ' locked' : ''}" data-id="${c.bergId}">
       <span class="tile">#${b.num}${o.length != null ? `<small style="font-size:10px;opacity:.7;margin-left:4px">${o.length}mi</small>` : ''}</span><span class="odo${prev.sq !== undefined && prev.sq !== sq ? ' roll' : ''}">${sq}</span>
@@ -1036,7 +1037,6 @@ const JERRY = [
   ['scanner', 'Scanner rides on the buoy. Ice has to be near the buoy. Re-set it when the weather turns.'],
   ['radio', 'Gain DOWN, Jerry. Two receivers this week.'],
   ['runes', 'Runes change every page. CHECK THE BOOK, Jerry.'],
-  ['cabin', "Your move. Don't keep me waiting. I get bored. I press things. —J."],
 ];
 function jnote(at, text, gmNote = false) {
   const [x, y] = NOTE_AT[at] || NOTE_AT.chart;
@@ -1356,7 +1356,22 @@ function handleEvents() {
       case 'broke': audio.sfx.camdead(); if (e.sys !== 'winch' || ui.buoyDeadAt !== world.t) toast(BROKE_MSG[e.sys] + ' · REPAIR BAY ▲'); break;
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
-      case 'driftlog': toast(`DRIFT LOG RUNNING ON #${e.num} · SELECT IT ON THE CASE BOARD TO SEE ITS PATH`, 'info'); break;
+      case 'defence': audio.sfx.alarm(); toast({ gunnery: 'GUNNERY STATION: DEVIL FIRE INBOUND ON THE TOWERS', signals: 'SIGNALS STATION: THE BUOY CABLE HAS SNAPPED', engineer: e.reason === 'overheat' ? 'THE FURNACE IS IN THE RED · ENGINEERING: THE FUSE BOX HAS BLOWN' : 'ENGINEERING STATION: THE FUSE BOX HAS BLOWN' }[e.role]); break;
+      case 'freebeacon': audio.sfx.launch(); wire(`SIGNALS COMPLETED A MINESWEEP · THE GUNS FIRED · A BEACON STRUCK #${e.num}`, 'info'); break;
+      case 'freefuel': audio.sfx.fuel(); wire(e.full ? 'ENGINEERING CLEARED THE BREAKER PANEL · THE CHUTE WAS ALREADY FULL' : 'ENGINEERING CLEARED THE BREAKER PANEL · A FREE SHOVEL IN THE CHUTE', 'info'); break;
+      case 'defencedone': if (e.ok) wire({ gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING REWIRED THE FUSE BOX' }[e.role], 'info');
+        else { audio.sfx.camdead(); wire({ gunnery: `DEVIL FIRE STRUCK ${e.n} TOWER${e.n > 1 ? 'S' : ''} · THOSE ORBS ARE DOWN`, signals: 'THE SPLICE FAILED · THE BUOY IS LOST · REPAIR THE WINCH ▲', engineer: `THE FUSE BOX FAILED · ${e.sys ? SYS_LABEL[e.sys] + ' IS OFF, ' : ''}A SHOVEL LOST, LIGHTS RED` }[e.role]); } break;
+      case 'fleetwin': audio.sfx.reveal(); wire('THE ENEMY FLEET IS SUNK · REDEPLOY THE FLEET · A NEW ENEMY IS ON THE HORIZON', 'info'); break;
+      case 'defencelost': break;
+      case 'beaconsealed': audio.sfx.clunk(); toast(`GUNNERY SEALED A ${e.color.toUpperCase()} BEACON · IT CURES WHILE THE WORKSHOP IS ON`, 'info'); break;
+      case 'beaconready': audio.sfx.calibrated(); toast(`A ${e.color.toUpperCase()} BEACON IS READY IN THE LAUNCHER`, 'info'); break;
+      case 'callsign': audio.sfx.flip(); break;
+      case 'fleetplace': audio.sfx.click(); break;
+      case 'fleetready': audio.sfx.calibrated(); look('main'); toast('THE FLEET IS DEPLOYED · THE WATCH BEGINS', 'info'); break;
+      case 'fleetshot': if (e.by === 'them') { if (e.hit) audio.sfx.camdead(); toast(`THE ENEMY FLEET FIRED${e.free ? ' (NOBODY WAS SHOOTING)' : ''} · ${e.sunk >= 0 ? 'THEY SANK ONE OF OURS' : e.hit ? 'A HIT ON OUR FLEET' : 'A MISS'} · LOOK LEFT ◀`, e.hit ? '' : 'info'); }
+        else { audio.sfx[e.hit ? 'hit' : 'miss'](); if (e.sunk >= 0) toast('WE SANK AN ENEMY SHIP', 'info'); } break;
+      case 'reinforcements': audio.sfx.alarm(); break;
+      case 'reinforced': toast('THE REINFORCEMENTS ARE BEATEN OFF · THE FLEET IS REFITTED', 'info'); break;
       case 'casepinned': audio.sfx.flip(); toast(`#${e.num} IS PINNED TO THE CASE BOARD`, 'info'); break;
       case 'observed': audio.sfx.flip(); break;
       case 'verdict': if (e.v === 'EXCLUDED') audio.sfx.stamp(); else audio.sfx.click(); break;
@@ -1401,7 +1416,7 @@ function handleEvents() {
 $('wincontinue').onclick = () => { $('winscreen').classList.add('hidden'); $('cutscene').classList.add('hidden'); cut = null; };
 $('ping').onclick = () => ping(world);
 
-// ---------- the cabin (look left): the furnace log and Jerry's checkers ----------
+// ---------- the cabin (look left): the furnace log and the fleet ----------
 document.querySelectorAll('#damper button').forEach(b => b.onclick = () => setDamper(world, b.dataset.m));
 let prioKey = '', dragSys = null;
 function drawPriority() {
@@ -1422,77 +1437,39 @@ function drawPriority() {
 }
 let flogAt = 0;
 function drawCabin() {
-  if (!lookingLeft() && world.t - flogAt < 2) return;   // out of sight: keep it fresh, but cheaply
+  if (!lookingLeft() && world.t - flogAt < 2 && world.hold !== 'deploy') return;   // out of sight: keep it fresh, but cheaply
   flogAt = world.t;
   const fs = furnaceState(world);
   const nums = furnaceNumbers(fs); if ($('flognums').innerHTML !== nums) $('flognums').innerHTML = nums;
   drawFurnaceLog($('flogcanvas'), fs);
   document.querySelectorAll('#damper button').forEach(b => b.classList.toggle('sel', b.dataset.m === world.damper));
   drawPriority();
-  drawCheckers();
+  fleetUI.render();
 }
-// Jerry plays checkers between shifts. He thinks for a few seconds after your move; leave him waiting too long and
-// he gets bored and pulls a lever on the rune board.
-const JERRY_THINK = [2, 5], JERRY_PATIENCE = 60;
-const JERRY_SAYS = {
-  start: ['Fancy a game? Lights are yours.', 'Board is set. Try not to cry.', 'Best of one. Then best of three. Then I win.'],
-  take: ['Ha! Mine.', 'Into the pot it goes.', 'That one had it coming.', 'Did you see that? I saw that.'],
-  lose: ['Hey! That one had a family.', 'Ow. Rude.', 'I was going to move that.', 'Fine. FINE.'],
-  crown: ['Bow before the king.', 'Crown me, baby.'],
-  bored: ['Your move. Still your move. I\'m pulling something.', 'I got bored. Sorry. Not sorry.', 'Wake up! I pressed a thing.'],
-  win: ['Jerry wins! He does a little dance.', 'Another one for the wall.'],
-  lost: ['You cheated. I don\'t know how, but you did.', 'Rematch. Now. RIGHT now.'],
-};
-const say = k => { const a = JERRY_SAYS[k]; game.say = a[Math.floor(Math.random() * a.length)]; };
-const game = { board: ck.newBoard(), turn: 'w', sel: null, jerryAt: 0, t0: 0, you: 0, jerry: 0, over: null, say: '' };
-say('start');
-let ckKey = '';
-function ckNew() { game.board = ck.newBoard(); game.turn = 'w'; game.sel = null; game.over = null; game.t0 = world.t; say('start'); ckKey = ''; }
-function ckFinish(w) { game.over = w; if (w === 'w') { game.you++; say('lost'); confetti(); } else { game.jerry++; say('win'); } ckKey = ''; }
-function ckMove(m, side) {
-  const p = game.board[m.path[0][0]][m.path[0][1]], before = ck.count(game.board, side === 'w' ? 'b' : 'w');
-  game.board = ck.applyMove(game.board, m); audio.sfx.click();
-  const [r1, c1] = m.path[m.path.length - 1];
-  if (m.caps.length) say(side === 'b' ? 'take' : 'lose');
-  else if (side === 'b' && p === 'b' && game.board[r1][c1] === 'B') say('crown');
-  game.turn = side === 'w' ? 'b' : 'w'; game.sel = null; game.t0 = world.t;
-  if (game.turn === 'b') game.jerryAt = world.t + JERRY_THINK[0] + Math.random() * (JERRY_THINK[1] - JERRY_THINK[0]);
-  if (ck.gameOver(game.board, game.turn)) ckFinish(side);
-  ckKey = '';
+// The fleet: the Watch's naval defences, on the cabin wall (and on every officer's station).
+const fleetUI = mountFleet($('fleetwall'), () => ({ fleet: world.fleet, t: world.t }), a => { stationAction(world, 'operator', a); audio.sfx.click(); }, { cell: 34 });
+
+// ---------- the officers' stations ----------
+// Each station says hello every few seconds; a station not heard from for a while counts as gone, and its defence
+// events are skipped. Their actions go straight into the world.
+const stationSeen = {};
+function onStation(m) {
+  if (!ROLES.includes(m.role)) return;
+  if (m.iid && m.iid !== GAME_ID) return;   // that station follows another game on this code
+  stationSeen[m.role] = performance.now();
+  if (!m.hello) { stationAction(world, m.role, m); snapSoon = true; }
 }
-function jerryStep() {
-  if (!ui.started || world.paused || game.over) return;
-  if (game.turn === 'b' && world.t >= game.jerryAt) { const m = ck.jerryMove(game.board); if (m) ckMove(m, 'b'); }
-  if (game.turn === 'w' && world.t - game.t0 > JERRY_PATIENCE && !world.seal) {
-    const fn = ['LIGHTS', 'ALARM', 'RADIO', 'CONFETTI', 'DEVIL'][Math.floor(Math.random() * 5)];
-    gm(world, 'rune', { fn }); say('bored'); game.t0 = world.t; ckKey = '';
-    toast(`JERRY GOT BORED WAITING FOR YOUR CHECKERS MOVE AND PRESSED ${fn} · LOOK LEFT ◀`);
-  }
+let snapSoon = false;
+function drawStations() {
+  const html = ROLES.map(r => `<i class="${world.defence.live[r] ? 'on' : ''}${world.defence.active[r] ? ' busy' : ''}" title="${STATION_NAME[r]}${world.defence.live[r] ? ' station connected' : ' station not connected'}">${r[0].toUpperCase()}</i>`).join('');
+  if ($('stationlamps').innerHTML !== html) $('stationlamps').innerHTML = html;
+  // the fleet must be deployed before the watch begins
+  const deploying = world.hold === 'deploy' && ui.started;
+  $('deploybanner').classList.toggle('hidden', !deploying || lookingLeft());
+  $('reinforce').classList.toggle('hidden', !world.reinforce);
+  $('twogames').classList.toggle('hidden', performance.now() - otherGameAt > 5000);
 }
-function drawCheckers() {
-  const mine = game.turn === 'w' && !game.over ? ck.legalMoves(game.board, 'w') : [];
-  const targets = game.sel ? mine.filter(m => m.path[0][0] === game.sel[0] && m.path[0][1] === game.sel[1]) : [];
-  const key = JSON.stringify([game.board, game.sel, game.turn, game.over, game.say, game.you, game.jerry]);
-  const wait = game.turn === 'w' && !game.over ? Math.max(0, JERRY_PATIENCE - (world.t - game.t0)) : null;
-  $('jerrystat').textContent = game.over ? (game.over === 'w' ? 'YOU WIN' : 'JERRY WINS') : game.turn === 'w' ? `your move · Jerry's patience ${Math.ceil(wait)} s` : 'Jerry is thinking...';
-  if (key === ckKey) return;
-  ckKey = key;
-  const movable = new Set(mine.map(m => m.path[0].join())), dest = new Map(targets.map(m => [m.path[m.path.length - 1].join(), m]));
-  let html = '';
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-    const p = game.board[r][c], dark = (r + c) % 2 === 1, sel = game.sel && game.sel[0] === r && game.sel[1] === c;
-    html += `<div class="sq ${dark ? 'dk' : 'lt'}${sel ? ' sel' : ''}${dest.has(r + ',' + c) ? ' to' : ''}${movable.has(r + ',' + c) ? ' can' : ''}" data-r="${r}" data-c="${c}">${p ? `<span class="pc ${ck.sideOf(p)}${p === p.toUpperCase() ? ' king' : ''}"></span>` : ''}</div>`;
-  }
-  $('cboard').innerHTML = html;
-  $('jerrysay').innerHTML = `<b>JERRY:</b> “${game.say}”`;
-  $('jerryscore').textContent = `YOU ${game.you} · JERRY ${game.jerry}`;
-  $('cboard').querySelectorAll('.sq').forEach(sq => sq.onclick = () => {
-    const r = +sq.dataset.r, c = +sq.dataset.c;
-    if (movable.has(r + ',' + c)) { game.sel = [r, c]; ckKey = ''; audio.sfx.click(); return; }
-    const m = dest.get(r + ',' + c); if (m) ckMove(m, 'w');
-  });
-}
-$('cnew').onclick = () => { if (!game.over && ck.count(game.board, 'w') + ck.count(game.board, 'b') < 24) { game.jerry++; } ckNew(); };
+const STATION_NAME = { gunnery: 'Gunnery', signals: 'Signals', engineer: 'Engineering' };
 
 // ---------- GM link ----------
 // Same computer: a browser channel. Another computer: the GM types the code shown on the top bar.
@@ -1508,8 +1485,12 @@ function drawGmLink() {
   const linked = performance.now() - gmSeenAt < 12000, txt = `GM ${roomCode} <i class="${linked ? 'on' : netStatus === 'SUBSCRIBED' ? 'wait' : 'off'}"></i>`;
   if (el.innerHTML !== txt) { el.innerHTML = txt; el.title = linked ? 'The GM page is connected' : netStatus === 'SUBSCRIBED' ? 'Waiting for the GM to connect with this code' : 'Not connected to the GM relay'; }
 }
+const GAME_ID = Math.random().toString(36).slice(2, 10), GAME_BORN = Date.now();
+let otherGameAt = -1e9;
 function onGm(m) {
+  if (m.ss) { if (m.ss.iid !== GAME_ID) otherGameAt = performance.now(); return; }   // another game tab on this code
   if (m.snap) return;                       // our own snapshots, echoed by another game tab
+  if (m.station) { onStation(m.station); return; }
   if (m.hello) { gmSeenAt = performance.now(); return; }
   gmSeenAt = performance.now();
   if (m.cmd === 'reset') { const u = new URL(location.href); u.searchParams.set('seed', m.seed || newSeed()); location.href = u.toString(); }
@@ -1521,20 +1502,34 @@ function onGm(m) {
 let lastSnap = 0;
 // Over the network once a second on a timer: animation frames stop in a background tab, timers do not.
 setInterval(() => gmLink.send({ snap: snapshot(world) }), 1000);
+// The officers' stations get their own small update, four times a second on this computer and twice over the network.
+let ssTick = 0;
+const sendStations = (remote = true) => { if (ui.started) gmLink.send({ ss: stationSnapshot(world, { iid: GAME_ID, born: GAME_BORN, selected: ui.selected }) }, remote); };
+setInterval(() => sendStations(ssTick++ % 2 === 0), 250);
 
 // ---------- loop ----------
+// The watch runs on the real clock, whether or not this tab is on screen: a browser pauses animation frames in a
+// hidden or covered window, so the simulation also ticks on a timer and catches up on what it missed.
 let last = performance.now(), acc = 0;
-function frame(now) {
-  acc += Math.min(0.25, (now - last) / 1000); last = now;
+function simTick() {
+  const now = performance.now();
+  acc += Math.min(10, (now - last) / 1000); last = now;
   if (!ui.started) acc = 0;
   while (acc >= DT) { step(world, DT); acc -= DT; }
+  if (snapSoon) { snapSoon = false; sendStations(); }
+  const t = performance.now();
+  for (const r of ROLES) world.defence.live[r] = t - (stationSeen[r] || -1e9) < 7000;
+}
+setInterval(simTick, 100);
+function frame(now) {
+  simTick();
   handleEvents();
   drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower(); drawBoard(); drawRepairBay(); drawCamCtl(); drawCases(); drawCut(now); $('pausecard').classList.toggle('hidden', !world.paused); $('pausebtn').textContent = world.paused ? '▶ RESUME' : '❚❚ PAUSE'; drawTicker(Math.min(0.1, (now - (frame.prev || now)) / 1000)); frame.prev = now;
   if (now - lastSnap > 500) {
     lastSnap = now;
     gmLink.send({ snap: snapshot(world) }, false);   // twice a second on this computer while the game is in view
   }
-  drawGmLink(); drawSeal(); drawShutters(); drawCabin(); jerryStep();
+  drawGmLink(); drawSeal(); drawShutters(); drawCabin(); drawStations();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

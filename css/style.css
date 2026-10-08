@@ -240,7 +240,7 @@ button { font-family: inherit; cursor: pointer; }
 #chute { display: flex; gap: 4px; justify-content: center; margin-top: 6px; height: 10px; }
 #chute i, #chute2 i { display: inline-block; width: 26px; height: 10px; border-radius: 2px; background: #1a1a1a; border: 1px solid #3a3f46; }
 #chute i.f, #chute2 i.f { background: radial-gradient(circle at 50% 40%, #ffd27a, #c2350f 70%); border-color: #ff9a2e; box-shadow: 0 0 8px rgba(255,140,60,.8); }
-#switches { position: absolute; left: 222px; top: 46px; right: 14px; bottom: 40px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+#switches { position: absolute; left: 222px; top: 46px; right: 14px; bottom: 40px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
 .sw { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 10px; letter-spacing: 1px; }
 .sw .slot { width: 40px; height: 120px; background: #0b0d10; border: 2px solid #3a3f46; border-radius: 20px; position: relative; cursor: pointer; }
 .sw .knob { position: absolute; left: 3px; width: 30px; height: 42px; border-radius: 15px; background: linear-gradient(#e8e2d0, #a39d8c); top: 70px; transition: top .15s; box-shadow: 0 2px 3px #000; }
@@ -569,3 +569,18 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 20px; border-radius: 
 .rgauge i em { position: absolute; left: 0; top: 0; bottom: 0; background: var(--brass); }
 .rcode { font-family: 'Share Tech Mono', monospace; font-size: 20px; letter-spacing: 3px; color: #f4f1e6; background: #2a2016; padding: 2px 6px; border-radius: 3px; text-align: center; }
 .rb-row.r11 .act button { font-size: 12px; padding: 5px 8px; }
+
+/* ---------- revision 12 ---------- */
+#fleetwall { position: absolute; left: 16px; right: 16px; top: 50px; bottom: 14px; overflow: hidden; }
+#switches .sw { font-size: 9px; letter-spacing: 0; }
+#stationlamps { display: flex; gap: 4px; margin-top: 2px; }
+#stationlamps i { font-style: normal; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font: 600 10px 'IBM Plex Mono', monospace; background: #222; color: #666; border: 1px solid #444; }
+#stationlamps i.on { background: #1f4a3a; color: #d9ffe6; border-color: var(--phos); }
+#stationlamps i.busy { background: #5a1a12; color: #fdd; border-color: var(--threat); }
+#deploybanner { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); z-index: 30; background: rgba(12,10,8,.95); border: 3px solid var(--brass); border-radius: 8px; padding: 26px 40px; display: flex; flex-direction: column; align-items: center; gap: 10px; box-shadow: 0 10px 40px #000; }
+#deploybanner b { font: 800 34px 'Cinzel', serif; letter-spacing: 6px; color: var(--brass-hi); }
+#deploybanner span { color: #cfc6ab; }
+#reinforce { position: absolute; inset: 0; z-index: 45; background: rgba(40,4,2,.88); display: flex; align-items: center; justify-content: center; }
+#reinforce h1 { color: var(--threat); }
+.csign { font: 600 12px 'Share Tech Mono', monospace; color: var(--amber); margin-right: 4px; letter-spacing: 1px; }
+#twogames { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 50; background: #5a1a12; color: #fdd; border: 2px solid #ff4b3a; padding: 8px 18px; font: 600 14px 'IBM Plex Mono', monospace; letter-spacing: 1px; border-radius: 4px; }

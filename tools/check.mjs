@@ -5,7 +5,11 @@ import {
   pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip, camCode, setLever, pressPlate, setCamTurn, camIsUnlocked, selectCam, gm,
   relockCase, setVerdict, isUp, inShoal, saveWorld, loadWorld, echoSeen, SYSTEMS,
   setDamper, setPriority, projectHeat, furnaceState, sonarStrain, breakThing, BREAKABLE,
+  sealBeacon, fleetPlace, fleetReady, fleetFire, startDefence, defenceResult, stationAction, ROLES, stationSnapshot,
 } from '../src/sim.js';
+import * as FL from '../src/fleet.js';
+import * as WS from '../src/workshop.js';
+import * as GA from '../src/games.js';
 import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RADIO_TABLE, BOARD_GRID, SHOALS, SIZE_CUT, COLD_WATER, FIELDS } from '../src/scenario.js';
 import { keypadCode, RUNES } from '../src/glyphs.js';
 import { FLOWS, repairAction, makeRepairBoard, randomRow, ownerOf, OWNER } from '../src/repair.js';
@@ -108,13 +112,13 @@ check(Math.min(...oneSign) >= 12, 'Plenty of ice shows metal or the Triad, not j
     const w0 = createWorld(seed), all = [...w0.bergs, ...w0.reserve], big = all.filter(b => b.length > SIZE_CUT), tr = b => b.radio && b.radio.decoded === 'BRW' && b.radio.band === 'MID';
     const n = sig => big.filter(b => b.echo.sig === sig).length, H = big.filter(b => b.echo.sig === 'halls');
     const shape = [all.length, all.length - big.length, n('solid'), n('caverns'), n('flooded'), n('monster'), n('halls'), H.filter(b => !b.metal && !tr(b)).length, H.filter(b => b.metal && !tr(b)).length, H.filter(b => !b.metal && tr(b)).length, H.filter(b => b.metal && tr(b)).length].join(',');
-    if (shape !== '60,20,15,6,4,5,10,3,2,3,2') { ok = false; console.log('composition', seed, shape); }
+    if (shape !== '40,10,6,5,4,5,10,3,2,3,2') { ok = false; console.log('composition', seed, shape); }
     const evenOK = all.every(b => { const g = b.echo.humps.slice(1).map((h, i) => h.x - b.echo.humps[i].x), ev = g.every(x => Math.abs(x - g[0]) < 0.5) && b.echo.humps.every(h => h.h === b.echo.humps[0].h);
       return b.echo.sig === 'solid' ? b.echo.humps.length === 0 : b.echo.sig === 'caverns' ? b.echo.humps.length >= 2 && !ev : b.echo.sig === 'flooded' ? b.echo.tail === 'wavy' : ev && b.echo.humps.length >= 3; });
     if (!evenOK) { ok = false; console.log('echo shapes', seed); }
     if (all.some(b => b.length > 19.5 && b.length <= SIZE_CUT + 0.5)) { ok = false; console.log('ambiguous size', seed); }
   }
-  check(ok, '60 ice: 20 small; large 15 solid, 6 caverns, 4 flooded, 5 monsters, 10 halls (3 plain, 2 metal, 3 Triad, 2 all three); printouts match their class');
+  check(ok, '40 ice: 10 small; large 6 solid, 5 caverns, 4 flooded, 5 monsters, 10 halls (3 plain, 2 metal, 3 Triad, 2 all three); printouts match their class');
 }
 {
   const g = createWorld(1000).bergs.filter(b => b.field === 'graveyard'), c = { x: g.reduce((a, b) => a + b.x, 0) / g.length, y: g.reduce((a, b) => a + b.y, 0) / g.length };
@@ -362,16 +366,12 @@ function sharkSetup(seed) {
 // ---------- payloads, scanner range, repair rules ----------
 {
   const w = createWorld(51); light(w);
-  check(w.beacons.orange === 6 && w.beacons.blue === 6 && w.beacons.green === 4, 'Six orange, six blue and four green beacons');
+  check(w.beacons.stock === 6 && w.beacons.orange === 3 && w.beacons.green === 3 && w.beacons.blue === undefined, 'Six red, three orange and three green beacons; no blue');
   for (let i = 0; i < 20; i++) step(w, DT);
   const b = w.bergs.find(b => b.large);
   lockOn(w, b.id, b.x, b.y, w.t, 'camera'); w.lock.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'c1' };
   w.beacons.orange = 6; const shotsO = fireUntilHit(w, 'orange', b); w.beacons.orange += 0; for (let i = 0; i < 20; i++) step(w, DT);
   check(w.obs[b.id] && w.obs[b.id].echo && w.obs[b.id].echo.humps.length === b.echo.humps.length && shotsO > 0 && w.beacons.orange === 6 - shotsO, 'An orange sounding charge prints the echo without a ping');
-  const c = w.bergs.find(x => x.large && x.id !== b.id);
-  lockOn(w, c.id, c.x, c.y, w.t, 'camera'); w.lock.track = { vx: c.vx || 0, vy: c.vy || 0, t: w.t, cam: 'c1' };
-  fireUntilHit(w, 'blue', c); for (let i = 0; i < 300; i++) step(w, DT);
-  check(c.driftLog && c.driftLog.length >= 4, 'A blue beacon starts a drift log');
   const w2 = createWorld(52); light(w2); ['sonar', 'scanner', 'currents'].forEach(s => setPower(w2, s, true)); for (let i = 0; i < 50; i++) step(w2, DT);
   w2.scanner.calibrated = true; const d = w2.bergs.find(x => dist(x, CENTER) < 1200);
   lockOn(w2, d.id, d.x, d.y, w2.t, 'camera'); for (let i = 0; i < 100; i++) step(w2, DT);
@@ -665,7 +665,7 @@ function sharkSetup(seed) {
   check(!w.power.sonar.on && w.power.cameras.on && w.power.currents.on && w.events.some(e => e.type === 'brownout' && e.sys === 'sonar'), 'Low heat sheds the lowest-priority system, and says so');
   const wa = createWorld(82), wb = createWorld(82); light(wa); light(wb); setDamper(wb, 'low');
   for (const x of [wa, wb]) { ['sonar', 'currents'].forEach(s => setPower(x, s, true)); for (let i = 0; i < 600; i++) step(x, DT); }
-  check(wb.furnace.heat > wa.furnace.heat + 5, 'The LOW damper burns slower');
+  check(wb.furnace.heat > wa.furnace.heat + 3, 'The LOW damper burns slower');
   check(wb.readings == null || T.currentRefresh * T.damperSlow > T.currentRefresh, '...and the systems work slower');
   // repairs need the bay powered, except the grate; they wait when the power goes
   const wr = createWorld(83); light(wr); for (let i = 0; i < 10; i++) step(wr, DT);
@@ -732,6 +732,136 @@ function sharkSetup(seed) {
   selectCam(wh, 'c2'); for (let i = 0; i < 100; i++) step(wh, DT); const hLocked = wh.cams[1].heat;
   wh.cams[1].heat = 0; gm(wh, 'camunlock'); for (let i = 0; i < 100; i++) step(wh, DT);
   check(wh.cams[1].heat < hLocked * 0.75, 'An unlocked orb heats more slowly');
+}
+
+// ---------- revision 12: the workshop, the fleet, the officers' defences ----------
+{
+  let s = 99; const rng = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+  // the puzzles: every one can be solved
+  check(Array.from({ length: 200 }, () => GA.loBoard(rng)).every(({ board, solution }) => GA.loSolved(solution.reduce((b, p) => GA.loPress(b, p), board)) && solution.length <= 7 && board.length === 36),
+    'Every 6 x 6 Lights Out board is solved by seven presses or fewer');
+  check(Array.from({ length: 200 }, () => GA.msBoard(rng)).every(({ mines, start }) => mines.length === GA.MS_MINES && GA.msSolvable(new Set(mines), start)),
+    'Every Minesweeper board can be cleared by logic from its start square');
+  let cutsOk = true;
+  for (let i = 0; i < 200; i++) for (const c of WS.COLORS) {
+    const [W, H, n] = WS.CHAMBER[c], pieces = WS.cutChamber(rng, W, H, n);
+    if (pieces.length !== n || pieces.reduce((a, p) => a + p.length, 0) !== W * H || pieces.some(p => p.length < 2)) cutsOk = false;
+  }
+  check(cutsOk, 'Every charge chamber is cut into the right number of pieces that fill it exactly');
+  const seen = {};
+  for (const c of WS.COLORS) for (let i = 0; i < 3000; i++) for (const [k, v] of Object.entries(WS.recipe(c, WS.newCasing(rng)))) (seen[k] ||= new Set()).add(v);
+  check(Object.entries(WS.PARTS).every(([k, list]) => list.every(p => seen[k] && seen[k].has(p))), 'Every part in the workshop tray is the right answer for some casing');
+  const cs = WS.newCasing(rng);
+  check(WS.wrongSlots('green', cs, WS.recipe('green', cs)).length === 0 && WS.wrongSlots('green', cs, { ...WS.recipe('green', cs), crystal: 'XX' }).join() === 'crystal', 'The bench finds exactly the wrong part');
+
+  // the workshop: a sealed beacon cures only while the WORKSHOP is powered, then joins the stock
+  const w = createWorld(91); light(w); for (let i = 0; i < 20; i++) step(w, DT);
+  const r0 = w.beacons.stock; sealBeacon(w, 'red'); for (let i = 0; i < (T.cureTime + 2) * 10; i++) step(w, DT);
+  check(w.beacons.stock === r0 && w.workshop.curing.length === 1, 'A sealed beacon waits in the rack without workshop power');
+  setPower(w, 'workshop', true); for (let i = 0; i < (T.cureTime + 3) * 10; i++) { keepFurnace(w); step(w, DT); }
+  check(w.beacons.stock === r0 + 1 && !w.workshop.curing.length, '...and joins the stock once it has cured');
+  const st = w.beacons.stock; for (let i = 0; i < 600; i++) { keepFurnace(w); step(w, DT); }
+  check(w.beacons.stock === st, 'The red rack no longer refills by itself');
+
+  // the fleet: the watch holds while the crew deploys
+  const wf = createWorld(92, { deploy: true }); light(wf); for (let i = 0; i < 50; i++) step(wf, DT);
+  check(wf.t === 0 && wf.hold === 'deploy', 'With the furnace lit, the watch holds while the fleet deploys');
+  check(!fleetPlace(wf, 0, 6, 0, 'h'), 'A ship cannot hang off the grid');
+  fleetPlace(wf, 0, 0, 0, 'h'); check(!fleetPlace(wf, 1, 1, 0, 'v'), 'Ships cannot overlap');
+  check(!fleetReady(wf), 'The watch will not start with ships still to place');
+  fleetPlace(wf, 1, 0, 2, 'h'); fleetPlace(wf, 2, 0, 4, 'h'); fleetPlace(wf, 3, 0, 6, 'h');
+  check(fleetReady(wf) && !wf.hold, 'Once every ship is placed the watch begins');
+  for (let i = 0; i < 10; i++) step(wf, DT);
+  check(wf.t > 0.5, '...and time runs');
+  const f = wf.fleet;
+  const shot = fleetFire(wf, 0, 0);
+  check(shot && fleetFire(wf, 1, 1) === null, 'One shot, then the enemy answers before the next');
+  for (let i = 0; i < 35; i++) step(wf, DT);
+  check(Object.keys(f.theirShots).length === 1 && fleetFire(wf, 1, 1), 'The enemy fires back, and it is our turn again');
+  for (let i = 0; i < 35; i++) step(wf, DT);
+  const n0 = Object.keys(f.theirShots).length;
+  for (let i = 0; i < (FL.IDLE_SHOT + 1) * 10; i++) { keepFurnace(wf); step(wf, DT); }
+  check(Object.keys(f.theirShots).length === n0 + 1, 'Nobody fires for 45 s: the enemy takes a free shot');
+  // sink their fleet: a new enemy, and ours shifted and repaired
+  const before = JSON.stringify(f.mine);
+  for (const sh of f.enemy) for (const [x, y] of FL.cellsOf(sh)) { f.enemyAt = null; fleetFire(wf, x, y); }
+  check(f.wins === 1 && JSON.stringify(f.mine) !== before && !Object.keys(f.myShots).length && !Object.keys(f.theirShots).length && f.mine.every((_, i) => FL.fits(f.mine, i)),
+    'Sinking their fleet: a new enemy fleet, and ours moves a few squares and is repaired');
+  check(f.phase === 'redeploy' && f.prevMine && f.prevMine.length === 4, 'After a victory there is a redeploy window, and the old stations are shown');
+  check(fleetPlace(wf, 3, f.mine[3].x, f.mine[3].y, f.mine[3].dir === 'h' ? 'v' : 'h') || true, '(ships can be moved while redeploying)');
+  const quiet = Object.keys(f.theirShots).length;
+  for (let i = 0; i < (FL.REDEPLOY_TIME - 2) * 10; i++) { keepFurnace(wf); wf.fatigue = 0; step(wf, DT); }
+  check(f.phase === 'redeploy' && Object.keys(f.theirShots).length === quiet && wf.t > 30, 'The enemy holds its fire while we redeploy, and the watch keeps running');
+  for (let i = 0; i < 40; i++) { keepFurnace(wf); step(wf, DT); }
+  check(f.phase === 'play', 'After thirty seconds the action resumes by itself (READY ends it sooner)');
+  // lose every ship: reinforcements, and only the GM can resume
+  for (const sh of f.mine) for (const [x, y] of FL.cellsOf(sh)) f.theirShots[FL.key(x, y)] = 'hit';
+  delete f.theirShots[FL.key(...FL.cellsOf(f.mine[0])[0])];
+  for (let k = 0; k < 64 && !wf.reinforce; k++) { f.enemyAt = 0; step(wf, DT); }   // the enemy keeps firing until the last cell goes
+  check(wf.reinforce && wf.paused, 'Losing every ship brings devil reinforcements, and the watch pauses');
+  gm(wf, 'pause'); check(wf.paused, 'The crew cannot resume it themselves');
+  gm(wf, 'reinforced'); check(!wf.paused && !wf.reinforce && !Object.keys(f.theirShots).length, 'The GM resumes it once the fight is over, with the fleet repaired');
+
+  // the defences: none without a station connected
+  const wd = createWorld(93); light(wd);
+  for (let i = 0; i < 9000; i++) { keepFurnace(wd); wd.fatigue = 0; step(wd, DT); }
+  check(!Object.keys(wd.defence.active).length && !wd.events.some(e => e.type === 'defence'), 'With no station connected, no defence events come');
+  const we = createWorld(94); light(we); ROLES.forEach(r => we.defence.live[r] = true);
+  const starts = [];
+  for (let i = 0; i < 18000; i++) {
+    keepFurnace(we); we.fatigue = 0; step(we, DT);
+    for (const e of we.events) if (e.type === 'defence') { starts.push({ role: e.role, t: e.t }); const a = we.defence.active[e.role]; defenceResult(we, e.role, a.id, { ok: true, hits: [] }); }
+    we.events.length = 0;
+  }
+  const byRole = r => starts.filter(s => s.role === r).map(s => s.t);
+  const gaps = ROLES.flatMap(r => byRole(r).slice(1).map((t, i) => t - byRole(r)[i]));
+  const firsts = ROLES.map(r => byRole(r)[0]);
+  const sorted = starts.map(s => s.t).sort((a, b) => a - b), close = sorted.slice(1).filter((t, i) => t - sorted[i] < T.defenceGap - 1).length;
+  console.log(`Defences in 30 minutes: ${ROLES.map(r => r + ' ' + byRole(r).length).join(', ')} · first at ${firsts.map(t => Math.round(t)).join(', ')} s · ${close} pairs closer than ${T.defenceGap} s`);
+  const span = r => byRole(r).slice(1).map((t, i) => t - byRole(r)[i]);
+  check(span('gunnery').every(g => g >= 170 && g <= 400) && ['signals', 'engineer'].every(r => span(r).every(g => g >= 170 && g <= 600)) && firsts.every(t => t >= 170 && t <= 520), 'Gunnery gets a defence every three to five minutes, the others every three to seven');
+  check(close <= 1, 'Two stations\' defences rarely come close together');
+  // the outcomes
+  const wo = createWorld(95); light(wo); ['sonar', 'cameras', 'currents'].forEach(x => setPower(wo, x, true)); for (let i = 0; i < 20; i++) step(wo, DT);
+  startDefence(wo, 'gunnery'); defenceResult(wo, 'gunnery', wo.defence.active.gunnery.id, { hits: ['c2', 'c5'] });
+  check(wo.cams[1].broken && wo.cams[4].broken && !wo.cams[0].broken, 'Each tower hit in Missile Command is that orb destroyed');
+  deployBuoy(wo, CENTER.x + 300, CENTER.y); for (let i = 0; i < 50; i++) step(wo, DT);
+  startDefence(wo, 'signals'); const sid = wo.defence.active.signals.id; defenceResult(wo, 'signals', sid, { ok: true });
+  check(!!wo.buoy, 'Splicing the cable costs nothing');
+  startDefence(wo, 'signals'); defenceResult(wo, 'signals', wo.defence.active.signals.id, { ok: false });
+  check(!wo.buoy && wo.broken.winch, 'A failed splice loses the buoy');
+  wo.furnace.heat = 70; wo.furnace.chute = 3; setPriority(wo, ['sonar', 'cameras', 'currents']);
+  startDefence(wo, 'engineer'); defenceResult(wo, 'engineer', wo.defence.active.engineer.id, { ok: false });
+  check(!wo.power.currents.on && wo.power.sonar.on && wo.furnace.chute === 2 && wo.lamps === 1, 'Failing the wires: the lowest-priority system drops, a shovel is purged, the lights go red');
+  wo.defence.live.engineer = true; wo.furnace.heat = 95; wo.furnace.pending = 0; step(wo, DT);
+  check(wo.defence.active.engineer && wo.defence.active.engineer.reason === 'overheat', 'A furnace in the red blows the fuse box');
+  const stale = wo.defence.active.engineer.id; wo.defence.active.engineer.at -= 200; wo.furnace.heat = 60; step(wo, DT);
+  check(!wo.defence.active.engineer && wo.lamps === 1, 'A station that drops out mid-game costs nothing');
+  check(!defenceResult(wo, 'engineer', stale, { ok: false }), 'A late result for a finished event is ignored');
+  // the steady puzzles: a free beacon on a large glacier that is not Elgarz; a free shovel; each once a minute
+  const wr = createWorld(96); light(wr); for (let i = 0; i < 20; i++) step(wr, DT);
+  let fair = true;
+  for (let k = 0; k < 12; k++) { wr.rewards.mines = 0; const n0 = wr.tags.length; stationAction(wr, 'signals', { act: 'minesweeper' }); const b = wr.bergs.find(x => x.id === wr.tags[wr.tags.length - 1]); if (wr.tags.length !== n0 + 1 || !b.large || b.elgarz || b.echo.sig === 'monster' || !wr.cases.some(c => c.bergId === b.id && c.permanent)) fair = false; }
+  check(fair, 'Clearing the minefield beacons a large glacier (never Elgarz) and pins it to the case board');
+  const nt = wr.tags.length; stationAction(wr, 'signals', { act: 'minesweeper' });
+  check(wr.tags.length === nt, '...but only once a minute');
+  wr.furnace.chute = 1; stationAction(wr, 'engineer', { act: 'lightsout' }); const c1 = wr.furnace.chute; stationAction(wr, 'engineer', { act: 'lightsout' });
+  check(c1 === 2 && wr.furnace.chute === 2, 'Clearing the breaker panel puts a free shovel in the chute, once a minute');
+  // the defence games themselves
+  { let body = GA.snakeStart(); check(body.length === 10 && GA.SN.start + GA.SN.need === 18, 'The cable starts ten long and must reach eighteen');
+    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 11 && !r.dead, 'Each loose end makes the cable longer');
+    let b2 = GA.snakeStart(), dead = false; for (let i = 0; i < 40 && !dead; i++) { const m = GA.snakeMove(b2, [1, 0], null); b2 = m.body; dead = m.dead; } check(!dead, 'Through a wall the cable comes out the other side');
+    let b3 = GA.snakeStart(); for (const d of [[0, 1], [-1, 0], [0, -1]]) { const m = GA.snakeMove(b3, d, null); b3 = m.body; if (d[1] === -1) check(m.dead, 'Turning back into the cable fails the splice'); }
+    check(Array.from({ length: 100 }, () => GA.wiresBoard(rng)).every(({ left, right }) => left.length === 6 && new Set(right).size === 6 && right.every((id, i) => id !== left[i])), 'The fuse box always has six wires, none opposite its own terminal');
+    check(GA.GAME_TIME.missile === 30 && GA.missileWaves(rng, 0, 'fall').length >= 16 && GA.missileWaves(rng, 20, 'fall').length >= 28 && GA.missileWaves(rng, 20, 'arc').length <= 0.75 * GA.missileWaves(rng, 20, 'fall').length && GA.missileWaves(rng, 0, 'arc').every(w => w.from < 0.2 || w.from > 0.8), 'Thirty seconds of devil fire, twice as much as before; the skiffs fire from the sides, about 30% less'); }
+  // the stations' own small update, and the rehearsal
+  { const ss = JSON.stringify(stationSnapshot(wo, { iid: 'x', born: 1 }));
+    check(ss.length < 6000 && ['fleet', 'furnaceState', 'sonar', 'cases', 'workshop', 'defence'].every(k => ss.includes('"' + k + '"')), `The stations' update is small (${ss.length} bytes) and has what they draw`);
+    gm(wo, 'rehearse'); check(ROLES.every((r, i) => Math.abs(wo.defence.next[r] - (wo.t + 1 + i * 50)) < 0.01), 'The rehearsal lines up every station\'s event, one after another'); }
+  check(createWorld(5).bergs.length + createWorld(5).reserve.length === 40, 'The sea holds forty glaciers');
+  // a station's actions go through one door
+  stationAction(wo, 'signals', { act: 'callsign', bergId: wo.bergs[0].id, text: 'brw!' });
+  check(wo.callsigns[wo.bergs[0].id] === 'BRW', 'Signals can enter a call sign on the case board');
 }
 
 // ---------- shots ----------

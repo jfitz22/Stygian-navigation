@@ -22,8 +22,8 @@ export const TUNING = {
   currentRefresh: 4,       // seconds between current readings while powered
   // furnace
   furnaceStartHeat: 62,
-  burnIdle: 0.03,          // heat lost per second with nothing switched on
-  burnSteps: [0.07, 0.11, 0.16], // ...plus this for the first, second and third system (1: 0.10, 2: 0.21, 3: 0.37 a second)
+  burnIdle: 0.0255,        // heat lost per second with nothing switched on
+  burnSteps: [0.0595, 0.0935, 0.136], // ...plus this for the first, second and third system (1: 0.085, 2: 0.18, 3: 0.31 a second)
   damperBurn: 0.6,         // the LOW damper burns this fraction of the heat...
   damperSlow: 1.6,         // ...but everything powered works this much slower (spin-up, readings, scans, repairs, tracking)
   heatLogEvery: 2,         // seconds between furnace log samples (the log keeps three minutes)
@@ -51,12 +51,16 @@ export const TUNING = {
   sipRelief: 0.45,
   // beacons
   beaconSpeed: 200,        // miles per second
-  beaconStock: 12,         // plain red beacons; the rack rebuilds (until the workshop arrives)
-  beaconRebuild: 40,
-  orangeStock: 6,          // sounding charges: an echo on impact, no ping. Never rebuild.
-  blueStock: 6,            // drift logs: the ice's path is recorded from impact. Never rebuild.
-  greenStock: 4,           // "this is Elgarz" beacons. They never rebuild.
-  driftLogEvery: 5,        // seconds between drift-log points
+  beaconStock: 6,          // plain red beacons at the start of the watch; more come only from the workshop
+  orangeStock: 3,          // sounding charges: an echo on impact, no ping
+  greenStock: 3,           // transmitter beacons: the Navy's call
+  cureTime: 15,            // seconds a sealed beacon cures in the rack while the WORKSHOP is powered
+  // the officers' stations: a defence event for each, every few minutes
+  defenceEvery: { gunnery: [180, 300], signals: [180, 420], engineer: [180, 420] },   // seconds between one station's events
+  rewardCooldown: 60,      // seconds before a station's steady puzzle can pay out again (Minesweeper, Lights Out)
+  defenceGap: 45,          // seconds kept between any two stations' events
+  overheatHeat: 90,        // furnace heat in the red: Engineering's breakers trip too
+  overheatEvery: 60,       // ...at most this often
   hitLarge: 14,            // beacon hit radius for large ice: hitLarge + length * hitPerMile
   hitPerMile: 0.6,
   hitSmall: 14,
@@ -217,7 +221,7 @@ export const CAMERAS = [
 ];
 
 // ---------- the ice ----------
-// 60 floes: 20 small (fail the size test) and 40 large. Elgarz is over 20 miles long; anything 20 or under is not Elgarz.
+// 40 floes: 10 small (fail the size test) and 30 large. Elgarz is over 20 miles long; anything 20 or under is not Elgarz.
 // Every floe has an echo class, read from the sonar printout:
 //   solid    no bumps, flat tail
 //   caverns  uneven bumps, flat tail                (natural caves)
@@ -225,7 +229,7 @@ export const CAMERAS = [
 //   flooded  bumps, wavy tail                       (brine-filled caves)
 //   monster  even bumps, pulsing tail               (something frozen inside; a beacon hit lets it out)
 // Below COLD_WATER a monster is too cold to pulse, and reads exactly like halls.
-// Large ice: 15 solid, 6 caverns, 4 flooded, 5 monsters, 10 halls (3 plain, 2 metal, 3 Triad, 2 with everything).
+// Large ice: 6 solid, 5 caverns, 4 flooded, 5 monsters, 10 halls (3 plain, 2 metal, 3 Triad, 2 with everything).
 // Radio: `decoded` after the manual's procedure, in `band`, sent on `carrier` (null = random). Ice over 8 miles rides the deep current.
 export const SIZE_CUT = 20;
 export const ECHO_CLASSES = ['solid', 'caverns', 'halls', 'flooded', 'monster'];
@@ -262,7 +266,7 @@ export const FIELDS = [
   ] },
 ];
 export const FIELD_SPREAD = [120, 300];   // miles from the field's centre to each member
-// Unnamed ice that fills out the 60. { count, large, sig, metal, triad, transmit (share) }
+// Unnamed ice that fills out the 40. { count, large, sig, metal, triad, transmit (share) }
 export const FILLER = [
   { count: 2, large: true, sig: 'halls', metal: false, transmit: 0.5 },
   { count: 1, large: true, sig: 'monster', metal: true, transmit: 0.5 },
@@ -271,13 +275,13 @@ export const FILLER = [
   { count: 1, large: true, sig: 'flooded', metal: false, triad: true },
   { count: 1, large: true, sig: 'caverns', metal: true, transmit: 0.5 },
   { count: 1, large: true, sig: 'caverns', metal: false, triad: true },
-  { count: 2, large: true, sig: 'caverns', metal: false, transmit: 0.5 },
+  { count: 1, large: true, sig: 'caverns', metal: false, transmit: 0.5 },
   { count: 1, large: true, sig: 'solid', metal: false, triad: true },
-  { count: 11, large: true, sig: 'solid', metal: false, transmit: 0.5 },
-  { count: 2, large: false, sig: 'solid', metal: true, transmit: 0.4 },
-  { count: 2, large: false, sig: 'caverns', metal: false, triad: true },
-  { count: 6, large: false, sig: 'caverns', metal: false, transmit: 0.4 },
-  { count: 9, large: false, sig: 'solid', metal: false, transmit: 0.5 },
+  { count: 2, large: true, sig: 'solid', metal: false, transmit: 0.5 },
+  { count: 1, large: false, sig: 'solid', metal: true, transmit: 0.4 },
+  { count: 1, large: false, sig: 'caverns', metal: false, triad: true },
+  { count: 3, large: false, sig: 'caverns', metal: false, transmit: 0.4 },
+  { count: 4, large: false, sig: 'solid', metal: false, transmit: 0.5 },
 ];
 
 // ---------- shoals: rocks that scatter the sonar, each beside an orb (outside its starting view) ----------

@@ -38,6 +38,8 @@ export function openLink(onMessage, onStatus = () => {}) {
         remote = ch;
       } catch (e) { onStatus('OFFLINE'); }
     },
+    // drop the network channel and join it again (after the relay closed or errored)
+    async rejoin() { const c = room; if (!c) return; if (remote) { try { const sb = await client(); sb.removeChannel(remote); } catch (e) { } } remote = null; ready = false; room = null; return link.join(c); },
     // remote = false keeps a message on this computer (used to send fewer snapshots over the network)
     send(msg, toRemote = true) {
       if (local) local.postMessage(msg);

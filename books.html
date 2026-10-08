@@ -78,6 +78,11 @@
 
 <!-- ======================= ORIENTATION: IN EVERY BOOK ======================= -->
 
+<section class="page" data-book="all" data-sec="CONTENTS" data-title="Contents">
+  <h2>CONTENTS</h2>
+  <table id="t-index"></table>
+</section>
+
 <section class="page" data-book="all" data-sec="LW-0" data-title="Orientation">
   <h2><span class="code">LW-0</span> ORIENTATION</h2>
   <p>The Last Watch is an outpost of the <b>True Navy of the Fifth</b>, still loyal to Geryon. Levistus has hunted for Geryon a long time. What he seeks drifts somewhere in this sea: <b>Elgarz</b>, a glacier among thousands, known to the Navy only by a set of coded signs.</p>
@@ -85,8 +90,6 @@
   <p>This manual is issued in <b>three books</b>: <b>ENGINEERING</b>, <b>GUNNERY</b> and <b>SIGNALS</b>. No officer holds every procedure, so most tasks need two of you. Where a page says <span class="tag">ASK SIGNALS</span>, ask Signals.</p>
   <h3>The watch, step by step</h3>
   <table id="t-flow"></table>
-  <h3>In this book</h3>
-  <table id="t-index"></table>
 </section>
 
 <section class="page" data-book="all" data-sec="LW-0A" data-title="The decision matrix and the cockpit">
@@ -112,7 +115,7 @@
   </ul>
   <h3>Hit chance and beacons</h3>
   <p>The launcher shows the <b>HIT CHANCE</b> for a beacon fired now at the locked ice. A fresh fix and a good drift measurement keep it high: a buoy reading taken close to the ice, or an unlocked orb tracking it. <b>Ice already carrying a beacon reports its own position: 100%.</b> When the chance is low, the line beneath it says why.</p>
-  <p><span class="lamp R"></span> <b>Red</b> pins the ice to the case board and lets the radio hear it. <span class="lamp Y"></span> <b>Orange</b> also prints its echo. <span class="lamp B"></span> <b>Blue</b> also logs its drift. <span class="lamp G"></span> <b>Green</b> carries the Navy's call (GU-2).</p>
+  <p><span class="lamp R"></span> <b>Red</b> pins the ice to the case board and lets the radio hear it. <span class="lamp Y"></span> <b>Orange</b> also prints its echo. <span class="lamp G"></span> <b>Green</b> carries the Navy's call (GU-2). New beacons are built in the Gunnery workshop.</p>
 </section>
 
 <section class="page" data-book="all" data-sec="LW-0C" data-title="Breakdowns and the password">
@@ -138,7 +141,7 @@
 <section class="page" data-book="all" data-sec="LW-0D" data-title="The case board">
   <h2><span class="code">LW-0D</span> THE CASE BOARD</h2>
   <div class="ask"><b>ASK THE OPERATOR:</b> the rows on the case board and what each cell shows</div>
-  <p>Top right of the main board. Locking ice gives it a dim temporary row; a beacon strike pins it. Readings fill in as they are taken, including any taken before it was pinned. Clicking a row locks that ice again: live if it carries a beacon, otherwise from where it was last seen. Ice carrying a <b>blue</b> beacon shows its drift log on the chart while selected.</p>
+  <p>Top right of the main board. Locking ice gives it a dim temporary row; a beacon strike pins it. Readings fill in as they are taken, including any taken before it was pinned. Clicking a row locks that ice again: live if it carries a beacon, otherwise from where it was last seen. Signals keeps the full board on their station, and enters the call signs it shows.</p>
   <div class="fig"><div id="f-case"></div><div class="cap"><b>FIG. 0.4</b> Reading a row.</div></div>
   <table>
     <tr><th>Cell</th><th>Means</th><th>Read it with</th></tr>
@@ -150,6 +153,27 @@
   </table>
   <div class="warn">The board records what has been measured. Deciding which ice is Elgarz is the crew's job.</div>
   <div class="margin" style="right:0.95in;bottom:0.85in">excluded #12 three times. it kept coming back.</div>
+</section>
+
+<section class="page" data-book="all" data-sec="LW-0E" data-title="Stations, defences and the fleet">
+  <h2><span class="code">LW-0E</span> STATIONS, DEFENCES &amp; THE FLEET</h2>
+  <p>Each officer keeps a <b>station</b> of their own, linked to the Watch with the four-character code on the top bar of the operator's screen. A station holds the officer's standing duty, an optional puzzle that helps the Watch, and a share of the fleet. Every few minutes the enemy tests one station: the defence console lights up red and the officer there must hold.</p>
+  <table>
+    <tr><th>Station</th><th>Standing duty</th><th>Defence</th><th>If it fails</th></tr>
+    <tr><td><b>GUNNERY</b></td><td>The beacon workshop (GU-5)</td><td><b>Devil fire</b> on the seven orb towers, from the sky or from skiffs on the horizon. Click to burst flak in its path. 30 s.</td><td>Every tower struck: that orb is destroyed.</td></tr>
+    <tr><td><b>SIGNALS</b></td><td>A copy of the sonar · the full case board and the call signs · minesweeping (SI-6)</td><td><b>The buoy cable snaps</b>: steer the splice (arrow keys) and collect 8 loose ends without touching the cable itself; the walls wrap round. 45 s.</td><td>The buoy is lost.</td></tr>
+    <tr><td><b>ENGINEERING</b></td><td>The furnace log, the shed order and the damper · the breaker panel (EN-7)</td><td><b>The fuse box blows</b>, every few minutes and whenever the furnace runs into the red: drag each wire to the terminal of its colour and stripe. 20 s.</td><td>The lowest system in the shed order drops, a shovel is lost, the lights go red.</td></tr>
+  </table>
+  <h3>The fleet</h3>
+  <p>The Watch's naval defences, on the cabin wall and on every station. Columns are marked with runes and rows with numbers.</p>
+  <ul>
+    <li><b>Before the watch begins</b>, deploy the fleet: drag the four ships onto the table (ROTATE, R or right click turns one). The watch holds until all four are placed.</li>
+    <li><b>To fire</b>, choose a rune and a number, then FIRE. Anyone may fire, from any screen.</li>
+    <li>The enemy answers every shot. <b>If nobody fires for 45 s, it fires anyway.</b></li>
+    <li>Sink their fleet and another appears on the horizon. Ours is refitted and moved a few squares; you have 30 s to redeploy it (the enemy holds its fire), or press READY.</li>
+    <li>Lose all four ships and <b>devil reinforcements</b> attack. The watch halts until the officer of the watch gives the word.</li>
+  </ul>
+  <div class="margin" style="right:0.95in;bottom:0.85in">fired at the same square twice.<span class="re">It will not let you. —I.</span></div>
 </section>
 
 <!-- ======================= ENGINEERING & POWER ======================= -->
@@ -233,6 +257,18 @@
   <p class="ex" data-dept="engineer"></p>
 </section>
 
+<section class="page" data-book="engineer" data-sec="EN-6" data-title="The sounding core and the breakers">
+  <h2><span class="code">EN-6</span> THE SOUNDING CORE</h2>
+  <div class="ask crew"><b>ASK GUNNERY:</b> the casing's <b>serial</b> and the colour of its <b>status lamp</b></div>
+  <p>Every <b>orange</b> and <b>green</b> beacon carries a sounding core, built to Engineering's design. Gunnery fits it at the bench; this book says which core. A core is told by its <b>notches</b> (one to four) and its <b>seal</b> (brass or rubber).</p>
+  <ol id="rec-engineer"></ol>
+  <p><b>Example.</b> Serial <b>KTR-47</b>, lamp yellow: 4 halved is 2, so two notches; there is an R, so a rubber seal.</p>
+  <h2 style="margin-top:22px"><span class="code">EN-7</span> THE BREAKERS &amp; THE FUSE BOX</h2>
+  <p><b>The breaker panel</b> sits on your station at all times: six by six. <b>Pressing a breaker flips it and its four neighbours.</b> Get every breaker dark and the boiler hands the furnace <b>a free shovel of fuel</b>. One free shovel a minute; nothing goes wrong if you leave it.</p>
+  <p><b>The fuse box</b> blows every few minutes, and whenever the furnace runs into the red. Drag each loose wire to the terminal of the same colour and stripe, within 20 seconds.</p>
+  <div class="warn">If the fuse box is not rewired in time: the lowest system in the shed order switches off, a shovel is lost from the chute, and the cabin lights go red.</div>
+</section>
+
 <!-- ======================= GUNNERY & TARGETING ======================= -->
 
 <section class="page" data-book="gunnery" data-sec="GU-1" data-title="Scrying orbs">
@@ -261,7 +297,7 @@
     <li>Fast-drifting ice is harder to hit. Fire soon after the fix.</li>
     <li>Every miss is reported with its distance and the reason; the chart marks where the ice really was.</li>
     <li><b>Green asks for the password</b>, then fires. Fire it only when the whole crew agrees.</li>
-    <li>The launcher <b>jams every few shots</b> (GU-4). The red rack rebuilds one beacon every <span data-t="beaconRebuild"></span> s.</li>
+    <li>The launcher <b>jams every few shots</b> (GU-4). New beacons come only from the workshop (GU-5).</li>
   </ul>
   <h3>Beacons</h3>
   <p>Every strike pins the ice to the <b>case board</b> and lets the <b>radio</b> hear it. A strike on a <b>frozen monster</b> wakes it.</p>
@@ -285,6 +321,24 @@
   <div class="fig"><div id="f-flow-gunnery"></div><div class="cap"><b>FIG. GU.3</b> Gunnery repair flowchart. No YES at all: OPEN.</div></div>
   <p class="ex" data-dept="gunnery"></p>
   <div class="margin" style="right:0.95in;bottom:0.85in">when in doubt I cut everything<span class="re">Hence the requisitions backlog. —I.</span></div>
+</section>
+
+<section class="page" data-book="gunnery" data-sec="GU-5" data-title="The beacon workshop">
+  <h2><span class="code">GU-5</span> THE BEACON WORKSHOP</h2>
+  <div class="ask crew"><b>ASK ENGINEERING:</b> the sounding core (orange and green) · <b>ASK SIGNALS:</b> the transmitter crystal (green): give them the call band</div>
+  <p>The Watch starts with <span data-t="beaconStock"></span> red, <span data-t="orangeStock"></span> orange and <span data-t="greenStock"></span> green beacons. Every other beacon is built here, on your station.</p>
+  <ol>
+    <li><b>Choose the colour and take a casing.</b> Each casing is stamped with a <b>serial</b> and has a <b>status lamp</b>.</li>
+    <li><b>Fit the parts.</b> Drag each part from the tray onto its slot. The shell is yours (below); the core and the crystal are the other departments' designs.</li>
+    <li><b>Pack the charge.</b> Drag every block into the chamber until it is full. R or right click turns the block you hold.</li>
+    <li><b>SEAL.</b> A wrong part pops back out of its slot.</li>
+    <li><b>Cure.</b> The beacon waits in the rack until the operator has the <b>WORKSHOP</b> switch on for <span data-t="cureTime"></span> s, then joins the launcher's stock.</li>
+  </ol>
+  <h3>The shell: every beacon</h3>
+  <ol id="rec-gunnery"></ol>
+  <p id="rec-call"></p>
+  <p><b>Example.</b> Serial <b>KTR-47</b>, lamp yellow, red beacon: 4 + 7 = 11, odd, so two bands; no vowel, so red bands. The digits are three apart and the lamp is yellow: STRAIGHT fins. 7 is bigger than 4: an IRON cap.</p>
+  <div class="margin" style="right:0.95in;bottom:0.85in">the green ones take three of us.<span class="re">As intended. —I.</span></div>
 </section>
 
 <!-- ======================= SIGNALS & SONAR ======================= -->
@@ -330,12 +384,29 @@
   <p class="ex" data-dept="signals"></p>
 </section>
 
+<section class="page" data-book="signals" data-sec="SI-5" data-title="The transmitter crystal and the minefield">
+  <h2><span class="code">SI-5</span> THE TRANSMITTER CRYSTAL</h2>
+  <div class="ask crew"><b>ASK GUNNERY:</b> the casing's <b>serial</b>, its <b>lamp</b>, and the <b>call band</b> from their codebook</div>
+  <p>Every <b>green</b> beacon carries a transmitter crystal, cut to Signals' design: it is what carries the Navy's call to Elgarz. Gunnery fits it at the bench; this book says which crystal. A crystal is told by its <b>facets</b> (three, five or seven) and its <b>tint</b> (clear, smoky or rose).</p>
+  <ol id="rec-signals"></ol>
+  <p><b>Example.</b> Serial <b>KTR-47</b>, lamp yellow, call band MID: five facets; the letters are all different and the lamp is yellow, so smoky.</p>
+  <h2 style="margin-top:22px"><span class="code">SI-6</span> MINESWEEPING &amp; THE CABLE</h2>
+  <p><b>Minesweeping</b> sits on your station at all times: eight by eight, eight mines, a safe patch already open. <b>Complete a sweep and the Watch's guns are free to fire: a beacon strikes a random iceberg</b>, pinning it to the case board. One sweep a minute; a mine costs nothing but the sweep.</p>
+  <ul>
+    <li><b>Left click</b> opens a square. A number is how many of the eight squares around it hold a mine.</li>
+    <li><b>Right click</b> flags a square you know is a mine. No guessing is ever needed.</li>
+  </ul>
+  <p><b>The buoy cable</b> snaps every few minutes. Steer the splice with the arrow keys (or WASD) and collect eight loose ends within 45 seconds. The cable starts ten lengths long and grows to eighteen. Run into a wall and you come out the other side; run into the cable itself and the splice fails.</p>
+  <div class="warn">If the splice fails, or time runs out, the buoy is lost (the winch must be repaired).</div>
+</section>
+
 <script type="module">
 import { TUNING as T, TOMB_RADIUS, CELL, RADIO_TABLE, BOARD_GRID, BOARD_PAGES, PLATE_BY_HOUSE, windLever, tempLever, bandOf, COLD_WATER } from './src/scenario.js';
 import { RUNES, HOUSES, glyphSVG, leadingHouse, tempBandName, echoAt, ECHO_W, ECHO_EXAMPLES } from './src/glyphs.js';
 import { RULES as PW_RULES } from './src/password.js';
 import { FLOWS, DEFAULT_ACTION, repairAction, OWNER, DEPTS } from './src/repair.js';
 import { burnRate, BREAKABLE } from './src/sim.js';
+import { RECIPES, GUNNERY_CALL } from './src/workshop.js';
 
 const INK = '#1d1a14', RED = '#9b2116', RULE = '#b9ad8b', FAINT = '#d9cfb3', BLUE = '#23407a', FONT = "font-family='Courier Prime, monospace'";
 const $ = id => document.getElementById(id);
@@ -401,6 +472,9 @@ $('t-flow').innerHTML = '<tr><th>Step</th><th>Led by (with the operator)</th><th
   ['<b>Red beacon.</b> Pins the ice to the case board and lets the radio hear it', 'GUNNERY', ''],
   ['<b>Metal.</b> The scanner, set for the water at the buoy', 'ENGINEERING', 'SIGNALS names the plate runes'],
   ['<b>The Triad.</b> Tune in, decode, look up', 'ENGINEERING tunes · SIGNALS decodes', 'GUNNERY reads the codebook'],
+  ['<b>Build beacons.</b> The workshop, on the Gunnery station', 'GUNNERY', 'ENGINEERING: the core (orange, green) · SIGNALS: the crystal (green)'],
+  ['<b>Defences.</b> Devil fire, the buoy cable, the fuse box', 'each officer, at their station', '(LW-0E)'],
+  ['<b>The fleet.</b> Deploy it, fire on the enemy', 'everyone', '(LW-0E)'],
   ['<b>Repairs.</b> The repair bay', 'the machine\'s owner (LW-0C)', ''],
   ['<b>Contact.</b> The green transmitter beacon', 'GUNNERY fires', 'every officer agrees · the password'],
 ].map(r => `<tr><td>${r[0]}</td><td class="lead">${r[1]}</td><td>${r[2]}</td></tr>`).join('');
@@ -416,9 +490,9 @@ $('pwrules').innerHTML = PW_RULES.map(r => '<li>' + r.text + '</li>').join('');
 
 // ---------- the index of this book, built from its own pages ----------
 {
-  const ABOUT = { 'LW-0A': 'the decision matrix, the chart, the stations', 'LW-0B': 'the cold, the hunters, storms, shoals, remorhazes, the hit chance, beacon colours', 'LW-0C': 'what breaks and whose flowchart mends it, the password', 'LW-0D': 'what each case board cell means',
+  const ABOUT = { 'LW-0': 'the Watch, the three books, who leads each step', 'LW-0A': 'the decision matrix, the chart, the stations', 'LW-0B': 'the cold, the hunters, storms, shoals, remorhazes, the hit chance, beacon colours', 'LW-0C': 'what breaks and whose flowchart mends it, the password', 'LW-0D': 'what each case board cell means',
     'EN-1': 'heat, the furnace log, shed order, the damper', 'EN-2': 'rune functions by house, weight and page', 'EN-3': 'setting the scanner from the buoy weather', 'EN-4': 'frequency, gain, the band, the cabin radio', 'EN-5': 'the Engineering repair flowchart',
-    'GU-1': 'locked and unlocked orbs, the lever chart, plates by house', 'GU-2': 'the hit chance, firing, payloads', 'GU-3': 'call sign and band to meaning', 'GU-4': 'the Gunnery repair flowchart',
+    'GU-1': 'locked and unlocked orbs, the lever chart, plates by house', 'GU-2': 'the hit chance, firing, payloads', 'GU-3': 'call sign and band to meaning', 'GU-4': 'the Gunnery repair flowchart', 'GU-5': 'building beacons: the bench, the shell recipe, the call band', 'LW-0E': 'your station, the defences, the fleet', 'EN-6': 'the sounding core recipe, the breaker panel, the fuse box', 'SI-5': 'the transmitter crystal recipe, the minefield, the buoy cable',
     'SI-1': 'every rune, by house and weight', 'SI-2': 'one ping, reading the printout, the five echoes, the sonar head', 'SI-3': 'wave shapes, lamps to call sign', 'SI-4': 'the Signals repair flowchart' };
   const pages = visible();
   if (book === 'all') $('t-index').innerHTML = `<tr><td>The GM copy: the orientation, then each officer's pages in turn (EN, GU, SI).</td></tr>`;
@@ -426,7 +500,7 @@ $('pwrules').innerHTML = PW_RULES.map(r => '<li>' + r.text + '</li>').join('');
 }
 // ---------- FIG 0.1 sieve ----------
 {
-  const rows = [['ALL ICE IN THE SEA', 'some sixty glaciers'], ['OVER 20 MILES LONG', 'length, from an orb or the sonar'], ['A HALLS ECHO', 'one ping · mind the cold water'], ['WORKED METAL  +  SINGS THE TRIAD', 'scanner and radio, in either order'], ['OUTSIDE THE TOMB RING', 'Levistus keeps his own close']];
+  const rows = [['ALL ICE IN THE SEA', 'some forty glaciers'], ['OVER 20 MILES LONG', 'length, from an orb or the sonar'], ['A HALLS ECHO', 'one ping · mind the cold water'], ['WORKED METAL  +  SINGS THE TRIAD', 'scanner and radio, in either order'], ['OUTSIDE THE TOMB RING', 'Levistus keeps his own close']];
   let b = '';
   rows.forEach(([a, n], i) => { const w = 620 - i * 84, x = (640 - w) / 2, y = 6 + i * 34; b += `<polygon points="${x},${y} ${x + w},${y} ${x + w - 46},${y + 30} ${x + 46},${y + 30}" fill="${i % 2 ? 'rgba(29,26,20,.06)' : 'none'}" stroke="${INK}"/>` + txt(320, y + 14, a, { anchor: 'middle', bold: true }) + txt(320, y + 26, n, { anchor: 'middle', size: 9.5 }); });
   b += `<polygon points="296,178 344,178 320,204" fill="${RED}"/>` + txt(320, 222, 'ELGARZ', { anchor: 'middle', bold: true, size: 15, fill: RED });
@@ -434,10 +508,9 @@ $('pwrules').innerHTML = PW_RULES.map(r => '<li>' + r.text + '</li>').join('');
 }
 // ---------- beacon colours ----------
 {
-  const PAY = [['#ff4b3a', 'RED', 'plain', `Pins the ice; lets the radio hear it. Rack of ${T.beaconStock}, rebuilds one every ${T.beaconRebuild} s.`],
-    ['#ffb347', 'ORANGE', 'sounding charge', `As red, and prints the echo on impact, without a ping. ${T.orangeStock}, never rebuilt.`],
-    ['#6fa8ff', 'BLUE', 'drift log', `As red, and records the ice's path from impact. ${T.blueStock}, never rebuilt.`],
-    ['#5cff9d', 'GREEN', 'transmitter', `The transmitter: carries the Navy's call. Strike Elgarz and it answers, blazing blue. Any other ice stays silent. ${T.greenStock}, never rebuilt.`]];
+  const PAY = [['#ff4b3a', 'RED', 'plain', `Pins the ice; lets the radio hear it. ${T.beaconStock} at the start of the watch; Gunnery builds more.`],
+    ['#ffb347', 'ORANGE', 'sounding charge', `As red, and prints the echo on impact, without a ping. ${T.orangeStock} at the start; built with Engineering's sounding core.`],
+    ['#5cff9d', 'GREEN', 'transmitter', `The transmitter: carries the Navy's call. Strike Elgarz and it answers, blazing blue. Any other ice stays silent. ${T.greenStock} at the start; built with Engineering's core and Signals' crystal.`]];
   const html = '<tr><th></th><th>Colour</th><th>Payload</th><th>Effect</th></tr>' + PAY.map(([c, n, p, d]) => `<tr><td style="background:${c};width:14px"></td><td><b>${n}</b></td><td>${p}</td><td>${d}</td></tr>`).join('');
   $('t-payloads2').innerHTML = html;
 }
@@ -446,7 +519,7 @@ $('pwrules').innerHTML = PW_RULES.map(r => '<li>' + r.text + '</li>').join('');
   const box = (x, y, w, h, s) => rect(x, y, w, h, { fill: 'rgba(255,255,255,.35)' }) + txt(x + w / 2, y + h / 2 + 4, s, { anchor: 'middle', size: 9.5 });
   let b = txt(8, 14, 'OVERHEAD DECK  (LOOK UP)', { bold: true, size: 10 }) + rect(4, 20, 632, 92, { w: 1.5 });
   b += box(12, 28, 190, 44, 'BEACON LAUNCHER') + box(12, 76, 190, 30, 'RADIO') + box(210, 28, 210, 56, 'RUNE BOARD') + box(210, 88, 210, 18, 'WIRE SERVICE') + box(428, 28, 200, 44, 'REPAIR BAY') + box(428, 76, 200, 30, 'METAL SCANNER');
-  b += txt(8, 132, 'THE CABIN  (LOOK LEFT)', { bold: true, size: 10 }) + rect(4, 138, 150, 116, { w: 1.5 }) + box(12, 146, 134, 60, 'FURNACE LOG') + box(12, 210, 134, 38, 'JERRY\'S CHECKERS');
+  b += txt(8, 132, 'THE CABIN  (LOOK LEFT)', { bold: true, size: 10 }) + rect(4, 138, 150, 116, { w: 1.5 }) + box(12, 146, 134, 60, 'FURNACE LOG') + box(12, 210, 134, 38, 'THE FLEET');
   b += txt(164, 132, 'MAIN BOARD  (LOOK DOWN)', { bold: true, size: 10 }) + rect(160, 138, 476, 116, { w: 1.5 });
   b += box(168, 146, 130, 48, 'SCRYING ORBS') + box(168, 198, 130, 24, 'ORB CONTROL') + box(168, 226, 130, 22, 'FURNACE & POWER') + box(304, 146, 196, 76, 'CHART') + box(304, 226, 196, 22, 'TARGET LOCK') + box(506, 146, 124, 30, 'CASE BOARD') + box(506, 180, 124, 42, 'SONAR') + box(506, 226, 124, 22, 'CURRENTS');
   $('f-cockpit').innerHTML = svg(640, 258, b);
@@ -655,6 +728,10 @@ function drawFlow(dept) {
       (j >= 0 ? `questions 1–${j} are NO, question ${j + 1} is YES, so <b>${repairAction(d, row)}</b>.` : `every question is NO, so <b>${DEFAULT_ACTION}</b>.`);
   });
 }
+
+// ---------- the workshop recipes, from the game's own lists ----------
+for (const k of ['gunnery', 'engineer', 'signals']) $('rec-' + k).innerHTML = RECIPES[k].map(r => '<li>' + r.text + '</li>').join('');
+$('rec-call').innerHTML = '<b>' + GUNNERY_CALL.replace(':', ':</b>');
 
 // overflow guard for authors: mark any page whose content runs off the sheet
 document.querySelectorAll('.page:not(.off)').forEach(p => { if (p.scrollHeight > p.clientHeight + 2) p.style.outline = '4px solid magenta'; });
