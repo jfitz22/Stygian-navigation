@@ -1,6 +1,6 @@
 # The Last Watch: running list
 
-What we want to add next, roughly in priority order. Revision 9 is the main game; revision 10 is in testing (2026-10-06). Revisions 11 (the manual split and a beacon workshop) and 12 (player stations with event-triggered minigames) are planned before the next session.
+What we want to add next, roughly in priority order. Revision 12 is the live game (2026-10-08).
 
 ## Done in revision 4a
 Case board, the echo → metal → radio → Tomb funnel (Hulk circles the Tomb), startup checklist, Jerry's notes, Old Tom and rising storms, Scrying Orbs, the ending cutscene, quieter ice numbers.
@@ -32,28 +32,24 @@ Sea down to 40 ice (10 small, 30 large). The skiff attack has about 30% fewer sh
 ## Still to check before Saturday
 - A real run with four separate computers over the network (the rehearsal button helps).
 
+## Next
+- **Minesweeping reward choice:** when Signals completes a sweep, they choose: beacon a random iceberg, OR reveal the outline of one enemy ship in the fleet battle that has not been hit yet.
+
 ## Stretch
 - Chess with Jerry, on every screen.
 - Update the password game (the rules and how it plays).
 - Update the succubus cameo.
 
-## Revision 12 (as planned)
-- The beacon workshop on the Gunnery station (and the red rack stops refilling; 6 red, 3 of each other).
-
-- Player stations: one page per manual holder, joined with the GM code, each with an event-triggered minigame. A failure hits the main board (power out, lights to red, a screen blacked out, a password lockout).
-
 ## Done in revision 8
 The focused ping and pitch knob are gone: one ping prints every contact's full echo as a live, sweeping trace. Five echo classes (solid, caverns, halls, flooded, frozen monster) with a cold-water rule. Five frozen monsters that a beacon hit lets loose on the buoy. Currents read on every ping and on buoy landing; slower aim decay. One wider Graveyard field (Chain and Crown removed); a fourth shoal (The Anvil). Orb size readout. Case board moved to the top of the right column, larger. Launcher refill bar. The devil wears a top hat, lasts five seconds and appears on every screen. GM: confetti and devil buttons, drag-and-drop ice, map zoom-out, wider and finer sliders. Manuals open with an orientation, suggested order of operations and index.
 
 ## Ideas for later
-- Magic items frozen in a few glaciers: hit them with a green or blue beacon and the party gets the item after the session.
-- **Beacon making**: instead of red beacons rebuilding on their own, build them in the repair bay with a repair-board-style puzzle.
+- Magic items frozen in a few glaciers: hit them with a green or orange beacon and the party gets the item after the session.
 - Obra Dinn-style soft confirmation (e.g. a GM-sent "getting warmer" note after correct exclusions).
 - GM difficulty presets (Easy / Standard / Hard lever bundles).
 - Stream legibility pass on small text before the art pass; sound pass alongside the art pass.
 
-## Manual and the four crew (parked)
-- **Role cards** for the four manual holders, each owning part of the loop (e.g. Navigator: chart, currents, aiming; Sonar officer: echo, buoy, shark; Wireless officer: radio; Engineer: scanner, rune board, repairs, camera unlock).
+## Manual (parked)
 - **Coded manual sections** for flavour and challenge. Keep them AI-resistant by keying them to *live game state* (rune board page, a camera's local wind, the watch number) so a photographed page decodes to a rule that is useless without the operator's screen.
 
 ## Smaller polish
