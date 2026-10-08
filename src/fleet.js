@@ -12,7 +12,7 @@ export const square = (x, y) => RUNES[COL_RUNES[x]].name.toUpperCase() + ' ' + (
 export const COL_RUNES = [0, 5, 10, 13, 2, 7, 8, 15];   // RUNES indices for the column marks
 export const ENEMY_DELAY = [10, 15];   // seconds before the enemy answers a shot
 export const REDEPLOY_TIME = 30;       // seconds to redeploy after a victory; the enemy holds its fire
-export const IDLE_SHOT = 45;           // seconds of silence before the enemy takes a free shot
+export const IDLE_SHOT = 60;           // seconds of silence before the enemy takes a free shot
 export const ENEMY_CARELESS = 0.3;     // how often the enemy fires blind even when it has a hit to follow
 
 export const key = (x, y) => x + ',' + y;

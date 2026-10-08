@@ -13,8 +13,8 @@ import { mountFleet } from './fleetui.js';
 import * as audio from './audio.js';
 import { GAME_TIME } from './games.js';
 import { openLink, newRoomCode, cleanCode, NET_ENABLED } from './link.js';
-import { checkPassword, keyboardOnly, WRONG_TRIES } from './password.js';
-import { sealInput, shuttered } from './sim.js';
+import { checkPassword, keyboardOnly, WRONG_TRIES, LAYERS, layerOf, maskPassword } from './password.js';
+import { sealInput, shuttered, artifactText } from './sim.js';
 import { succubus } from './succubus.js';
 
 const $ = id => document.getElementById(id);
@@ -1013,7 +1013,7 @@ function drawCases() {
     return `<div class="caserow${c.permanent ? '' : ' temp'}${c.verdict === 'EXCLUDED' ? ' excluded' : ''}${lockId === c.bergId ? ' locked' : ''}" data-id="${c.bergId}">
       <span class="tile">#${b.num}${o.length != null ? `<small style="font-size:10px;opacity:.7;margin-left:4px">${o.length}mi</small>` : ''}</span><span class="odo${prev.sq !== undefined && prev.sq !== sq ? ' roll' : ''}">${sq}</span>
       <span class="echocell ${fl('h').trim()}">${o.echo ? miniEcho(o.echo) + `<small>${o.echo.temp}°</small>` : '<span class="tile q">?</span>'}</span>
-      <span class="${fl('m').trim()}">${tf(o.metal)}${o.artifact ? `<span class="tile art" title="${o.artifact}">✦</span>` : ''}</span>
+      <span class="${fl('m').trim()}">${tf(o.metal)}${o.artifact ? `<span class="tile art" title="${esc(o.artifact + (artifactText(o.artifact) ? ' · ' + artifactText(o.artifact) : ''))}">✦</span>` : ''}</span>
       <span class="${fl('r').trim()}">${radio}</span>
       ${c.permanent ? `<button class="verdict ${c.verdict}">${c.verdict}</button>` : '<span class="keephint">BEACON IT<br>TO KEEP IT</span>'}
       ${c.verdict === 'EXCLUDED' ? '<div class="stamp">EXCLUDED</div>' : ''}
@@ -1038,6 +1038,7 @@ const JERRY = [
   ['scanner', 'Scanner rides on the buoy. Ice has to be near the buoy. Re-set it when the weather turns.'],
   ['radio', 'Gain DOWN, Jerry. Two receivers this week.'],
   ['runes', 'Runes change every page. CHECK THE BOOK, Jerry.'],
+  ['chart', 'Default password: JerryRulz!  When it changes, WRITE THE NEW ONE DOWN.'],
 ];
 function jnote(at, text, gmNote = false) {
   const [x, y] = NOTE_AT[at] || NOTE_AT.chart;
@@ -1053,30 +1054,45 @@ JERRY.forEach(([at, text]) => jnote(at, text));
 
 // ---------- the password lock ----------
 const SEAL_TITLE = { lockdown: 'PASSWORD SECURITY UPDATE REQUIRED', green: 'AUTHORISE THE GREEN BEACON', relight: 'FURNACE INTERLOCK', fatigue: 'OPERATOR LOGGED OUT', gm: 'LOCKED BY THE WATCH OFFICER', reboot: 'SYSTEM REBOOTED', station: 'STATION LOCKOUT' };
-ui.sealKey = '';
+ui.sealKey = ''; ui.pwShown = null;
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const layerName = cap => { const n = layerOf(cap); return n ? `LAYER ${LAYERS[n - 1][1]} · ${LAYERS[n - 1][0]}` : 'THE GATE'; };
 function drawSeal() {
   const s = world.seal, term = $('sealterm');
   document.querySelectorAll('.sealcover').forEach(c => c.classList.toggle('hidden', !s));
-  if (!s) { if (!term.classList.contains('hidden')) term.classList.add('hidden'); return; }
+  if (!s) {
+    // the new password, printed once it is accepted, until the operator dismisses it
+    if (ui.pwShown != null) {
+      if (ui.sealKey !== 'confirm') {
+        ui.sealKey = 'confirm'; term.classList.remove('hidden');
+        term.innerHTML = `<div class="t">PASSWORD CONFIRMED</div><div class="sub">${layerName(world.pwMet)} · THE NEW PASSWORD IS:</div>
+          <div class="pwprint">${esc(ui.pwShown)}</div><div class="sub">WRITE IT DOWN. Capitals and all: it must be entered exactly.</div>
+          <button id="sealok">I HAVE WRITTEN IT DOWN</button>`;
+        $('sealok').onclick = () => { ui.pwShown = null; ui.sealKey = ''; };
+      }
+      return;
+    }
+    if (!term.classList.contains('hidden')) term.classList.add('hidden');
+    ui.sealKey = ''; return;
+  }
   const key = [s.reason, s.mode, world.pwCap].join('|');
   if (ui.sealKey !== key) {
     ui.sealKey = key; term.classList.remove('hidden');
     const set = s.mode === 'set', update = s.reason === 'lockdown';
-    // a lockdown is a security update: the rules in force are on screen from the start, even while the old password is entered
-    const sub = update ? (set ? 'PLEASE IMPROVE YOUR PASSWORD. EVERY RULE BELOW MUST PASS.' : 'PLEASE IMPROVE YOUR PASSWORD. FIRST, ENTER THE CURRENT ONE.')
-      : set ? (s.reason === 'reboot' ? 'SET A FRESH PASSWORD. EVERY RULE BELOW MUST PASS.' : 'SET A PASSWORD. EVERY RULE BELOW MUST PASS.') : 'ENTER THE PASSWORD.';
+    const sub = set ? `DESCENDING TO ${layerName(world.pwCap)}. SET A NEW PASSWORD: EVERY RULE BELOW MUST PASS.`
+      : update ? `SECURITY UPDATE: DESCENDING TO ${layerName(world.pwCap)}. FIRST, ENTER THE <u>CURRENT</u> PASSWORD.`
+      : 'ENTER THE <u>CURRENT</u> PASSWORD.';
     term.innerHTML = `<div class="t">${SEAL_TITLE[s.reason] || 'LOCKED'}</div>
       <div class="sub">${sub}</div>
       <input id="sealin" type="text" spellcheck="false" autocomplete="off" maxlength="120" placeholder="${set ? 'new password' : 'current password'}">
       <div class="warn" id="sealwarn"></div>
-      <button id="sealgo">${set ? 'SET PASSWORD' : 'ENTER'}</button>
-      ${set ? '' : '<div class="tries" id="sealtries"></div>'}
-      ${set || update ? `${set ? '' : '<div class="sub">THE NEW PASSWORD WILL NEED:</div>'}<ol class="rules${set ? '' : ' pending'}" id="sealrules"></ol>` : ''}`;
-    if (!set && update) $('sealrules').innerHTML = checkPassword('', world.pwCap, { pages: s.pages }).results.map(r => `<li>${r.text}</li>`).join('');
+      <div class="row"><button id="sealgo">${set ? 'SET NEW PASSWORD' : 'ENTER'}</button>${set ? '' : '<div class="tries" id="sealtries"></div>'}</div>
+      ${set ? '' : '<div class="mask" id="sealmask"></div>'}
+      ${set ? '<ol class="rules" id="sealrules"></ol>' : `<div class="sub">THE CURRENT PASSWORD MET THESE RULES:</div><ol class="rules pending" id="sealrules">${checkPassword('', world.pwMet).results.map(r => `<li>${esc(r.text)}</li>`).join('')}</ol>`}`;
     const inp = $('sealin');
     const submit = () => { const r = sealInput(world, inp.value); if (r === 'wrong') { inp.value = ''; inp.focus({ preventScroll: true }); } if (r === 'reboot') ui.sealKey = ''; };
     inp.addEventListener('input', () => {
-      if (!keyboardOnly(inp.value)) { inp.value = inp.value.replace(/[^\x20-\x7E]/g, ''); $('sealwarn').textContent = 'Keyboard letters, numbers and symbols only.'; } else $('sealwarn').textContent = '';
+      if (!keyboardOnly(inp.value)) { inp.value = inp.value.replace(/[^\x20-\x7E°]/g, ''); $('sealwarn').textContent = 'Keyboard letters, numbers and symbols only.'; } else $('sealwarn').textContent = '';
       refreshSealRules();
     });
     inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
@@ -1085,15 +1101,17 @@ function drawSeal() {
   }
   if (s.mode === 'set') refreshSealRules();
   else {
-    const left = WRONG_TRIES - s.tries, txt = s.tries ? `${left} ${left === 1 ? 'TRY' : 'TRIES'} LEFT BEFORE THE SYSTEM REBOOTS` : `${WRONG_TRIES} WRONG TRIES AND THE SYSTEM REBOOTS`;
+    const left = WRONG_TRIES - s.tries, txt = s.tries ? `${left} ${left === 1 ? 'TRY' : 'TRIES'} LEFT · ${WRONG_TRIES} FAILED ATTEMPTS REBOOT THE SYSTEM` : `WARNING: ${WRONG_TRIES} FAILED ATTEMPTS WILL REBOOT THE SYSTEM`;
     if ($('sealtries').textContent !== txt) $('sealtries').textContent = txt;
+    const mask = s.shown.length ? 'EACH FAILED ATTEMPT SHOWS TWO CHARACTERS: <b>' + maskPassword(world.password, s.shown).map(c => c === ' ' ? '␣' : esc(c)).join(' ') + '</b>' : '';
+    if ($('sealmask').innerHTML !== mask) $('sealmask').innerHTML = mask;
   }
 }
-// the rule list ticks as you type (and every frame, since a board flip can satisfy the page rule)
+// the rule list ticks as you type; the newest rule (this layer's) is marked
 function refreshSealRules() {
   const s = world.seal; if (!s || s.mode !== 'set' || !$('sealrules')) return;
-  const chk = checkPassword($('sealin').value, world.pwCap, { pages: s.pages });
-  const html = chk.results.map(r => `<li class="${r.ok ? 'ok' : ''}">${r.text}</li>`).join('');
+  const chk = checkPassword($('sealin').value, world.pwCap), last = chk.results.length - 1;
+  const html = chk.results.map((r, i) => `<li class="${r.ok ? 'ok' : ''}${i === last && r.layer ? ' new' : ''}">${i === last && r.layer ? `<i>${r.layer[1]} · ${r.layer[0]}</i> ` : ''}${esc(r.text)}${!r.ok && r.hint ? `<small>${esc(r.hint)}</small>` : ''}</li>`).join('');
   if ($('sealrules').innerHTML !== html) $('sealrules').innerHTML = html;
   $('sealgo').disabled = !chk.ok;
 }
@@ -1368,7 +1386,7 @@ function handleEvents() {
       case 'calibrated': audio.sfx.calibrated(); toast('SCANNER CALIBRATED', 'info'); break;
       case 'scandone': audio.sfx.scandone(); break;
       case 'artifact': audio.sfx.reveal(); wire(`THE SCANNER NAMES AN INFERNAL ARTIFACT IN #${e.num}: ${e.name.toUpperCase()} · A GREEN BEACON WILL RECOVER IT`, 'info'); break;
-      case 'artifactrecovered': audio.sfx.reveal(); confetti(); wire(`ARTIFACT RECOVERED FROM #${e.num}: ${e.name.toUpperCase()}`, 'info'); break;
+      case 'artifactrecovered': audio.sfx.reveal(); confetti(); wire(`ARTIFACT RECOVERED FROM #${e.num}: ${e.name.toUpperCase()}`, 'info'); artCard(e); break;
       case 'enemyrevealed': audio.sfx.lamps(); wire(`SIGNALS COMPLETED A SWEEP · ${e.name} IS PLOTTED ON THE FLEET TABLES`, 'info'); break;
       case 'launch': audio.sfx.launch(); if (e.wild) toast('LAUNCH WITH NOTHING LOCKED · THE BEACON FLIES WILD'); break;
       case 'hit': audio.sfx.hit(); if (e.color !== 'green') toast(`BEACON STRUCK ICEBERG #${e.num}`, 'info'); break;
@@ -1389,7 +1407,7 @@ function handleEvents() {
       case 'defence': audio.sfx.alarm(); toast({ gunnery: 'GUNNERY STATION: DEVIL FIRE INBOUND ON THE TOWERS', signals: 'SIGNALS STATION: THE BUOY CABLE HAS SNAPPED', engineer: e.reason === 'overheat' ? 'THE FURNACE IS IN THE RED · ENGINEERING: THE FUSE BOX HAS BLOWN' : 'ENGINEERING STATION: THE FUSE BOX HAS BLOWN' }[e.role]); break;
       case 'freebeacon': audio.sfx.launch(); wire(`SIGNALS COMPLETED A MINESWEEP · THE GUNS FIRED · A BEACON STRUCK #${e.num}`, 'info'); break;
       case 'freefuel': audio.sfx.fuel(); wire(e.full ? 'ENGINEERING CLEARED THE BREAKER PANEL · THE CHUTE WAS ALREADY FULL' : 'ENGINEERING CLEARED THE BREAKER PANEL · A FREE SHOVEL IN THE CHUTE', 'info'); break;
-      case 'defencedone': stationLast[e.role] = e.ok ? 'held' : 'failed'; if (e.ok) wire({ gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING REWIRED THE FUSE BOX' }[e.role], 'info');
+      case 'defencedone': (stationHist[e.role] = stationHist[e.role] || []).push({ t: world.t, ok: e.ok, what: DEF_WHAT[e.role] || 'defence' }); if (e.ok) wire({ gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING REWIRED THE FUSE BOX' }[e.role], 'info');
         else { audio.sfx.camdead(); wire({ gunnery: `DEVIL FIRE STRUCK ${e.n} TOWER${e.n > 1 ? 'S' : ''} · THOSE ORBS ARE DOWN`, signals: 'THE SPLICE FAILED · THE BUOY IS LOST · REPAIR THE WINCH ▲', engineer: `THE FUSE BOX FAILED · ${e.sys ? SYS_LABEL[e.sys] + ' IS OFF, ' : ''}A SHOVEL LOST, LIGHTS RED` }[e.role]); } break;
       case 'fleetwin': audio.sfx.reveal(); wire('THE ENEMY FLEET IS SUNK · REDEPLOY THE FLEET · A NEW ENEMY IS ON THE HORIZON', 'info'); break;
       case 'defencelost': break;
@@ -1428,12 +1446,12 @@ function handleEvents() {
       case 'shutter': audio.sfx.shutter(); toast(`SHUTTERS DOWN OVER THE SONAR AND THE ORBS · ${T.shutterTime} S`); break;
       case 'decoy': audio.sfx.launch(); toast('DECOY AWAY · THE GRINDMAW IS CHASING THE NOISE', 'info'); break;
       case 'succubus': succubus(); break;
-      case 'sealed': audio.sfx.seal(); toast(SEAL_TITLE[e.reason] + (e.mode === 'set' ? ' · SET A PASSWORD' : ' · ENTER THE PASSWORD')); break;
+      case 'sealed': audio.sfx.seal(); toast(SEAL_TITLE[e.reason] + ' · ENTER THE CURRENT PASSWORD'); break;
       case 'pwwrong': audio.sfx.deny(); toast(`WRONG PASSWORD · ${e.left} ${e.left === 1 ? 'TRY' : 'TRIES'} BEFORE THE SYSTEM REBOOTS`); break;
       case 'pwaccepted': audio.sfx.calibrated(); if (e.next === 'set') toast('PASSWORD ACCEPTED · NOW SET A NEW ONE', 'info'); break;
-      case 'pwset': audio.sfx.calibrated(); toast('PASSWORD SET · WRITE IT DOWN', 'info'); break;
-      case 'unsealed': ui.sealKey = ''; break;
-      case 'reboot': audio.sfx.reboot(); toast('FIVE WRONG PASSWORDS · THE SYSTEM HAS REBOOTED'); break;
+      case 'pwset': audio.sfx.calibrated(); ui.pwShown = e.password; toast('PASSWORD CONFIRMED · WRITE IT DOWN', 'info'); break;
+      case 'unsealed': if (ui.sealKey !== 'confirm') ui.sealKey = ''; break;
+      case 'reboot': audio.sfx.reboot(); wire('FIVE WRONG PASSWORDS · THE SYSTEM HAS REBOOTED · THE PASSWORD IS BACK TO THE FACTORY DEFAULT'); break;
       case 'confetti': confetti(); break;
       case 'devil': devil(); break;
       case 'telemetry': audio.sfx.lock(); toast(`BEACON TELEMETRY FROM #${e.num} · LIVE POSITION AND DRIFT`, 'info'); break;
@@ -1475,10 +1493,11 @@ function drawCabin() {
   document.querySelectorAll('#damper button').forEach(b => b.classList.toggle('sel', b.dataset.m === world.damper));
   drawPriority();
   fleetUI.render();
-  drawCrew(); drawFinds();
+  drawCrew();
 }
 // The crew board: one card per officer's station.
-const stationDoing = {}, stationLast = {};
+const stationDoing = {}, stationHist = {};
+const DEF_WHAT = { gunnery: 'devil fire', signals: 'cable splice', engineer: 'fuse box' };
 const DEF_NAME = { missile: 'DEVIL FIRE ON THE TOWERS', snake: 'THE BUOY CABLE SNAPPED', wires: 'THE FUSE BOX BLEW' };
 function drawCrew() {
   const now = performance.now(), cards = ROLES.map(r => {
@@ -1490,16 +1509,17 @@ function drawCrew() {
     return `<div class="crewcard${live ? '' : ' off'}${ev ? ' alarm' : ''}"><div class="nm"><i class="${live ? 'on' : ''}"></i>${STATION_NAME[r].toUpperCase()}</div>
       <div class="doing">${live ? (stationDoing[r] || 'at their station') : 'not connected'}</div>
       ${ev ? `<div class="ev">${DEF_NAME[ev.kind] || 'UNDER ATTACK'} · ${Math.max(0, Math.ceil((GAME_TIME[ev.kind] || 30) - (world.t - ev.at)))} s</div>` : ''}
-      ${stationLast[r] ? `<div class="last">Last: ${stationLast[r]}</div>` : ''}
+      ${(stationHist[r] || []).length ? `<div class="hist">${stationHist[r].slice(-4).reverse().map(h => `<div><b>${fmt(h.t)}</b> ${h.what} · <span class="${h.ok ? 'ok' : 'bad'}">${h.ok ? 'HELD' : 'FAILED'}</span></div>`).join('')}</div>` : ''}
       <div class="stat">${stat}</div></div>`;
   }).join('');
   if ($('crew').innerHTML !== cards) $('crew').innerHTML = cards;
 }
-// Finds: the artifacts the scanner has named, and those recovered.
-function drawFinds() {
-  const list = world.artifacts.filter(a => a.found || a.recovered).map(a => { const b = [...world.bergs, ...world.reserve].find(x => x.id === a.bergId) || {}; return `<div class="row"><b>#${b.num}</b><span>${a.name}</span><span class="st ${a.recovered ? 'rec' : 'det'}">${a.recovered ? 'RECOVERED' : 'GREEN BEACON TO RECOVER'}</span></div>`; }).join('');
-  const html = list || '<div class="none">No artifacts named yet. Worked metal sometimes hides an infernal artifact: the metal scanner names it, and a green beacon recovers it.</div>';
-  if ($('finds').innerHTML !== html) $('finds').innerHTML = html;
+// A recovered artifact: a parchment card over the cockpit, like a handout.
+function artCard(e) {
+  const n = document.createElement('div'); n.className = 'artcard';
+  n.innerHTML = `<div class="k">INFERNAL ARTIFACT RECOVERED · #${e.num}</div><h3>${esc(e.name)}</h3>${e.text ? `<p>${esc(e.text)}</p>` : ''}<button>STOW IT</button>`;
+  n.querySelector('button').onclick = () => n.remove();
+  $('stage').appendChild(n);
 }
 // The fleet: the Watch's naval defences, on the cabin wall (and on every officer's station).
 const fleetUI = mountFleet($('fleetwall'), () => ({ fleet: world.fleet, t: world.t }), a => { stationAction(world, 'operator', a); audio.sfx.click(); }, { cell: 58 });

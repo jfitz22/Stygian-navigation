@@ -6,7 +6,7 @@ import {
   BOARD_GRID, BOARD_PAGES,
 } from './scenario.js';
 import { RUNES, makePlate, keypadCode, shuffle, octantName } from './glyphs.js';
-import { checkPassword, passwordMatches, FIRST_RULES, RULES_PER_LOCKDOWN, RULES as PW_RULES, WRONG_TRIES } from './password.js';
+import { checkPassword, passwordMatches, BASE_RULES, RULES_PER_LOCKDOWN, RULES as PW_RULES, WRONG_TRIES, DEFAULT_PASSWORD, revealPair } from './password.js';
 import * as FL from './fleet.js';
 import { GAME_TIME } from './games.js';
 export const PAYLOAD = { red: 'stock', orange: 'orange', green: 'green' };
@@ -327,7 +327,7 @@ export function createWorld(seed = newSeed(), opts = {}) {
     radio: { freq: 300.0, gain: 5, clipTime: 0 },
     music: false, lamps: 0, wipe: null,   // lamps: 0 normal, 1 red, 2 green
     shutterUntil: 0,
-    password: null, pwCap: FIRST_RULES, pwSets: 0,
+    password: DEFAULT_PASSWORD, pwCap: BASE_RULES, pwMet: BASE_RULES, pwSets: 0, pwNext: T.pwUpdateEvery,
     seal: null,         // the password lock while it is up: {reason, mode: 'enter'|'set', change, pending, tries, pages}
     coffee: { brewUntil: 0, sips: 0 }, fatigue: 0,
     board: { page: 0, runes: [], presses: 0, nextFlip: 0, flippedAt: -99 },
@@ -366,7 +366,17 @@ export function createWorld(seed = newSeed(), opts = {}) {
   w.artRng = artRng;
   return w;
 }
-export const ARTIFACTS = ['The Choir-Bell of Avernus', 'A Hellforged Signet of Dis', 'The Brass Censer of Stygia', 'A Phylactery of Black Ice', 'Geryon\'s Horn-Comb', 'The Lantern of the Drowned Legion'];
+export const ARTIFACT_INFO = [
+  ['Dagger of Ra-than', 'A plain dagger of darkened steel, still impossibly sharp after centuries. Whether a paladin or a lowly abishai drove it into Cantrum, it is forbidden throughout the Hells as proof that any tyrant can fall to a servant.'],
+  ['Malbogian Spirit-Catcher', 'A vessel of black crystal bound in tarnished silver, its depths stirring with almost-human shapes. Devils bound defeated rivals inside such vessels as servants, and this one still whispers.'],
+  ["Jacob's Ladder of Infinite Climbing", 'A fifteen-foot ladder of dull iron, its rungs worn smooth by countless hands. Blood War siege engineers used ladders like it to scale walls no climber could, some said past the clouds.'],
+  ['Fleshshifter Armor', 'Supple dark leather that seems to shift under the light, made from preserved humanoid skin. Infernal spies wore it to walk through enemy strongholds in the faces of those they had slain.'],
+  ['Mimir of the Blood War', 'A floating skull of engraved silver, seamed with tiny mechanisms. Generals passed these down for centuries to keep campaigns and secrets, and the light in its eyes has not gone out.'],
+  ['Scythe of Plane-Opening', 'An enormous black-iron scythe whose silver edge distorts the air. Abyssal commanders carved wounds between the planes with it, and even at rest it never quite sits in one place.'],
+];
+export const ARTIFACTS = ARTIFACT_INFO.map(a => a[0]);
+// the two-line description of an artifact, by name (empty for a name the GM has made up)
+export const artifactText = name => (ARTIFACT_INFO.find(a => a[0] === name) || [])[1] || '';
 export const artifactIn = (w, bergId) => w.artifacts && w.artifacts.find(a => a.bergId === bergId);
 // The scanner found worked metal in this glacier: is there an artifact? The first metal glacier always has one.
 function scanArtifact(w, b) {
@@ -513,17 +523,18 @@ function fireDecoy(w) {
 }
 export function flipBoard(w) {
   dealBoard(w, w.boardRng); w.board.flippedAt = w.t;
-  if (w.seal && !w.seal.pages.includes(w.board.page)) w.seal.pages.push(w.board.page);   // any page seen while the lock is up counts
   emit(w, 'flip', { page: BOARD_PAGES[w.board.page] });
 }
 
 // ---------- the password lock ----------
-// One lock over the chart, the furnace controls and the launcher. Some triggers only ask for the password;
-// LOCKDOWN changes it (enter the old one, then set a new one under more rules). No password yet: set one.
+// One lock over the chart, the furnace controls and the launcher. Some triggers only ask for the CURRENT password;
+// a LOCKDOWN (every few minutes, the rune, or the GM) is a security update that descends one layer of Hell:
+// the current password, then a new one under one more rule. The Watch starts on the factory password.
 export function openSeal(w, reason, { change = false, pending = null } = {}) {
   if (w.seal) return false;
-  if (change && w.password) w.pwCap = Math.min(PW_RULES.length, w.pwCap + RULES_PER_LOCKDOWN);
-  w.seal = { reason, mode: w.password ? 'enter' : 'set', change: change || !w.password, pending, tries: 0, pages: [w.board.page], opened: w.t };
+  if (!w.password) w.password = DEFAULT_PASSWORD;
+  if (change) { w.pwCap = Math.min(PW_RULES.length, w.pwCap + RULES_PER_LOCKDOWN); w.pwNext = w.t + T.pwUpdateEvery; }
+  w.seal = { reason, mode: 'enter', change, pending, tries: 0, shown: [], opened: w.t };
   emit(w, 'sealed', { reason, mode: w.seal.mode });
   return true;
 }
@@ -537,33 +548,35 @@ export function sealInput(w, text) {
     }
     s.tries++;
     if (s.tries >= WRONG_TRIES) { reboot(w); return 'reboot'; }
+    for (const i of revealPair(w.password, s.shown, w.rng)) if (!s.shown.includes(i)) s.shown.push(i);   // a gift: two characters
     emit(w, 'pwwrong', { left: WRONG_TRIES - s.tries });
     return 'wrong';
   }
-  const chk = checkPassword(text, w.pwCap, { pages: s.pages });
+  const chk = checkPassword(text, w.pwCap);
   if (!chk.ok) { emit(w, 'deny', { msg: chk.ascii ? 'THAT PASSWORD BREAKS A RULE' : 'KEYBOARD LETTERS, NUMBERS AND SYMBOLS ONLY' }); return 'rejected'; }
-  w.password = chk.value; w.pwSets++;
-  emit(w, 'pwset', { rules: w.pwCap });
+  w.password = chk.value; w.pwMet = w.pwCap; w.pwSets++;
+  emit(w, 'pwset', { rules: w.pwCap, password: chk.value });
   finishSeal(w);
   return 'ok';
 }
-export const sealRules = w => w.seal ? checkPassword('', w.pwCap, { pages: w.seal.pages }).results.map(r => r.text) : [];
+export const sealRules = w => w.seal ? checkPassword('', w.pwCap).results.map(r => r.text) : [];
 function finishSeal(w) {
   const p = w.seal && w.seal.pending;
   w.seal = null; emit(w, 'unsealed');
   if (p === 'light') light(w, { auth: true });
   if (p === 'green') fireBeacon(w, 'green', { auth: true });
-  if (p === 'fatigue') w.fatigue = Math.min(w.fatigue, 0.7);
+  if (p === 'fatigue') w.fatigue = Math.min(w.fatigue, T.fatigueBack);
 }
 // Too many wrong tries: the ship reboots. Fire out, chute empty, everything off, one or two things break.
-// Beacons already fired, the case board and the chart all stay. Then a fresh password, under the same rules.
+// Beacons already fired, the case board and the chart all stay. The password goes back to the factory default;
+// the layer reached stays, so the next update still asks for every rule.
 function reboot(w) {
   const f = w.furnace;
   f.lit = false; f.heat = 0; f.pending = 0; f.chute = 0; allOff(w);
   const pool = ['furnace', 'launcher', 'winch', 'fuse'].filter(k => !w.broken[k]), n = 1 + Math.floor(w.rng() * 2), broke = [];
   for (let i = 0; i < n && pool.length; i++) { const k = pool.splice(Math.floor(w.rng() * pool.length), 1)[0]; w.broken[k] = true; broke.push(k); if (k === 'winch') w.buoy = null; }
-  w.password = null;
-  w.seal = { reason: 'reboot', mode: 'set', change: true, pending: null, tries: 0, pages: [w.board.page], opened: w.t };
+  w.password = DEFAULT_PASSWORD; w.pwMet = BASE_RULES;
+  w.seal = null; emit(w, 'unsealed');
   emit(w, 'reboot', { broke });
   for (const k of broke) emit(w, 'broke', { sys: k });
 }
@@ -840,7 +853,7 @@ function beaconHits(w, b, color, t) {
   if (color === 'orange') record(w, b.id, 'echo', echoSeen(b, tempAt(b.x, b.y, t, w.field, w.tomb)), { length: Math.round(b.length) });
   if (b.echo.sig === 'monster' && !b.released) releaseMonster(w, b);
   const art = color === 'green' && artifactIn(w, b.id);
-  if (art && !art.recovered) { art.recovered = true; art.found = true; record(w, b.id, 'artifact', art.name); emit(w, 'artifactrecovered', { num: b.num, name: art.name }); }
+  if (art && !art.recovered) { art.recovered = true; art.found = true; record(w, b.id, 'artifact', art.name); emit(w, 'artifactrecovered', { num: b.num, name: art.name, text: artifactText(art.name) }); }
   if (color === 'green') {
     if (b.elgarz) { if (!w.reveal) { w.reveal = { t, bergId: b.id }; emit(w, 'reveal', { num: b.num }); } }
     else emit(w, 'greenwrong', { num: b.num });
@@ -999,7 +1012,7 @@ export function gm(w, cmd, arg = {}) {
   if (cmd === 'rune' && RUNE_FUNCTIONS.includes(arg.fn)) runeEffect(w, arg.fn);
   if (cmd === 'seal') openSeal(w, 'gm');
   if (cmd === 'lockdown') openSeal(w, 'lockdown', { change: true });
-  if (cmd === 'unseal' && w.seal) { const p = w.seal.pending; w.seal = null; emit(w, 'unsealed'); if (p === 'fatigue') w.fatigue = Math.min(w.fatigue, 0.7); }
+  if (cmd === 'unseal' && w.seal) { const p = w.seal.pending; w.seal = null; emit(w, 'unsealed'); if (p === 'fatigue') w.fatigue = Math.min(w.fatigue, T.fatigueBack); }
   if (cmd === 'lights-normal') { w.lamps = 0; emit(w, 'lights', { mode: 0 }); }
   if (cmd === 'shutter-up') w.shutterUntil = 0;
   if (cmd === 'break') breakThing(w, arg.id);
@@ -1048,7 +1061,8 @@ export function step(w, dt = DT) {
   if (t >= w.board.nextFlip) flipBoard(w);
   if (w.coffee.brewUntil && t >= w.coffee.brewUntil) { w.coffee.brewUntil = 0; w.coffee.sips = T.coffeeSips; emit(w, 'brewed'); }
   w.fatigue = clamp(w.fatigue + T.fatigueRate * w.levers.fatigue * dt, 0, 1);
-  if (w.fatigue >= 1 && !w.seal) openSeal(w, 'fatigue', { pending: 'fatigue' });   // the console logs the operator out
+  if (w.fatigue >= T.fatigueLogout && !w.seal) openSeal(w, 'fatigue', { pending: 'fatigue' });   // the console logs the operator out
+  if (t >= w.pwNext && !w.seal) openSeal(w, 'lockdown', { change: true });           // the scheduled security update
 
   // repairs
   // a repair waits while its bay has no power, and runs slower on the LOW damper
@@ -1586,7 +1600,7 @@ export function snapshot(w) {
     furnace: { lit: w.furnace.lit, heat: w.furnace.heat, chute: w.furnace.chute }, music: w.music, fatigue: w.fatigue,
     camCode: camCode(w), activeCam: w.activeCam, tom: { x: w.tom.x, y: w.tom.y, mode: w.tom.mode },
     furnaceState: furnaceState(w), sonarStrain: sonarStrain(w), camRune: w.camRune, brokenIds: Object.keys(w.broken).filter(k => w.broken[k]),
-    seal: w.seal ? { reason: w.seal.reason, mode: w.seal.mode, tries: w.seal.tries } : null, password: w.password, pwCap: w.pwCap, lamps: w.lamps, shuttered: shuttered(w),
+    seal: w.seal ? { reason: w.seal.reason, mode: w.seal.mode, tries: w.seal.tries } : null, password: w.password, pwCap: w.pwCap, pwNext: w.pwNext, lamps: w.lamps, shuttered: shuttered(w),
     artifacts: w.artifacts.map(a => ({ ...a, num: a.bergId && a.bergId !== 'none' ? ([...w.bergs, ...w.reserve].find(b => b.id === a.bergId) || {}).num : null })),
     shoals: SHOALS, monsters: w.monsters.map(m => ({ x: m.x, y: m.y, num: m.num, fading: m.fadeAt != null })),
     cases: w.cases.map(c => ({ bergId: c.bergId, seen: c.seen, callsign: w.callsigns[c.bergId] || null, num: (w.bergs.find(b => b.id === c.bergId) || {}).num, permanent: c.permanent, verdict: c.verdict, obs: w.obs[c.bergId] || null })), camUnlocked: Object.keys(w.camUnlocked),

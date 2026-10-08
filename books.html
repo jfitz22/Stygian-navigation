@@ -37,6 +37,7 @@
   .ask.crew { border-left-color: var(--blue); background: rgba(35,64,122,.06); }
   .ask.crew b { color: var(--blue); }
   .warn { border: 1.5px solid var(--red); padding: 5px 10px; margin: 8px 0; color: var(--red); }
+  .aside { font-size: 11px; font-style: italic; border-left: 2px solid #8a7a5a; padding: 2px 10px; margin: 4px 0 8px; color: #4a4030; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   .stamp { position: absolute; font-family: 'Stardos Stencil', monospace; color: var(--red); border: 3px solid var(--red); padding: 2px 12px; letter-spacing: 4px; opacity: .72; transform: rotate(-8deg); }
   .margin { position: absolute; width: 2.9in; text-align: right; font-family: 'Caveat', cursive; font-size: 16px; line-height: 1.1; color: var(--blue); transform: rotate(-3deg); }
@@ -103,7 +104,8 @@
 
 <section class="page" data-book="all" data-sec="LW-0B" data-title="The sea">
   <h2><span class="code">LW-0B</span> THE SEA</h2>
-  <p>The water of Stygia runs from about −125° to −250°: coldest near the Tomb, and colder as the night goes on. Things live in it. All of them go for the buoy. <b>Ping, then move the buoy.</b></p>
+  <p>The water of Stygia runs from about −185° to −255°, near −215° on a usual night: coldest near the Tomb, and colder as the night goes on. Things live in it. All of them go for the buoy. <b>Ping, then move the buoy.</b></p>
+  <p class="aside"><b>On the cold.</b> Nothing can be colder than <b>absolute zero</b>: −273.15° (0 K; −459.67° on the old Fahrenheit scale). The ice by the Tomb comes within twenty degrees of it. Nowhere else in the Hells is so near.</p>
   <h3>The hunters</h3>
   <p><b>The Grindmaw</b> answers every ping. It races to the spot (fast from far off, slow over the last square and a half), eats any buoy it finds there, then circles the Watch. <b>Old Tom</b> wakes after about ten minutes and does the same for every <b>buoy splashdown</b>, circling the other way. <b>Frozen monsters</b> sleep in some ice; a beacon strike wakes one, and it swims for the buoy. Move the buoy a full buoy range away and it loses interest.</p>
   <div class="fig"><div id="f-hunters"></div><div class="cap"><b>FIG. 0.3</b> The hunters. Each eats a buoy it finds, then circles the Watch: opposite ways.</div></div>
@@ -124,18 +126,19 @@
   <table id="t-breaks"></table>
   <p>Machines also fail without warning. Every fault shows on the same board in the <b>REPAIR BAY</b> (look up): four conduits, each with three lights, a gauge and a fault code. The flowchart that reads it is in <b>the owner's book</b>. The repair crew needs the <b>REPAIR</b> switch on, except at the furnace grate, which is mended by hand.</p>
   <h3>The password</h3>
-  <p>The Watch has one password. When it is called for, a terminal replaces the chart and the furnace and launcher lock. The sea does not wait.</p>
+  <p>The Watch has one password. When it is called for, a terminal replaces the chart and the furnace and launcher lock. The sea does not wait. The Watch leaves the yard on the factory password, <b>JerryRulz!</b></p>
   <table>
     <tr><th>When</th><th>It wants</th></tr>
-    <tr><td>The LOCKDOWN rune</td><td>A security update: the current password, then a <b>better</b> one. Each update adds one rule.</td></tr>
-    <tr><td>Firing green · relighting the furnace</td><td>The password; then it fires, or lights.</td></tr>
-    <tr><td>The operator nods off</td><td>The password to log back in. They come back drowsy: coffee.</td></tr>
-    <tr><td>The officer of the watch</td><td>Whatever the officer of the watch requires.</td></tr>
+    <tr><td>A security update: every nine minutes, or the LOCKDOWN rune</td><td>The <b>current</b> password, then a new one. Each update descends one layer of the Hells and adds that layer's rule; the terminal shows it.</td></tr>
+    <tr><td>Firing green · relighting the furnace</td><td>The current password; then it fires, or lights.</td></tr>
+    <tr><td>The operator nods off</td><td>The current password to log back in. They come back drowsy: coffee.</td></tr>
   </table>
-  <p>No password yet? The first lock asks you to <b>set</b> one, under the first three rules. <b>Write it down.</b> It must be entered exactly, capitals and all. <b>Five wrong tries reboot the system</b>: fire out, chute empty, everything off, and one or two machines damaged.</p>
-  <h3>The rules, in order</h3>
+  <p>It must be entered exactly, capitals and all. <b>Five failed attempts reboot the system</b>: fire out, chute empty, everything off, one or two machines damaged, and the password back to the factory default. Each failed attempt shows two neighbouring characters of the real password.</p>
+  <div class="warn"><b>WRITE DOWN THE PASSWORD.</b> Every time it changes. The terminal prints the new one when it is accepted.</div>
+  <h3>The base rules</h3>
   <ol id="pwrules" style="margin-top:2px"></ol>
-  <div class="margin" style="right:0.95in;bottom:0.85in">the password was on the back of the fuel docket.<span class="re">Not any more. —I.</span></div>
+  <p class="aside">The rules of the deeper layers are set by the Hells themselves. The terminal shows each one as you descend.</p>
+  <div class="margin" style="right:0.95in;bottom:0.85in">default is JerryRulz! — WRITE DOWN THE NEW ONE, JERRY.<span class="re">It was on the back of the fuel docket. Not any more. —I.</span></div>
 </section>
 
 <section class="page" data-book="all" data-sec="LW-0D" data-title="The case board">
@@ -169,7 +172,7 @@
   <ul>
     <li><b>Before the watch begins</b>, deploy the fleet: drag the four ships onto the table (ROTATE, R or right click turns one). The watch holds until all four are placed.</li>
     <li><b>To fire</b>, choose a rune and a number, then FIRE. Anyone may fire, from any screen.</li>
-    <li>The enemy answers every shot, 10 to 15 s later. <b>If nobody fires for 45 s, it fires anyway.</b></li>
+    <li>The enemy answers every shot, 10 to 15 s later. <b>If nobody fires for 60 s, it fires anyway.</b></li>
     <li>Sink their fleet and another appears on the horizon. Ours is refitted and moved a few squares; you have 30 s to redeploy it (the enemy holds its fire), or press READY.</li>
     <li>Lose all four ships and <b>devil reinforcements</b> attack. The watch halts until the officer of the watch gives the word.</li>
   </ul>
@@ -392,6 +395,7 @@
   <ol id="rec-signals"></ol>
   <p><b>Example.</b> Serial <b>KTR-47</b>, lamp yellow, call band MID: five facets; the letters are all different and the lamp is yellow, so smoky.</p>
   <h2 style="margin-top:22px"><span class="code">SI-6</span> MINESWEEPING &amp; THE CABLE</h2>
+  <p><b>Reading echoes.</b> Click any contact on your copy of the sonar to print its echo. It does not change what the operator has selected or locked: read it, then talk them onto the right ice.</p>
   <p><b>Minesweeping</b> sits on your station at all times: eight by eight, eight mines, a safe patch already open. <b>Complete a sweep and the Watch's guns are free to fire: a beacon strikes a random iceberg</b>, pinning it to the case board. Or choose to <b>plot an enemy ship</b> instead: its outline appears on the fleet tables. One sweep a minute; a mine costs nothing but the sweep.</p>
   <ul>
     <li><b>Left click</b> opens a square. A number is how many of the eight squares around it hold a mine.</li>
@@ -487,7 +491,7 @@ $('t-flow').innerHTML = '<tr><th>Step</th><th>Led by (with the operator)</th><th
   $('t-breaks').innerHTML = '<tr><th>Machine</th><th>Breaks when</th><th>Flowchart in</th></tr>' + rows.map(([n, h, o]) => `<tr><td><b>${n}</b></td><td>${h}</td><td class="lead">${DEPTS[o]}</td></tr>`).join('');
 }
 // ---------- LW-0C password rules, from the game's own list ----------
-$('pwrules').innerHTML = PW_RULES.map(r => '<li>' + r.text + '</li>').join('');
+$('pwrules').innerHTML = PW_RULES.filter(r => !r.layer).map(r => '<li>' + r.text + '</li>').join('');
 
 // ---------- the index of this book, built from its own pages ----------
 {
@@ -544,7 +548,7 @@ $('pwrules').innerHTML = PW_RULES.map(r => '<li>' + r.text + '</li>').join('');
   b += rect(16, 30, 44, 24, { fill: '#2a261f', rx: 3 }) + txt(38, 47, '#23', { anchor: 'middle', bold: true, size: 13, fill: '#f0e6c8' });
   b += rect(70, 30, 40, 24, { fill: '#2a261f', rx: 3 }) + txt(90, 47, 'F7', { anchor: 'middle', bold: true, size: 13, fill: '#f0e6c8' });
   { const pts = []; for (let x = 0; x <= ECHO_W; x += 1.5) pts.push(`${(132 + x * 72 / ECHO_W).toFixed(1)},${(52 - echoAt(ECHO_EXAMPLES.halls, 14, x) * 0.3).toFixed(1)}`);
-    b += rect(128, 30, 80, 24, { fill: '#2a261f', rx: 3 }) + `<polyline points="${pts.join(' ')}" fill="none" stroke="#e8dfc6"/>` + txt(214, 46, '-171°', { size: 10.5, fill: BLUE }); }
+    b += rect(128, 30, 80, 24, { fill: '#2a261f', rx: 3 }) + `<polyline points="${pts.join(' ')}" fill="none" stroke="#e8dfc6"/>` + txt(214, 46, '-213°', { size: 10.5, fill: BLUE }); }
   b += tile(250, 'F', RED);
   b += ['W', 'R', 'B'].map((c, i) => `<circle cx="${304 + i * 12}" cy="42" r="5" fill="${lampc[c]}" stroke="#000"/>`).join('') + txt(342, 46, '612 MID ⊓ · SWEPT', { size: 11 });
   b += rect(530, 31, 90, 22, { rx: 3 }) + txt(575, 46, 'SUSPECT', { anchor: 'middle', bold: true, size: 11 });
@@ -616,12 +620,12 @@ $('pwrules').innerHTML = PW_RULES.map(r => '<li>' + r.text + '</li>').join('');
 }
 // ---------- FIG EN.6 temperature strip ----------
 {
-  const L = 20, W = 620, t0 = -240, t1 = -110, X = v => L + (v - t0) / (t1 - t0) * (W - 40);
+  const L = 20, W = 620, t0 = -270, t1 = -170, X = v => L + (v - t0) / (t1 - t0) * (W - 40);
   const sw = switches(tempBandName, t0, t1), PICK = { BITTER: 'HEAVIEST', COLD: 'LIGHTEST', RIME: '2ND LIGHTEST' };
   const edges = [t0, ...sw.map(s => s.at), t1];
   let b = '';
   edges.slice(0, -1).forEach((e, i) => { b += `<rect x="${X(e)}" y="18" width="${X(edges[i + 1]) - X(e)}" height="30" fill="rgba(35,64,122,${0.22 - i * 0.08})" stroke="${INK}"/>` + txt((X(e) + X(edges[i + 1])) / 2, 37, PICK[tempBandName(e)], { anchor: 'middle', bold: true, size: 10.5 }); });
-  for (let v = -240; v <= -110; v += 10) b += line(X(v), 48, X(v), v % 20 ? 52 : 56) + (v % 20 === 0 ? txt(X(v), 68, v + '°', { anchor: 'middle', size: 9 }) : '');
+  for (let v = -270; v <= -170; v += 10) b += line(X(v), 48, X(v), v % 20 ? 52 : 56) + (v % 20 === 0 ? txt(X(v), 68, v + '°', { anchor: 'middle', size: 9 }) : '');
   for (const s of sw) b += line(X(s.at), 10, X(s.at), 56, { w: 2.5, stroke: RED }) + txt(X(s.at), 8, s.at + '°', { anchor: 'middle', bold: true, size: 11, fill: RED });
   $('f-temp').innerHTML = svg(640, 74, b);
 }
@@ -639,12 +643,12 @@ $('pwrules').innerHTML = PW_RULES.map(r => '<li>' + r.text + '</li>').join('');
 
 // ---------- FIG GU.1 lever chart (air at the orb: Stygia is cold) ----------
 {
-  const W = 620, H = 300, L = 60, Rr = 16, Tp = 10, Bt = 40, kn0 = 18, kn1 = 54, a0 = -240, a1 = -120;
+  const W = 620, H = 300, L = 60, Rr = 16, Tp = 10, Bt = 40, kn0 = 18, kn1 = 54, a0 = -275, a1 = -185;
   const X = k => L + (k - kn0) / (kn1 - kn0) * (W - L - Rr), Y = a => Tp + (a1 - a) / (a1 - a0) * (H - Tp - Bt);
   const ws = switches(windLever, kn0, kn1), ts = switches(tempLever, a0, a1);
   let b = rect(L, Tp, W - L - Rr, H - Tp - Bt, { w: 1.5 });
   for (let k = 20; k <= 52; k += 2) b += line(X(k), Y(a0), X(k), Y(a1), { stroke: FAINT, w: k % 10 ? 0.5 : 1 }) + (k % 4 === 0 ? txt(X(k), Y(a0) + 14, k, { anchor: 'middle', size: 9 }) : '');
-  for (let a = -240; a <= -120; a += 10) b += line(X(kn0), Y(a), X(kn1), Y(a), { stroke: FAINT, w: a % 20 ? 0.5 : 1 }) + (a % 20 === 0 ? txt(L - 6, Y(a) + 3, a + '°', { anchor: 'end', size: 9 }) : '');
+  for (let a = -275; a <= -185; a += 5) b += line(X(kn0), Y(a), X(kn1), Y(a), { stroke: FAINT, w: a % 10 ? 0.5 : 1 }) + (a % 10 === 0 ? txt(L - 6, Y(a) + 3, a + '°', { anchor: 'end', size: 9 }) : '');
   for (const s of ws) b += line(X(s.at), Y(a0), X(s.at), Y(a1), { w: 2.5 }) + `<rect x="${X(s.at) - 26}" y="${Y(a1) + 2}" width="52" height="14" fill="#f1ead6"/>` + txt(X(s.at), Y(a1) + 13, s.at + ' kn', { anchor: 'middle', bold: true, size: 10.5, fill: RED });
   for (const s of ts) b += line(X(kn0), Y(s.at), X(kn1), Y(s.at), { w: 2.5 }) + `<rect x="${X(kn1) - 50}" y="${Y(s.at) - 15}" width="48" height="13" fill="#f1ead6"/>` + txt(X(kn1) - 4, Y(s.at) - 5, s.at + '°', { anchor: 'end', bold: true, size: 10.5, fill: RED });
   const wc = [kn0, ...ws.map(s => s.at), kn1], tc = [a0, ...ts.map(s => s.at), a1];

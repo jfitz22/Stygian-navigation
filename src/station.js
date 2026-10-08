@@ -8,7 +8,7 @@ import * as GA from './games.js';
 import { glyphSVG, echoAt, ECHO_W } from './glyphs.js';
 import { GRID, CELL, CAMERAS, TUNING as T } from './scenario.js';
 import { drawFurnaceLog, furnaceNumbers } from './furnacelog.js';
-import { mulberry32 } from './sim.js';
+import { mulberry32, artifactText } from './sim.js';
 import * as audio from './audio.js';
 
 const $ = id => document.getElementById(id);
@@ -285,11 +285,19 @@ function drawWorkshop() {
 // =====================================================================
 function buildSonar() {
   $('jobbody').insertAdjacentHTML('beforebegin', '');
-  if (!$('sonarpanel')) $('job').insertAdjacentHTML('beforebegin', `<section id="sonarpanel" class="panel"><h2>THE SONAR <small>a copy of the operator's screen</small></h2>
-    <div class="sonarrow"><canvas id="sonarcv" width="300" height="300"></canvas><div><div class="lbl">ECHO PRINTOUT · the contact the operator has selected</div><canvas id="echocv" width="300" height="160"></canvas><div id="sonarinfo" class="hint"></div></div></div>
+  if (!$('sonarpanel')) $('job').insertAdjacentHTML('beforebegin', `<section id="sonarpanel" class="panel"><h2>THE SONAR <small>a copy of the operator's screen · click any contact to read its echo</small></h2>
+    <div class="sonarrow"><canvas id="sonarcv" width="300" height="300"></canvas><div><div class="lbl" id="echolbl">ECHO PRINTOUT · the contact the operator has selected</div><canvas id="echocv" width="300" height="160"></canvas><div id="sonarinfo" class="hint"></div></div></div>
     <div id="stormwarn" class="hidden"></div></section>`);
   $('sonarpanel').classList.remove('hidden');
+  // Signals can read any contact's echo for themselves. It changes nothing on the operator's screen.
+  $('sonarcv').onclick = e => {
+    const r = $('sonarcv').getBoundingClientRect(), x = (e.clientX - r.left) * 300 / r.width, y = (e.clientY - r.top) * 300 / r.height;
+    let best = null, bd = 16;
+    for (const h of sonarDots) { const d = Math.hypot(h.x - x, h.y - y); if (d < bd) { bd = d; best = h.id; } }
+    myPick = best;
+  };
 }
+let myPick = null, sonarDots = [];
 function drawSonar() {
   const so = snap.sonar; if (!so || !$('sonarcv')) return;
   const ctx = $('sonarcv').getContext('2d'), R = 140, t = performance.now() / 1000;
@@ -304,11 +312,14 @@ function drawSonar() {
   } else {
     const xy = p => [150 + (p.x - so.buoy.x) / T.buoyRadius * R, 150 + (p.y - so.buoy.y) / T.buoyRadius * R];
     const a = t * 1.5; ctx.strokeStyle = 'rgba(92,255,157,.5)'; ctx.beginPath(); ctx.moveTo(150, 150); ctx.lineTo(150 + Math.sin(a) * R, 150 - Math.cos(a) * R); ctx.stroke();
+    sonarDots = [];
     for (const c of so.contacts) {
       const [x, y] = xy(c); if (Math.hypot(x - 150, y - 150) > 150) continue;
+      sonarDots.push({ id: c.id, x, y });
       const fade = Math.max(0.2, 1 - c.age / T.contactFade), r = Math.max(2.5, Math.min(8, 2 + c.length * 0.25));
       ctx.fillStyle = `rgba(160,255,200,${fade})`; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
       if (snap.selected === c.id) { ctx.strokeStyle = '#ffb347'; ctx.beginPath(); ctx.arc(x, y, r + 5, 0, 7); ctx.stroke(); }
+      if (myPick === c.id) { ctx.strokeStyle = '#6fc8ff'; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(x, y, r + 9, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
       if (c.num != null) { ctx.fillStyle = 'rgba(232,223,198,.6)'; ctx.font = '10px IBM Plex Mono'; ctx.fillText('#' + c.num, x, y - r - 4); }
     }
     for (const h of so.hunters) {
@@ -323,10 +334,13 @@ function drawSonar() {
   sw.classList.toggle('hidden', !storm);
   if (storm) sw.textContent = `STORM OVER THE BUOY · IT WILL BE TORN LOOSE IN ${Math.max(0, Math.ceil(T.buoyStormTime - so.buoy.storm))} s · TELL THE OPERATOR TO MOVE IT`;
   // the selected contact's printout
-  const ec = $('echocv').getContext('2d'), c = so.contacts.find(x => x.id === snap.selected);
+  if (myPick && !so.contacts.some(x => x.id === myPick)) myPick = null;   // that echo has faded
+  const mine = myPick && so.contacts.find(x => x.id === myPick), ec = $('echocv').getContext('2d'), c = mine || so.contacts.find(x => x.id === snap.selected);
+  const lbl = mine ? "ECHO PRINTOUT · SIGNALS' PICK · click empty water to follow the operator" : "ECHO PRINTOUT · the contact the operator has selected";
+  if ($('echolbl').textContent !== lbl) $('echolbl').textContent = lbl;
   ec.fillStyle = '#e8dfc6'; ec.fillRect(0, 0, 300, 160);
   ec.strokeStyle = 'rgba(120,90,60,.22)'; for (let x = 0; x < 300; x += 16) { ec.beginPath(); ec.moveTo(x + .5, 16); ec.lineTo(x + .5, 136); ec.stroke(); }
-  if (!c || !c.echo) { ec.fillStyle = '#6b5a3a'; ec.font = '12px IBM Plex Mono'; ec.textAlign = 'center'; ec.fillText('No contact selected', 150, 84); $('sonarinfo').textContent = ''; return; }
+  if (!c || !c.echo) { ec.fillStyle = '#6b5a3a'; ec.font = '12px IBM Plex Mono'; ec.textAlign = 'center'; ec.fillText('Click a contact on the sonar', 150, 84); $('sonarinfo').textContent = ''; return; }
   const k = Math.floor(t / 2.5), base = 132;
   ec.strokeStyle = '#2a1a0a'; ec.lineWidth = 1.6; ec.beginPath();
   for (let x = 0; x <= 300; x++) { const ex = x * ECHO_W / 300, y = base - echoAt(c.echo, c.length, ex, k, 0); x ? ec.lineTo(x, y) : ec.moveTo(x, y); }
@@ -357,7 +371,7 @@ function drawCaseBoard() {
       <td><span class="num">#${c.num}</span><br><small${o.length != null && o.length <= 20 ? ' style="color:#ff6a5a"' : ''}>${o.length != null ? o.length + ' mi' : ''}</small></td>
       <td>${gridRef(c.seen)}</td>
       <td>${o.echo ? miniEcho(o.echo) + `<br><small>water ${o.echo.temp}°</small>` : '<span class="tile">?</span>'}</td>
-      <td>${o.metal == null ? '<span class="tile">?</span>' : o.metal ? '<span class="tile T">METAL</span>' + (o.artifact ? '<br><small style="color:#c58cff">✦ ' + o.artifact + '</small>' : '') : '<span class="tile F">NONE</span>'}</td>
+      <td>${o.metal == null ? '<span class="tile">?</span>' : o.metal ? '<span class="tile T">METAL</span>' + (o.artifact ? '<br><small style="color:#c58cff" title="' + artifactText(o.artifact).replace(/"/g, '&quot;') + '">✦ ' + o.artifact + '</small>' : '') : '<span class="tile F">NONE</span>'}</td>
       <td>${r ? [...r.shown].map(x => `<span class="rl ${x}"></span>`).join('') + `<br><small>${SHAPE[r.carrier] || ''} · ${r.band} · ${Math.round(r.freq)}</small>` : o.swept ? '<span class="tile F">SILENT</span>' : '<span class="tile">?</span>'}</td>
       <td>${c.permanent ? `<input data-id="${c.bergId}" value="${c.callsign || ''}" maxlength="3" placeholder="RWB">` : ''}</td>
       <td>${c.permanent ? `<button class="btn" data-v="${c.bergId}">${c.verdict}</button>` : '<small>beacon it to keep it</small>'}</td></tr>`;

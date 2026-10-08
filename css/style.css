@@ -99,6 +99,14 @@ button { font-family: inherit; cursor: pointer; }
 #sealterm .rules.pending li::before { content: '· '; }
 #sealterm .warn { color: #ff8a7a; font-size: 14px; min-height: 18px; }
 #sealterm .tries { font-size: 14px; color: #ffb347; letter-spacing: 1px; }
+#sealterm .row { display: flex; align-items: center; gap: 18px; }
+#sealterm .sub u { color: #c8ffdc; }
+#sealterm .mask { font-size: 14px; color: #e8d6a8; letter-spacing: 1px; min-height: 20px; }
+#sealterm .mask b { font-size: 22px; color: #ffcf7a; letter-spacing: 3px; white-space: pre-wrap; }
+#sealterm .rules li.new { border-left-width: 6px; box-shadow: 0 0 10px rgba(255,179,71,.25); }
+#sealterm .rules li i { font-style: normal; color: #ffb347; letter-spacing: 1px; }
+#sealterm .rules li small { display: block; font-size: 12.5px; color: #ffcf7a; }
+#sealterm .pwprint { font-size: 38px; color: #c8ffdc; background: #020503; border: 2px solid #5cff9d; padding: 14px 18px; letter-spacing: 2px; word-break: break-all; text-shadow: 0 0 10px rgba(92,255,157,.5); }
 .sealcover { position: absolute; inset: 36px 0 0 0; z-index: 7; background: repeating-linear-gradient(45deg, rgba(10,8,4,.94) 0 18px, rgba(40,30,8,.94) 18px 36px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #ffcf7a; font: 14px 'Share Tech Mono', monospace; letter-spacing: 2px; text-align: center; border-radius: 0 0 6px 6px; }
 #p-pow .sealcover { left: 214px; border-radius: 0 0 6px 0; }
 #p-pow .sealcover b { font-size: 22px; letter-spacing: 3px; }
@@ -560,7 +568,7 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 20px; border-radius: 
 .rb-row.r11 .act button { font-size: 12px; padding: 5px 8px; }
 
 /* ---------- revision 12 ---------- */
-#fleetwall { position: absolute; left: 16px; right: 16px; top: 50px; bottom: 14px; overflow: hidden; }
+#fleetwall { position: absolute; left: 16px; right: 16px; top: 50px; bottom: 118px; overflow: hidden; }
 #switches .sw { font-size: 9px; letter-spacing: 0; }
 #stationlamps { display: flex; gap: 4px; margin-top: 2px; }
 #stationlamps i { font-style: normal; width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font: 600 10px 'IBM Plex Mono', monospace; background: #222; color: #666; border: 1px solid #444; }
@@ -585,8 +593,8 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 20px; border-radius: 
 #flognums .fnum b { font-size: 20px; }
 #flognums .fnum.big b { font-size: 24px; }
 #flognums .fnum span { font-size: 9px; }
-#flogcanvas { position: absolute; left: 14px; top: 160px; border: 1px solid #2e3a33; border-radius: 4px; }
-#flogctl { position: absolute; left: 14px; right: 14px; top: 318px; display: grid; grid-template-columns: 150px 1fr; gap: 12px; }
+#flogcanvas { position: absolute; left: 14px; top: 174px; border: 1px solid #2e3a33; border-radius: 4px; }
+#flogctl { position: absolute; left: 14px; right: 14px; top: 368px; display: grid; grid-template-columns: 150px 1fr; gap: 12px; }
 #flogctl .lbl { margin: 0 0 2px; }
 #damper { margin: 0; }
 #damper button { padding: 4px; font-size: 11px; }
@@ -604,12 +612,6 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 20px; border-radius: 
 .crewcard .ev { color: var(--threat); font-weight: 600; }
 .crewcard .last { color: #9aa59c; font-size: 11px; }
 .crewcard .stat { color: #cfc6ab; font-size: 11px; margin-top: auto; }
-#finds { position: absolute; left: 14px; right: 14px; top: 44px; bottom: 10px; overflow: hidden; font-size: 13px; line-height: 1.6; }
-#finds .row { display: flex; gap: 10px; }
-#finds .row b { color: var(--brass-hi); min-width: 46px; }
-#finds .row .st { margin-left: auto; font-size: 11px; letter-spacing: 1px; }
-#finds .row .st.det { color: var(--amber); } #finds .row .st.rec { color: var(--phos); }
-#finds .none { color: #8e9a90; font-size: 12px; }
 .wirestrip { position: absolute; left: 14px; right: 14px; top: 46px; bottom: 12px; overflow: hidden; background: #0b0702; border: 3px solid #2a2f35; border-radius: 4px; box-shadow: inset 0 0 14px #000; }
 .wirestrip .ti, #tickertext .ti { position: absolute; top: 50%; transform: translateY(-50%); white-space: nowrap; font-family: 'Share Tech Mono', monospace; font-size: 26px; color: var(--amber); text-shadow: 0 0 8px rgba(255,160,40,.7); }
 .wirestrip .ti b, #tickertext .ti b { color: #fff3d6; }
@@ -617,8 +619,29 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 20px; border-radius: 
 .wirestrip .ti.red b, #tickertext .ti.red b { color: #ff8a7a; }
 #tickertext { left: 0; right: 0; height: 40px; top: 20px !important; transform: none !important; }
 .tile.art { color: #c58cff; margin-left: 3px; }
-#fleetwall .log { max-height: 250px; min-height: 250px; font-size: 15px; }
+#fleetwall .log { max-height: 160px; min-height: 160px; font-size: 15px; }
 #fleetwall .fire button { min-width: 44px; height: 42px; font-size: 17px; }
 #fleetwall .fire .go { height: 46px; padding: 0 28px; font-size: 16px; }
 #fleetwall .status { font-size: 15px; }
 #fleetwall .hint { font-size: 13px; }
+
+/* ---------- revision 14: the cabin, compressed: the wire under Fleet Command, a bigger crew board ---------- */
+#wire2lbl { position: absolute; left: 16px; bottom: 96px; margin: 0; }
+#p-fleet #wire2 { left: 16px; right: 16px; top: auto; bottom: 14px; height: 78px; }
+#crew { gap: 12px; }
+.crewcard { font-size: 15px; padding: 12px 14px; gap: 6px; }
+.crewcard .nm { font-size: 18px; }
+.crewcard .nm i { width: 12px; height: 12px; }
+.crewcard .doing { font-size: 17px; }
+.crewcard .ev { font-size: 16px; }
+.crewcard .hist { font-size: 13px; color: #9aa59c; line-height: 1.5; }
+.crewcard .hist b { color: #cfc6ab; font-weight: 600; }
+.crewcard .hist .ok { color: var(--phos); } .crewcard .hist .bad { color: var(--threat); }
+.crewcard .stat { font-size: 13px; }
+#flognums .fnum b { font-size: 22px; }
+#flognums .fnum.big b { font-size: 28px; }
+.artcard { position: absolute; left: 50%; top: 50%; width: 560px; margin-left: -280px; transform: translateY(-50%) rotate(-1deg); z-index: 40; background: #efe3c2; color: #2b2418; border: 2px solid #8a6d3b; box-shadow: 0 14px 40px rgba(0,0,0,.75); padding: 22px 28px 18px; font-family: 'IM Fell English', Georgia, serif; }
+.artcard .k { font: 600 12px 'IBM Plex Mono', monospace; letter-spacing: 3px; color: #8a2a1a; }
+.artcard h3 { font-family: 'Cinzel', serif; font-size: 26px; margin: 6px 0 10px; color: #3a2a10; }
+.artcard p { font-size: 18px; line-height: 1.45; margin: 0 0 12px; }
+.artcard button { font: 600 13px 'IBM Plex Mono', monospace; letter-spacing: 2px; background: #3a2a10; color: #efe3c2; border: 0; padding: 7px 16px; cursor: pointer; }
