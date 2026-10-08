@@ -103,12 +103,13 @@ button { font-family: inherit; cursor: pointer; }
 .prio li button { background: #222; color: #ccc; border: 1px solid #444; font-size: 10px; padding: 2px 6px; }
 
 /* ---------- defence overlay ---------- */
-#defence { position: fixed; inset: 0; z-index: 40; background: rgba(6,4,2,.94); display: flex; flex-direction: column; align-items: center; padding: 18px; }
+#defence { grid-column: 1 / -1; border: 2px solid var(--threat); box-shadow: 0 0 24px rgba(255,75,58,.35); display: flex; flex-direction: column; align-items: center; }
 .dhead { display: flex; gap: 20px; align-items: baseline; margin-bottom: 14px; }
 .dhead b { font: 800 26px 'Cinzel', serif; letter-spacing: 5px; color: var(--threat); animation: pulse 1s infinite alternate; }
 @keyframes pulse { to { color: #ff9a8a; } }
 .dhead span { color: var(--dim); }
-#dbody canvas { border: 2px solid var(--brass); cursor: crosshair; max-width: 96vw; max-height: calc(100vh - 150px); width: auto; height: auto; }
+#dbody canvas, #dbody svg { border: 2px solid var(--brass); max-width: 100%; max-height: 62vh; width: auto; height: auto; display: block; }
+#dbody canvas.aim { cursor: crosshair; }
 #dresult { margin-top: 16px; font: 800 24px 'Cinzel', serif; letter-spacing: 4px; }
 #dresult.ok { color: var(--phos); } #dresult.bad { color: var(--threat); }
 .ms { display: grid; grid-template-columns: repeat(8, 54px); gap: 3px; user-select: none; }
@@ -124,3 +125,19 @@ button { font-family: inherit; cursor: pointer; }
 #alert { position: fixed; inset: 0; z-index: 60; background: rgba(40,4,2,.92); display: flex; align-items: center; justify-content: center; }
 #alert h1 { color: var(--threat); }
 @media (max-width: 1100px) { #desk { grid-template-columns: 1fr; } }
+
+#leftcol { display: grid; gap: 16px; align-content: start; }
+.dhead { flex-wrap: wrap; justify-content: center; }
+.dhead b { font-size: 22px; }
+.howto { font-size: 13px; color: #cfc6ab; line-height: 1.5; background: #0f1214; border: 1px solid var(--edge); border-radius: 4px; padding: 8px 12px; margin-bottom: 10px; }
+.howto b { color: var(--brass-hi); }
+.steadygrid { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.ms.small { grid-template-columns: repeat(8, 40px); }
+.ms.small div { width: 40px; height: 40px; font-size: 18px; }
+.lo6 { display: grid; grid-template-columns: repeat(6, 52px); gap: 6px; }
+.lo6 button { width: 52px; height: 52px; border-radius: 6px; background: radial-gradient(circle at 50% 35%, #2a2016, #0d0a06); border: 3px solid #4a3a22; }
+.lo6 button.on { background: radial-gradient(circle at 50% 35%, #fff4c8, #ffb020 55%, #6b4510); border-color: #ffd27a; box-shadow: 0 0 12px #ffb020; }
+.lo6.rest button { opacity: .25; cursor: default; }
+.reward { font-size: 14px; color: var(--phos); margin-top: 8px; min-height: 20px; }
+.wiresvg .term, .wiresvg .end { cursor: pointer; }
+.wiresvg line { pointer-events: none; }

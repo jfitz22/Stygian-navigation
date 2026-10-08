@@ -1348,9 +1348,11 @@ function handleEvents() {
       case 'broke': audio.sfx.camdead(); if (e.sys !== 'winch' || ui.buoyDeadAt !== world.t) toast(BROKE_MSG[e.sys] + ' · REPAIR BAY ▲'); break;
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
-      case 'defence': audio.sfx.alarm(); toast({ gunnery: 'GUNNERY STATION: DEVIL FIRE INBOUND ON THE TOWERS', signals: 'SIGNALS STATION: MINES IN THE APPROACHES', engineer: e.reason === 'overheat' ? 'THE FURNACE IS IN THE RED · ENGINEERING: THE BREAKERS HAVE TRIPPED' : 'ENGINEERING STATION: THE BREAKERS HAVE TRIPPED' }[e.role]); break;
-      case 'defencedone': if (e.ok) toast({ gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS CLEARED THE MINEFIELD', engineer: 'ENGINEERING RESET THE BREAKERS' }[e.role], 'info');
-        else { audio.sfx.camdead(); toast({ gunnery: `DEVIL FIRE STRUCK ${e.n} TOWER${e.n > 1 ? 'S' : ''} · THOSE ORBS ARE DOWN`, signals: 'A MINE TOOK THE BUOY · REPAIR THE WINCH ▲', engineer: `THE BREAKERS FAILED · ${e.sys ? SYS_LABEL[e.sys] + ' IS OFF, ' : ''}A SHOVEL LOST, LIGHTS RED` }[e.role]); } break;
+      case 'defence': audio.sfx.alarm(); toast({ gunnery: 'GUNNERY STATION: DEVIL FIRE INBOUND ON THE TOWERS', signals: 'SIGNALS STATION: THE BUOY CABLE HAS SNAPPED', engineer: e.reason === 'overheat' ? 'THE FURNACE IS IN THE RED · ENGINEERING: THE FUSE BOX HAS BLOWN' : 'ENGINEERING STATION: THE FUSE BOX HAS BLOWN' }[e.role]); break;
+      case 'freebeacon': audio.sfx.launch(); toast(`SIGNALS CLEARED THE MINEFIELD · THE GUNS FIRED · A BEACON STRUCK #${e.num}`, 'info'); break;
+      case 'freefuel': audio.sfx.fuel(); toast(e.full ? 'ENGINEERING CLEARED THE BOILER PANEL · THE CHUTE WAS ALREADY FULL' : 'ENGINEERING CLEARED THE BOILER PANEL · A FREE SHOVEL IN THE CHUTE', 'info'); break;
+      case 'defencedone': if (e.ok) toast({ gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING REWIRED THE FUSE BOX' }[e.role], 'info');
+        else { audio.sfx.camdead(); toast({ gunnery: `DEVIL FIRE STRUCK ${e.n} TOWER${e.n > 1 ? 'S' : ''} · THOSE ORBS ARE DOWN`, signals: 'THE SPLICE FAILED · THE BUOY IS LOST · REPAIR THE WINCH ▲', engineer: `THE FUSE BOX FAILED · ${e.sys ? SYS_LABEL[e.sys] + ' IS OFF, ' : ''}A SHOVEL LOST, LIGHTS RED` }[e.role]); } break;
       case 'defencelost': break;
       case 'beaconsealed': audio.sfx.clunk(); toast(`GUNNERY SEALED A ${e.color.toUpperCase()} BEACON · IT CURES WHILE THE WORKSHOP IS ON`, 'info'); break;
       case 'beaconready': audio.sfx.calibrated(); toast(`A ${e.color.toUpperCase()} BEACON IS READY IN THE LAUNCHER`, 'info'); break;
@@ -1450,8 +1452,6 @@ function onStation(m) {
 }
 let snapSoon = false;
 function drawStations() {
-  const now = performance.now();
-  for (const r of ROLES) world.defence.live[r] = now - (stationSeen[r] || -1e9) < 7000;
   const html = ROLES.map(r => `<i class="${world.defence.live[r] ? 'on' : ''}${world.defence.active[r] ? ' busy' : ''}" title="${STATION_NAME[r]}${world.defence.live[r] ? ' station connected' : ' station not connected'}">${r[0].toUpperCase()}</i>`).join('');
   if ($('stationlamps').innerHTML !== html) $('stationlamps').innerHTML = html;
   // the fleet must be deployed before the watch begins
@@ -1491,11 +1491,21 @@ let lastSnap = 0;
 setInterval(() => gmLink.send({ snap: snapshot(world) }), 1000);
 
 // ---------- loop ----------
+// The watch runs on the real clock, whether or not this tab is on screen: a browser pauses animation frames in a
+// hidden or covered window, so the simulation also ticks on a timer and catches up on what it missed.
 let last = performance.now(), acc = 0;
-function frame(now) {
-  acc += Math.min(0.25, (now - last) / 1000); last = now;
+function simTick() {
+  const now = performance.now();
+  acc += Math.min(10, (now - last) / 1000); last = now;
   if (!ui.started) acc = 0;
   while (acc >= DT) { step(world, DT); acc -= DT; }
+  if (snapSoon) { snapSoon = false; gmLink.send({ snap: snapshot(world) }); }
+  const t = performance.now();
+  for (const r of ROLES) world.defence.live[r] = t - (stationSeen[r] || -1e9) < 7000;
+}
+setInterval(simTick, 100);
+function frame(now) {
+  simTick();
   handleEvents();
   drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower(); drawBoard(); drawRepairBay(); drawCamCtl(); drawCases(); drawCut(now); $('pausecard').classList.toggle('hidden', !world.paused); $('pausebtn').textContent = world.paused ? '▶ RESUME' : '❚❚ PAUSE'; drawTicker(Math.min(0.1, (now - (frame.prev || now)) / 1000)); frame.prev = now;
   if (now - lastSnap > 500) {

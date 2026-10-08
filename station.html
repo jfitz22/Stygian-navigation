@@ -32,15 +32,18 @@
 </section>
 
 <main id="desk" class="hidden">
-  <section id="job" class="panel"><h2 id="jobtitle"></h2><div id="jobbody"></div></section>
+  <section id="defence" class="panel console hidden">
+    <div class="dhead"><b id="dtitle"></b><span id="dsub"></span><span id="dtime" class="nixie"></span></div>
+    <div id="dbody"></div>
+    <div id="dresult" class="hidden"></div>
+  </section>
+  <div id="leftcol">
+    <section id="job" class="panel"><h2 id="jobtitle"></h2><div id="jobbody"></div></section>
+    <section id="steady" class="panel hidden"><h2 id="steadytitle"></h2><div id="steadybody"></div></section>
+  </div>
   <section id="fleetpanel" class="panel"><h2>THE FLEET <small>the Watch's naval defences</small></h2><div id="fleet"></div></section>
 </main>
 
-<div id="defence" class="hidden">
-  <div class="dhead"><b id="dtitle"></b><span id="dsub"></span><span id="dtime" class="nixie"></span></div>
-  <div id="dbody"></div>
-  <div id="dresult" class="hidden"></div>
-</div>
 <div id="alert" class="hidden"><div class="card"><h1 id="alerttitle"></h1><p id="alerttext"></p></div></div>
 
 <script type="module" src="src/station.js"></script>

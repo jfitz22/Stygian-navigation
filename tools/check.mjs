@@ -665,7 +665,7 @@ function sharkSetup(seed) {
   check(!w.power.sonar.on && w.power.cameras.on && w.power.currents.on && w.events.some(e => e.type === 'brownout' && e.sys === 'sonar'), 'Low heat sheds the lowest-priority system, and says so');
   const wa = createWorld(82), wb = createWorld(82); light(wa); light(wb); setDamper(wb, 'low');
   for (const x of [wa, wb]) { ['sonar', 'currents'].forEach(s => setPower(x, s, true)); for (let i = 0; i < 600; i++) step(x, DT); }
-  check(wb.furnace.heat > wa.furnace.heat + 5, 'The LOW damper burns slower');
+  check(wb.furnace.heat > wa.furnace.heat + 3, 'The LOW damper burns slower');
   check(wb.readings == null || T.currentRefresh * T.damperSlow > T.currentRefresh, '...and the systems work slower');
   // repairs need the bay powered, except the grate; they wait when the power goes
   const wr = createWorld(83); light(wr); for (let i = 0; i < 10; i++) step(wr, DT);
@@ -738,8 +738,8 @@ function sharkSetup(seed) {
 {
   let s = 99; const rng = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
   // the puzzles: every one can be solved
-  check(Array.from({ length: 200 }, () => GA.loBoard(rng)).every(({ board, solution }) => GA.loSolved(solution.reduce((b, p) => GA.loPress(b, p), board)) && solution.length <= 5),
-    'Every Lights Out board is solved by five presses or fewer');
+  check(Array.from({ length: 200 }, () => GA.loBoard(rng)).every(({ board, solution }) => GA.loSolved(solution.reduce((b, p) => GA.loPress(b, p), board)) && solution.length <= 7 && board.length === 36),
+    'Every 6 x 6 Lights Out board is solved by seven presses or fewer');
   check(Array.from({ length: 200 }, () => GA.msBoard(rng)).every(({ mines, start }) => mines.length === GA.MS_MINES && GA.msSolvable(new Set(mines), start)),
     'Every Minesweeper board can be cleared by logic from its start square');
   let cutsOk = true;
@@ -811,7 +811,8 @@ function sharkSetup(seed) {
   const firsts = ROLES.map(r => byRole(r)[0]);
   const sorted = starts.map(s => s.t).sort((a, b) => a - b), close = sorted.slice(1).filter((t, i) => t - sorted[i] < T.defenceGap - 1).length;
   console.log(`Defences in 30 minutes: ${ROLES.map(r => r + ' ' + byRole(r).length).join(', ')} · first at ${firsts.map(t => Math.round(t)).join(', ')} s · ${close} pairs closer than ${T.defenceGap} s`);
-  check(firsts.every(t => t >= 170 && t <= 470) && gaps.every(g => g >= 170 && g <= 600), 'Each station gets a defence every three to seven minutes');
+  const span = r => byRole(r).slice(1).map((t, i) => t - byRole(r)[i]);
+  check(span('gunnery').every(g => g >= 170 && g <= 400) && ['signals', 'engineer'].every(r => span(r).every(g => g >= 170 && g <= 600)) && firsts.every(t => t >= 170 && t <= 520), 'Gunnery gets a defence every three to five minutes, the others every three to seven');
   check(close <= 1, 'Two stations\' defences rarely come close together');
   // the outcomes
   const wo = createWorld(95); light(wo); ['sonar', 'cameras', 'currents'].forEach(x => setPower(wo, x, true)); for (let i = 0; i < 20; i++) step(wo, DT);
@@ -819,17 +820,32 @@ function sharkSetup(seed) {
   check(wo.cams[1].broken && wo.cams[4].broken && !wo.cams[0].broken, 'Each tower hit in Missile Command is that orb destroyed');
   deployBuoy(wo, CENTER.x + 300, CENTER.y); for (let i = 0; i < 50; i++) step(wo, DT);
   startDefence(wo, 'signals'); const sid = wo.defence.active.signals.id; defenceResult(wo, 'signals', sid, { ok: true });
-  check(!!wo.buoy, 'Winning Minesweeper costs nothing');
+  check(!!wo.buoy, 'Splicing the cable costs nothing');
   startDefence(wo, 'signals'); defenceResult(wo, 'signals', wo.defence.active.signals.id, { ok: false });
-  check(!wo.buoy && wo.broken.winch, 'Losing Minesweeper loses the buoy');
+  check(!wo.buoy && wo.broken.winch, 'A failed splice loses the buoy');
   wo.furnace.heat = 70; wo.furnace.chute = 3; setPriority(wo, ['sonar', 'cameras', 'currents']);
   startDefence(wo, 'engineer'); defenceResult(wo, 'engineer', wo.defence.active.engineer.id, { ok: false });
-  check(!wo.power.currents.on && wo.power.sonar.on && wo.furnace.chute === 2 && wo.lamps === 1, 'Losing Lights Out: the lowest-priority system drops, a shovel is purged, the lights go red');
+  check(!wo.power.currents.on && wo.power.sonar.on && wo.furnace.chute === 2 && wo.lamps === 1, 'Failing the wires: the lowest-priority system drops, a shovel is purged, the lights go red');
   wo.defence.live.engineer = true; wo.furnace.heat = 95; wo.furnace.pending = 0; step(wo, DT);
-  check(wo.defence.active.engineer && wo.defence.active.engineer.reason === 'overheat', 'A furnace in the red trips the breakers');
+  check(wo.defence.active.engineer && wo.defence.active.engineer.reason === 'overheat', 'A furnace in the red blows the fuse box');
   const stale = wo.defence.active.engineer.id; wo.defence.active.engineer.at -= 200; wo.furnace.heat = 60; step(wo, DT);
   check(!wo.defence.active.engineer && wo.lamps === 1, 'A station that drops out mid-game costs nothing');
   check(!defenceResult(wo, 'engineer', stale, { ok: false }), 'A late result for a finished event is ignored');
+  // the steady puzzles: a free beacon on a large glacier that is not Elgarz; a free shovel; each once a minute
+  const wr = createWorld(96); light(wr); for (let i = 0; i < 20; i++) step(wr, DT);
+  let fair = true;
+  for (let k = 0; k < 12; k++) { wr.rewards.mines = 0; const n0 = wr.tags.length; stationAction(wr, 'signals', { act: 'minesweeper' }); const b = wr.bergs.find(x => x.id === wr.tags[wr.tags.length - 1]); if (wr.tags.length !== n0 + 1 || !b.large || b.elgarz || b.echo.sig === 'monster' || !wr.cases.some(c => c.bergId === b.id && c.permanent)) fair = false; }
+  check(fair, 'Clearing the minefield beacons a large glacier (never Elgarz) and pins it to the case board');
+  const nt = wr.tags.length; stationAction(wr, 'signals', { act: 'minesweeper' });
+  check(wr.tags.length === nt, '...but only once a minute');
+  wr.furnace.chute = 1; stationAction(wr, 'engineer', { act: 'lightsout' }); const c1 = wr.furnace.chute; stationAction(wr, 'engineer', { act: 'lightsout' });
+  check(c1 === 2 && wr.furnace.chute === 2, 'Clearing the breaker panel puts a free shovel in the chute, once a minute');
+  // the defence games themselves
+  { let body = GA.snakeStart(); check(body.length === 4 && GA.SN.need === 8, 'The cable starts four long, and eight loose ends must be collected');
+    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 5 && !r.dead, 'Each loose end makes the cable longer');
+    let b2 = GA.snakeStart(), dead = false; for (let i = 0; i < 40 && !dead; i++) { const m = GA.snakeMove(b2, [1, 0], null); b2 = m.body; dead = m.dead; } check(dead, 'The cable dies at the wall');
+    check(Array.from({ length: 100 }, () => GA.wiresBoard(rng)).every(({ left, right }) => left.length === 6 && new Set(right).size === 6 && right.every((id, i) => id !== left[i])), 'The fuse box always has six wires, none opposite its own terminal');
+    check(GA.GAME_TIME.missile === 30 && GA.missileWaves(rng, 0, 'fall').length >= 16 && GA.missileWaves(rng, 20, 'arc').length >= 28 && GA.missileWaves(rng, 0, 'arc').every(w => w.from < 0.2 || w.from > 0.8), 'Thirty seconds of devil fire, twice as much as before, and skiffs fire from the sides'); }
   // a station's actions go through one door
   stationAction(wo, 'signals', { act: 'callsign', bergId: wo.bergs[0].id, text: 'brw!' });
   check(wo.callsigns[wo.bergs[0].id] === 'BRW', 'Signals can enter a call sign on the case board');

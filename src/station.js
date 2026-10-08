@@ -47,11 +47,12 @@ function takeStation() {
   jobKey = ''; $('jobbody').innerHTML = '';
   if (role === 'gunnery') buildWorkshop();
   if (role === 'engineer') buildFurnace();
+  buildSteady();
 }
 setInterval(() => { if (role && !$('desk').classList.contains('hidden')) send({ hello: true }); }, 2000);
 
 // ---------- the fleet ----------
-const fleetUI = mountFleet($('fleet'), () => ({ fleet: snap && snap.fleet, t: snap ? snap.t : 0 }), a => { send(a); audio.sfx.click(); }, { cell: 30 });
+const fleetUI = mountFleet($('fleet'), () => ({ fleet: snap && snap.fleet, t: snap ? snap.t : 0 }), a => { send(a); audio.sfx.click(); }, { cell: 30, onShot: l => (l.hit ? audio.sfx.hit : audio.sfx.miss)() });
 
 // ---------- the main loop ----------
 let jobKey = '';
@@ -59,11 +60,14 @@ function frame() {
   const live = snap && performance.now() - snapAt < 4000;
   $('link').innerHTML = `<i class="${live ? 'on' : netState === 'SUBSCRIBED' || netState === 'LOCAL' ? 'wait' : 'off'}"></i><span>${live ? 'linked to the Watch' : code ? 'waiting for the Watch · code ' + code : 'not linked'}</span>`;
   if (snap) {
-    $('clock').textContent = snap.hold === 'deploy' ? 'DEPLOY' : fmt(snap.t);
+    // the game sends its clock once or twice a second: run it on between snapshots
+    const ticking = !snap.paused && !snap.hold && snap.started;
+    $('clock').textContent = snap.hold === 'deploy' ? 'DEPLOY' : fmt(snap.t + (ticking ? Math.min(2, (performance.now() - snapAt) / 1000) : 0));
     fleetUI.render();
     if (role === 'gunnery') drawWorkshop();
     if (role === 'signals') drawCaseBoard();
     if (role === 'engineer') drawFurnace();
+    drawSteady();
     checkDefence();
     $('alert').classList.toggle('hidden', !snap.reinforce);
     if (snap.reinforce) { $('alerttitle').textContent = 'DEVIL REINFORCEMENTS'; $('alerttext').textContent = 'The fleet is lost and the enemy is landing. The watch is paused until the officer of the watch gives the word.'; }
@@ -294,9 +298,94 @@ function drawFurnace() {
 }
 
 // =====================================================================
-// THE DEFENCES
+// THE STEADY PUZZLES (optional, with a reward)
 // =====================================================================
-const DEF_TITLE = { missile: ['DEVIL FIRE INBOUND', 'Shoot it down before it reaches the towers. Click to burst flak.'], mines: ['MINES IN THE APPROACHES', 'Clear the field: left click opens, right click flags. Touch a mine and the buoy is lost.'], lights: ['THE BREAKERS HAVE TRIPPED', 'Get every breaker dark. Each press flips a breaker and its four neighbours.'] };
+// Signals: Minesweeper. Clear a field and a red beacon strikes a glacier for free (once a minute).
+// Engineering: Lights Out, 6 x 6. Clear a panel and a free shovel goes in the furnace chute (once a minute).
+const steady = { kind: null, state: null, msg: '' };
+function buildSteady() {
+  steady.kind = role === 'signals' ? 'mines' : role === 'engineer' ? 'lights' : null;
+  $('steady').classList.toggle('hidden', !steady.kind);
+  if (!steady.kind) return;
+  $('steadytitle').textContent = steady.kind === 'mines' ? 'THE MINEFIELD · optional' : 'THE BREAKER PANEL · optional';
+  newSteadyBoard();
+}
+const cooldownLeft = () => !snap || !snap.rewards ? 0 : Math.max(0, (snap.rewards[steady.kind === 'mines' ? 'mines' : 'lights'] || 0) - snap.t);
+function newSteadyBoard() {
+  const rng = mulberry32(Math.floor(Math.random() * 1e9));
+  if (steady.kind === 'mines') { const { mines, start } = GA.msBoard(rng), M = new Set(mines), open = new Set(); GA.msOpen(M, open, start); steady.state = { M, open, flags: new Set(), boom: -1, over: false }; }
+  else steady.state = { board: GA.loBoard(rng).board, over: false };
+  steady.msg = ''; drawSteady(true);
+}
+let steadyKey = '';
+function drawSteady(force) {
+  if (!steady.kind || !steady.state) return;
+  const cd = Math.ceil(cooldownLeft()), waiting = steady.state.over && cd > 0;
+  const k = JSON.stringify([waiting ? cd : -1, steady.msg]) + (force ? Math.random() : '');
+  if (k === steadyKey && !force) return;
+  steadyKey = k;
+  // after a win, wait for the game's cooldown to arrive and run out before the next board
+  if (steady.state.over && steady.state.won && cd <= 0 && performance.now() - steady.state.wonAt > 4000) { newSteadyBoard(); return; }
+  if (steady.kind === 'mines') drawMinesSteady(cd); else drawLightsSteady(cd);
+}
+function drawMinesSteady(cd) {
+  const st = steady.state, { M, open, flags } = st;
+  let h = '';
+  for (let i = 0; i < GA.MS * GA.MS; i++) {
+    const n = GA.msCount(M, i);
+    if (st.boom >= 0 && M.has(i)) h += '<div class="o m"></div>';
+    else if (open.has(i)) h += `<div class="o n${n}">${n || ''}</div>`;
+    else h += `<div class="${flags.has(i) ? 'f' : ''}" data-i="${i}"></div>`;
+  }
+  $('steadybody').innerHTML = `<div class="steadygrid">
+    <div class="ms small">${h}</div>
+    <div class="howto" style="max-width:330px">
+      Mines have drifted into the approaches. <b>Clear the field</b> and the Watch's guns are free to fire: <b>a beacon strikes a glacier</b> for the crew.<br><br>
+      <b>The numbers:</b> each one says how many of the eight squares touching it hold a mine. A <b>1</b> with only one hidden square beside it: that square is a mine.<br><br>
+      <b>Left click</b> opens a square. <b>Right click</b> flags a mine. Start from the open patch; every field can be solved without guessing.<br><br>
+      ${M.size - flags.size} mines unflagged. Nothing is lost if you hit one: start a new field.
+    </div></div>
+    <div class="reward">${steady.msg}${st.over && !st.won ? ' <button class="btn" id="msnew">NEW FIELD</button>' : ''}${st.over && st.won && cd > 0 ? ` The next field opens in ${cd} s.` : ''}</div>`;
+  const nb = $('msnew'); if (nb) nb.onclick = newSteadyBoard;
+  if (st.over) return;
+  $('steadybody').querySelectorAll('.ms [data-i]').forEach(d => {
+    d.onclick = () => {
+      const i = Number(d.dataset.i); if (flags.has(i)) return;
+      if (M.has(i)) { st.boom = i; st.over = true; st.won = false; steady.msg = 'A mine. The field is lost: start another.'; audio.sfx.blowout(); drawSteady(true); return; }
+      GA.msOpen(M, open, i); audio.sfx.click();
+      if (open.size === GA.MS * GA.MS - M.size) { st.over = true; st.won = true; st.wonAt = performance.now(); steady.msg = 'THE FIELD IS CLEAR. The guns are firing.'; send({ act: 'minesweeper' }); audio.sfx.calibrated(); }
+      drawSteady(true);
+    };
+    d.oncontextmenu = e => { e.preventDefault(); const i = Number(d.dataset.i); flags.has(i) ? flags.delete(i) : flags.add(i); drawSteady(true); };
+  });
+}
+function drawLightsSteady(cd) {
+  const st = steady.state;
+  $('steadybody').innerHTML = `<div class="steadygrid">
+    <div class="lo6${st.over ? ' rest' : ''}">${st.board.map((v, i) => `<button class="${v ? 'on' : ''}" data-i="${i}"></button>`).join('')}</div>
+    <div class="howto" style="max-width:330px">
+      The breakers on the boiler line. <b>Get every breaker dark</b> and the boiler hands the furnace <b>a free shovel of fuel</b>.<br><br>
+      <b>Pressing a breaker flips it and its four neighbours</b> (up, down, left, right).<br><br>
+      One free shovel a minute. Take your time: nothing goes wrong here.
+    </div></div>
+    <div class="reward">${steady.msg}${st.over && cd > 0 ? ` The next panel lights up in ${cd} s.` : ''}</div>`;
+  if (st.over) return;
+  $('steadybody').querySelectorAll('.lo6 button').forEach(b => b.onclick = () => {
+    st.board = GA.loPress(st.board, Number(b.dataset.i)); audio.sfx.click();
+    if (GA.loSolved(st.board)) { st.over = true; st.won = true; st.wonAt = performance.now(); steady.msg = 'PANEL CLEAR. A shovel of fuel drops into the chute.'; send({ act: 'lightsout' }); audio.sfx.calibrated(); }
+    drawSteady(true);
+  });
+}
+
+// =====================================================================
+// THE DEFENCES (triggered by the game; an inset console, never the whole screen)
+// =====================================================================
+const DEF_TITLE = {
+  missile: ['DEVIL FIRE INBOUND', 'Shoot it down before it reaches the towers. Click to burst flak in its path.'],
+  missileArc: ['DEVIL SKIFFS ON THE HORIZON', 'Their shells arc in from the sides. Click to burst flak in their path.'],
+  snake: ['THE BUOY CABLE HAS SNAPPED', `Splice it: steer with the arrow keys (or WASD) and collect ${GA.SN.need} loose ends. Do not touch the walls or the cable.`],
+  wires: ['THE FUSE BOX HAS BLOWN', 'Drag each loose wire to the terminal of the same colour and stripe.'],
+};
 let current = null;
 const finished = new Set();
 function checkDefence() {
@@ -306,10 +395,12 @@ function checkDefence() {
 }
 function startDefence(a) {
   current = { id: a.id, kind: a.kind, rng: mulberry32(a.seed), t0: performance.now(), done: false };
-  $('dtitle').textContent = DEF_TITLE[a.kind][0]; $('dsub').textContent = DEF_TITLE[a.kind][1];
+  const title = a.kind === 'missile' && current.rng() < 0.5 ? (current.arc = true, DEF_TITLE.missileArc) : DEF_TITLE[a.kind];
+  $('dtitle').textContent = title[0]; $('dsub').textContent = title[1];
   $('dresult').classList.add('hidden'); $('defence').classList.remove('hidden');
+  $('defence').scrollIntoView({ behavior: 'smooth', block: 'start' });
   audio.sfx.alarm();
-  ({ missile: startMissile, mines: startMines, lights: startLights })[a.kind](current);
+  ({ missile: startMissile, snake: startSnake, wires: startWires })[a.kind](current);
   tickDefence();
 }
 function tickDefence() {
@@ -317,8 +408,8 @@ function tickDefence() {
   const left = GA.GAME_TIME[current.kind] - (performance.now() - current.t0) / 1000;
   $('dtime').textContent = fmt(Math.max(0, left));
   if (left <= 0) current.timeout && current.timeout();
-  if (current.tick) current.tick();
-  if (!current.done) requestAnimationFrame(tickDefence);
+  if (current && !current.done && current.tick) current.tick();
+  if (current && !current.done) requestAnimationFrame(tickDefence);
 }
 function finishDefence(ok, res, text) {
   if (!current || current.done) return;
@@ -328,89 +419,140 @@ function finishDefence(ok, res, text) {
   (ok ? audio.sfx.calibrated : audio.sfx.blowout)();
   setTimeout(closeDefence, 2600);
 }
-function closeDefence() { $('defence').classList.add('hidden'); $('dbody').innerHTML = ''; current = null; }
+function closeDefence() { $('defence').classList.add('hidden'); $('dbody').innerHTML = ''; if (current && current.cleanup) current.cleanup(); current = null; }
 
-// ---------- Lights Out ----------
-function startLights(g) {
-  let { board } = GA.loBoard(g.rng);
-  const draw = () => {
-    $('dbody').innerHTML = `<div class="lo">${board.map((v, i) => `<button class="${v ? 'on' : ''}" data-i="${i}"></button>`).join('')}</div>`;
-    $('dbody').querySelectorAll('button').forEach(b => b.onclick = () => {
-      if (g.done) return;
-      board = GA.loPress(board, Number(b.dataset.i)); audio.sfx.click(); draw();
-      if (GA.loSolved(board)) finishDefence(true, {}, 'BREAKERS RESET');
-    });
+// ---------- The cable (Signals): Snake ----------
+function startSnake(g) {
+  const S = 30, W = GA.SN.W * S, H = GA.SN.H * S;
+  $('dbody').innerHTML = `<canvas width="${W}" height="${H}"></canvas><p class="hint" style="text-align:center">Arrow keys or WASD. Click the board first if the keys do nothing.</p>`;
+  const cv = $('dbody').querySelector('canvas'), ctx = cv.getContext('2d');
+  let body = GA.snakeStart(), dir = [1, 0], queued = [], food = GA.snakeFood(g.rng, body), got = 0, acc = 0, last = null, seenAt = null, dead = false;
+  const KEYS = { ArrowUp: [0, -1], w: [0, -1], W: [0, -1], ArrowDown: [0, 1], s: [0, 1], S: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], A: [-1, 0], ArrowRight: [1, 0], d: [1, 0], D: [1, 0] };
+  const onKey = e => {
+    const d = KEYS[e.key]; if (!d || g.done) return;
+    e.preventDefault();
+    const prev = queued.length ? queued[queued.length - 1] : dir;
+    if (d[0] === -prev[0] && d[1] === -prev[1]) return;   // no turning back on yourself
+    if (queued.length < 2) queued.push(d);
   };
+  addEventListener('keydown', onKey);
+  g.cleanup = () => removeEventListener('keydown', onKey);
+  g.timeout = () => finishDefence(false, {}, 'OUT OF TIME · THE BUOY DRIFTS AWAY');
+  const READY = 1.2;
+  g.tick = () => {
+    // frames stop while the tab is hidden: never move more than a step or two at once, and start the READY count
+    // from the first frame the officer can actually see
+    const nowT = performance.now(), dt = last == null ? 0 : Math.min(0.2, (nowT - last) / 1000); last = nowT;
+    if (seenAt == null) seenAt = nowT;
+    const since = (nowT - seenAt) / 1000;
+    if (since > READY && !dead) {
+      acc += dt;
+      while (acc >= GA.SN.step && !dead && !g.done) {
+        acc -= GA.SN.step;
+        if (queued.length) dir = queued.shift();
+        const r = GA.snakeMove(body, dir, food);
+        body = r.body;
+        if (r.dead) { dead = true; finishDefence(false, {}, 'THE SPLICE FAILED · THE BUOY IS LOST'); break; }
+        if (r.ate) { got++; audio.sfx.click(); if (got >= GA.SN.need) { finishDefence(true, {}, 'THE CABLE IS SPLICED'); break; } food = GA.snakeFood(g.rng, body); }
+      }
+    }
+    // draw: the sea floor, the cable, the loose end
+    ctx.fillStyle = '#06131a'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(92,255,157,.06)';
+    for (let x = 0; x <= GA.SN.W; x++) { ctx.beginPath(); ctx.moveTo(x * S, 0); ctx.lineTo(x * S, H); ctx.stroke(); }
+    for (let y = 0; y <= GA.SN.H; y++) { ctx.beginPath(); ctx.moveTo(0, y * S); ctx.lineTo(W, y * S); ctx.stroke(); }
+    ctx.fillStyle = '#ffb347'; ctx.shadowColor = '#ffb347'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(food[0] * S + S / 2, food[1] * S + S / 2, S * 0.3, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = dead ? '#a33' : '#c9a24b'; ctx.lineWidth = S * 0.55;
+    ctx.beginPath(); body.forEach(([x, y], i) => { const px = x * S + S / 2, py = y * S + S / 2; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke();
+    ctx.fillStyle = dead ? '#ff4b3a' : '#5cff9d'; ctx.beginPath(); ctx.arc(body[0][0] * S + S / 2, body[0][1] * S + S / 2, S * 0.36, 0, 7); ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.fillStyle = '#e8cf98'; ctx.font = '600 16px IBM Plex Mono'; ctx.textAlign = 'left';
+    ctx.fillText(`LOOSE ENDS ${got} / ${GA.SN.need}`, 10, 22);
+    if (since <= READY) { ctx.textAlign = 'center'; ctx.font = '800 30px Cinzel'; ctx.fillText('READY...', W / 2, H / 2); }
+  };
+  cv.tabIndex = 0; cv.focus({ preventScroll: true });
+}
+
+// ---------- The wires (Engineering) ----------
+function startWires(g) {
+  const { left, right } = GA.wiresBoard(g.rng), byId = Object.fromEntries(GA.WIRES.map(w => [w.id, w]));
+  const W = 640, H = 380, LX = 70, RX = 570, ROW = i => 45 + i * 58, done = new Set();
+  let drag = null;
+  const wireLine = (x1, y1, x2, y2, w) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${w.color}" stroke-width="12" stroke-linecap="round"/>` + (w.stripe ? `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${w.stripe}" stroke-width="4" stroke-dasharray="10 10"/>` : '');
+  const draw = () => {
+    let b = `<rect width="${W}" height="${H}" fill="#14110d"/>`;
+    left.forEach((id, i) => { const w = byId[id]; b += wireLine(10, ROW(i), LX, ROW(i), w); });
+    right.forEach((id, i) => { const w = byId[id]; b += `<rect class="term" data-id="${id}" x="${RX - 14}" y="${ROW(i) - 18}" width="56" height="36" rx="4" fill="#2a2016" stroke="#b08d57" stroke-width="2"/>` + wireLine(RX + 6, ROW(i), RX + 34, ROW(i), w); });
+    for (const id of done) { const i = left.indexOf(id), j = right.indexOf(id); b += wireLine(LX, ROW(i), RX - 14, ROW(j), byId[id]); }
+    if (drag) b += wireLine(LX, ROW(left.indexOf(drag.id)), drag.x, drag.y, byId[drag.id]);
+    left.forEach((id, i) => { if (!done.has(id)) b += `<circle class="end" data-id="${id}" cx="${LX}" cy="${ROW(i)}" r="13" fill="#e8dfc6" stroke="#000" stroke-width="2"/>`; });
+    $('dbody').innerHTML = `<svg class="wiresvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${b}</svg>`;
+    const svgEl = $('dbody').querySelector('svg');
+    svgEl.querySelectorAll('.end').forEach(e => e.onpointerdown = ev => { ev.preventDefault(); if (g.done) return; const p = pt(svgEl, ev); drag = { id: e.dataset.id, x: p.x, y: p.y }; draw(); });
+  };
+  const pt = (svgEl, ev) => { const r = svgEl.getBoundingClientRect(); return { x: (ev.clientX - r.left) * W / r.width, y: (ev.clientY - r.top) * H / r.height }; };
+  const move = ev => { if (!drag) return; const svgEl = $('dbody').querySelector('svg'); if (!svgEl) return; const p = pt(svgEl, ev); drag.x = p.x; drag.y = p.y; draw(); };
+  const up = ev => {
+    if (!drag) return;
+    const t = document.elementFromPoint(ev.clientX, ev.clientY), id = drag.id; drag = null;
+    if (t && t.classList.contains('term')) {
+      if (t.dataset.id === id) { done.add(id); audio.sfx.click(); if (done.size === left.length) { draw(); finishDefence(true, {}, 'THE FUSE BOX IS REWIRED'); return; } }
+      else audio.sfx.spark();
+    }
+    draw();
+  };
+  addEventListener('pointermove', move); addEventListener('pointerup', up);
+  g.cleanup = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); };
   g.timeout = () => finishDefence(false, {}, 'TOO SLOW · A SYSTEM HAS DROPPED');
   draw();
 }
 
-// ---------- Minesweeper ----------
-function startMines(g) {
-  const { mines, start } = GA.msBoard(g.rng), M = new Set(mines), open = new Set(), flags = new Set();
-  GA.msOpen(M, open, start);
-  const draw = (boom = -1) => {
-    let h = '';
-    for (let i = 0; i < GA.MS * GA.MS; i++) {
-      const n = GA.msCount(M, i);
-      if (i === boom || (boom >= 0 && M.has(i))) h += '<div class="o m"></div>';
-      else if (open.has(i)) h += `<div class="o n${n}">${n || ''}</div>`;
-      else h += `<div class="${flags.has(i) ? 'f' : ''}" data-i="${i}"></div>`;
-    }
-    $('dbody').innerHTML = `<div class="ms">${h}</div><p class="hint" style="text-align:center">${M.size - flags.size} mines unflagged</p>`;
-    $('dbody').querySelectorAll('[data-i]').forEach(d => {
-      d.onclick = () => {
-        if (g.done) return;
-        const i = Number(d.dataset.i); if (flags.has(i)) return;
-        if (M.has(i)) { draw(i); finishDefence(false, {}, 'A MINE · THE BUOY IS LOST'); return; }
-        GA.msOpen(M, open, i); audio.sfx.click();
-        if (open.size === GA.MS * GA.MS - M.size) { draw(); finishDefence(true, {}, 'THE FIELD IS CLEAR'); return; }
-        draw();
-      };
-      d.oncontextmenu = e => { e.preventDefault(); if (g.done) return; const i = Number(d.dataset.i); flags.has(i) ? flags.delete(i) : flags.add(i); draw(); };
-    });
-  };
-  g.timeout = () => { draw(); finishDefence(false, {}, 'OUT OF TIME · THE BUOY IS LOST'); };
-  draw();
-}
-
-// ---------- Missile Command ----------
+// ---------- Missile Command (Gunnery): devil fire from the sky, or shells arcing in from skiffs on the horizon ----------
 function startMissile(g) {
-  const W = 980, H = 580, GROUND = 530, BX = W / 2;
-  $('dbody').innerHTML = `<canvas width="${W}" height="${H}"></canvas>`;
+  const W = 980, H = 520, GROUND = 470, BX = W / 2, HORIZON = 120, arc = !!g.arc;
+  $('dbody').innerHTML = `<canvas class="aim" width="${W}" height="${H}"></canvas>`;
   const cv = $('dbody').querySelector('canvas'), ctx = cv.getContext('2d');
   const towers = CAMERAS.map((c, i) => ({ id: c.id, name: c.name, x: 70 + i * (W - 140) / 6, down: !!(snap.cams && snap.cams[i] && snap.cams[i].broken), hit: false }));
-  const waves = GA.missileWaves(g.rng, snap.t / 60).map(w => ({ ...w, x0: 40 + w.from * (W - 80), alive: true, spawned: false }));
+  const waves = GA.missileWaves(g.rng, snap.t / 60, arc ? 'arc' : 'fall').map(w => ({ ...w, x0: arc ? w.from * W : 40 + w.from * (W - 80), y0: arc ? HORIZON : 0, alive: true, spawned: false, trail: [] }));
   const shots = [], bursts = [], booms = [];
   let lastShot = -9;
   const now = () => (performance.now() - g.t0) / 1000;
   cv.onclick = e => {
     if (g.done) return;
     const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height, t = now();
-    if (t - lastShot < 0.35 || shots.length >= 3 || y > GROUND - 10) return;
-    lastShot = t; shots.push({ x, y, t0: t, dur: Math.hypot(x - BX, y - GROUND) / 900 }); audio.sfx.click();
+    if (t - lastShot < 0.3 || shots.length >= 3 || y > GROUND - 10) return;
+    lastShot = t; shots.push({ x, y, t0: t, dur: Math.hypot(x - BX, y - GROUND) / 1000 }); audio.sfx.click();
   };
   const finish = () => {
     const hits = towers.filter(t => t.hit && !t.down).map(t => t.id);
     finishDefence(hits.length === 0, { hits }, hits.length ? `${hits.length} TOWER${hits.length > 1 ? 'S' : ''} HIT · THOSE ORBS ARE DOWN` : 'EVERY TOWER STANDS');
   };
   g.timeout = finish;
+  const pos = (w, tw, k) => arc
+    ? { x: w.x0 + (tw.x - w.x0) * k, y: w.y0 + (GROUND - w.y0) * k - 230 * 4 * k * (1 - k) }
+    : { x: w.x0 + (tw.x - w.x0) * k, y: GROUND * k };
   g.tick = () => {
     const t = now();
     for (const w of waves) {
       if (!w.alive || t < w.at) continue;
-      const tw = towers[w.to], dur = 7 / w.speed, k = Math.min(1, (t - w.at) / dur);
-      w.x = w.x0 + (tw.x - w.x0) * k; w.y = 0 + GROUND * k; w.spawned = true;
+      const tw = towers[w.to], dur = 6 / w.speed, k = Math.min(1, (t - w.at) / dur), p = pos(w, tw, k);
+      w.x = p.x; w.y = p.y; w.spawned = true; w.trail.push(p); if (w.trail.length > 40) w.trail.shift();
       if (k >= 1) { w.alive = false; booms.push({ x: tw.x, y: GROUND, t0: t }); if (!tw.down) tw.hit = true; audio.sfx.blowout(); }
     }
     for (let i = shots.length - 1; i >= 0; i--) { const s = shots[i]; if (t - s.t0 >= s.dur) { bursts.push({ x: s.x, y: s.y, t0: t }); shots.splice(i, 1); } }
     for (const b of bursts) {
-      const a = t - b.t0, r = a < 0.35 ? 46 * a / 0.35 : a < 0.7 ? 46 : Math.max(0, 46 * (1 - (a - 0.7) / 0.3));
+      const a = t - b.t0, r = a < 0.3 ? 48 * a / 0.3 : a < 0.65 ? 48 : Math.max(0, 48 * (1 - (a - 0.65) / 0.3));
       b.r = r;
       for (const w of waves) if (w.alive && w.spawned && Math.hypot(w.x - b.x, w.y - b.y) < r) { w.alive = false; booms.push({ x: w.x, y: w.y, t0: t, small: true }); }
     }
     // draw
     ctx.fillStyle = '#05080a'; ctx.fillRect(0, 0, W, H);
+    if (arc) {
+      ctx.fillStyle = '#0b1a22'; ctx.fillRect(0, HORIZON, W, GROUND - HORIZON);
+      ctx.strokeStyle = 'rgba(127,216,255,.25)'; ctx.beginPath(); ctx.moveTo(0, HORIZON); ctx.lineTo(W, HORIZON); ctx.stroke();
+      for (const x of [60, 140, W - 140, W - 60]) { ctx.fillStyle = '#2a1010'; ctx.beginPath(); ctx.moveTo(x - 30, HORIZON); ctx.lineTo(x + 30, HORIZON); ctx.lineTo(x + 20, HORIZON + 10); ctx.lineTo(x - 20, HORIZON + 10); ctx.fill(); ctx.fillRect(x - 2, HORIZON - 26, 4, 26); ctx.fillStyle = '#7a2a1a'; ctx.beginPath(); ctx.moveTo(x + 2, HORIZON - 24); ctx.lineTo(x + 18, HORIZON - 14); ctx.lineTo(x + 2, HORIZON - 8); ctx.fill(); }
+    }
     ctx.fillStyle = '#1a1410'; ctx.fillRect(0, GROUND, W, H - GROUND);
     for (const tw of towers) {
       const dead = tw.down || tw.hit;
@@ -420,7 +562,10 @@ function startMissile(g) {
     }
     ctx.fillStyle = '#b08d57'; ctx.beginPath(); ctx.moveTo(BX - 26, GROUND); ctx.lineTo(BX, GROUND - 26); ctx.lineTo(BX + 26, GROUND); ctx.fill();
     ctx.lineWidth = 2;
-    for (const w of waves) if (w.alive && w.spawned) { ctx.strokeStyle = 'rgba(255,75,58,.7)'; ctx.beginPath(); ctx.moveTo(w.x0, 0); ctx.lineTo(w.x, w.y); ctx.stroke(); ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.arc(w.x, w.y, 4, 0, 7); ctx.fill(); }
+    for (const w of waves) if (w.alive && w.spawned) {
+      ctx.strokeStyle = 'rgba(255,75,58,.6)'; ctx.beginPath(); w.trail.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.stroke();
+      ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.arc(w.x, w.y, 4, 0, 7); ctx.fill();
+    }
     for (const s of shots) { const k = (t - s.t0) / s.dur; ctx.strokeStyle = 'rgba(127,216,255,.8)'; ctx.beginPath(); ctx.moveTo(BX, GROUND - 26); ctx.lineTo(BX + (s.x - BX) * k, GROUND - 26 + (s.y - GROUND + 26) * k); ctx.stroke(); }
     for (const b of bursts) if (b.r > 0) { ctx.fillStyle = 'rgba(232,207,152,.35)'; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill(); ctx.strokeStyle = '#e8cf98'; ctx.stroke(); }
     for (const b of booms) { const a = t - b.t0; if (a < 0.6) { ctx.fillStyle = `rgba(255,120,60,${0.8 - a})`; ctx.beginPath(); ctx.arc(b.x, b.y, (b.small ? 14 : 34) * (0.4 + a), 0, 7); ctx.fill(); } }

@@ -24,10 +24,12 @@ New rune board (two FUEL, two COFFEE; COOLANT, DECOY, PURGE, SHUTTER, LOCKDOWN, 
 Three books (Engineering, Gunnery, Signals) with a shared orientation; the first edition retired. A new repair system: four rows of lights, gauge and fault code, read by the owner's own flowchart. New breakdowns: the metal scanner, the sonar head (with a strain gauge), the buoy in a storm. A REPAIR power switch. The furnace burns by what is running; a shed order and a damper. The cabin (LOOK LEFT): the furnace log and checkers with Jerry. Orbs: a housing rune sets the plate order; unlocking earns tracking, zoom, follow and slower heating; relock on repair. Stygia is colder (−125° to −250°). Fatigue six minutes. GM break buttons.
 
 ## Done in revision 12
-Officers' stations (station.html, joined with the GM code): the Gunnery beacon workshop (parts by recipe from three books, a packing puzzle, curing on the new WORKSHOP switch), the Signals case board with call signs, the Engineering furnace screen. Triggered defences every 3–7 minutes: Missile Command (towers are orbs), Minesweeper (no-guess boards; the buoy), Lights Out (also on overheating; shed, purge, red lights). The fleet (Battleship against a devil fleet) on the cabin wall and every station, with deployment, the 45-second rule, refit on victory and reinforcements on defeat. Blue beacons retired; stock 6/3/3 with no refill. Checkers removed.
+Officers' stations (station.html, joined with the GM code): the Gunnery beacon workshop (parts by recipe from three books, a packing puzzle, curing on the new WORKSHOP switch), the Signals case board with call signs, the Engineering furnace screen. Triggered defences as inset consoles: Missile Command (30 s, two kinds; towers are orbs; every 3–5 min), the buoy cable (Snake; the buoy), the fuse box (wires; also on overheating; shed, purge, red lights). Steady optional puzzles: Minesweeper (a free beacon on a large non-Elgarz glacier) and 6×6 Lights Out (a free shovel), once a minute each. The game keeps running when its tab is hidden. Burn 15% slower. The fleet (Battleship against a devil fleet) on the cabin wall and every station, with deployment, the 45-second rule, refit on victory and reinforcements on defeat. Blue beacons retired; stock 6/3/3 with no refill. Checkers removed.
 
 ## Stretch
 - Chess with Jerry, on every screen.
+- Update the password game (the rules and how it plays).
+- Update the succubus cameo.
 
 ## Revision 12 (as planned)
 - The beacon workshop on the Gunnery station (and the red rack stops refilling; 6 red, 3 of each other).

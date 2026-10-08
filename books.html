@@ -157,12 +157,12 @@
 
 <section class="page" data-book="all" data-sec="LW-0E" data-title="Stations, defences and the fleet">
   <h2><span class="code">LW-0E</span> STATIONS, DEFENCES &amp; THE FLEET</h2>
-  <p>Each officer keeps a <b>station</b> of their own, linked to the Watch with the four-character code on the top bar of the operator's screen. A station holds the officer's standing duty and a share of the fleet. Every few minutes the enemy tests one station; the officer there must hold.</p>
+  <p>Each officer keeps a <b>station</b> of their own, linked to the Watch with the four-character code on the top bar of the operator's screen. A station holds the officer's standing duty, an optional puzzle that helps the Watch, and a share of the fleet. Every few minutes the enemy tests one station: the defence console lights up red and the officer there must hold.</p>
   <table>
     <tr><th>Station</th><th>Standing duty</th><th>Defence</th><th>If it fails</th></tr>
-    <tr><td><b>GUNNERY</b></td><td>The beacon workshop (GU-5)</td><td><b>Devil fire</b> falls on the seven orb towers. Click to burst flak in its path. About a minute.</td><td>Every tower struck: that orb is destroyed.</td></tr>
-    <tr><td><b>SIGNALS</b></td><td>The full case board and the call signs</td><td><b>Mines</b> in the approaches: clear the field. 8 × 8, 8 mines, 90 s. Left click opens, right click flags.</td><td>The buoy is lost.</td></tr>
-    <tr><td><b>ENGINEERING</b></td><td>The furnace log, the shed order and the damper</td><td><b>The breakers trip</b>, every few minutes and whenever the furnace runs into the red: get every breaker dark in 60 s.</td><td>The lowest system in the shed order drops, a shovel is lost, the lights go red.</td></tr>
+    <tr><td><b>GUNNERY</b></td><td>The beacon workshop (GU-5)</td><td><b>Devil fire</b> on the seven orb towers, from the sky or from skiffs on the horizon. Click to burst flak in its path. 30 s.</td><td>Every tower struck: that orb is destroyed.</td></tr>
+    <tr><td><b>SIGNALS</b></td><td>The full case board and the call signs · the minefield (SI-6)</td><td><b>The buoy cable snaps</b>: steer the splice (arrow keys) to collect 8 loose ends without touching the walls or the cable. 45 s.</td><td>The buoy is lost.</td></tr>
+    <tr><td><b>ENGINEERING</b></td><td>The furnace log, the shed order and the damper · the breaker panel (EN-7)</td><td><b>The fuse box blows</b>, every few minutes and whenever the furnace runs into the red: drag each wire to the terminal of its colour and stripe. 20 s.</td><td>The lowest system in the shed order drops, a shovel is lost, the lights go red.</td></tr>
   </table>
   <h3>The fleet</h3>
   <p>The Watch's naval defences, on the cabin wall and on every station. Columns are marked with runes and rows with numbers.</p>
@@ -263,10 +263,10 @@
   <p>Every <b>orange</b> and <b>green</b> beacon carries a sounding core, built to Engineering's design. Gunnery fits it at the bench; this book says which core. A core is told by its <b>notches</b> (one to four) and its <b>seal</b> (brass or rubber).</p>
   <ol id="rec-engineer"></ol>
   <p><b>Example.</b> Serial <b>KTR-47</b>, lamp yellow: 4 halved is 2, so two notches; there is an R, so a rubber seal.</p>
-  <h2 style="margin-top:22px"><span class="code">EN-7</span> THE BREAKERS</h2>
-  <p>Every few minutes, and whenever the furnace runs into the red, the breakers trip on your station: a five-by-five panel of lit breakers. <b>Pressing a breaker flips it and its four neighbours.</b> Get every breaker dark within 60 seconds. Every panel can be cleared in five presses or fewer.</p>
-  <div class="warn">If the breakers are still lit when time runs out: the lowest system in the shed order switches off, a shovel is lost from the chute, and the cabin lights go red.</div>
-  <p>Keep the furnace out of the red: an overheated furnace trips the breakers on top of everything else.</p>
+  <h2 style="margin-top:22px"><span class="code">EN-7</span> THE BREAKERS &amp; THE FUSE BOX</h2>
+  <p><b>The breaker panel</b> sits on your station at all times: six by six. <b>Pressing a breaker flips it and its four neighbours.</b> Get every breaker dark and the boiler hands the furnace <b>a free shovel of fuel</b>. One free shovel a minute; nothing goes wrong if you leave it.</p>
+  <p><b>The fuse box</b> blows every few minutes, and whenever the furnace runs into the red. Drag each loose wire to the terminal of the same colour and stripe, within 20 seconds.</p>
+  <div class="warn">If the fuse box is not rewired in time: the lowest system in the shed order switches off, a shovel is lost from the chute, and the cabin lights go red.</div>
 </section>
 
 <!-- ======================= GUNNERY & TARGETING ======================= -->
@@ -390,14 +390,14 @@
   <p>Every <b>green</b> beacon carries a transmitter crystal, cut to Signals' design: it is what carries the Navy's call to Elgarz. Gunnery fits it at the bench; this book says which crystal. A crystal is told by its <b>facets</b> (three, five or seven) and its <b>tint</b> (clear, smoky or rose).</p>
   <ol id="rec-signals"></ol>
   <p><b>Example.</b> Serial <b>KTR-47</b>, lamp yellow, call band MID: five facets; the letters are all different and the lamp is yellow, so smoky.</p>
-  <h2 style="margin-top:22px"><span class="code">SI-6</span> THE MINEFIELD</h2>
-  <p>Every few minutes, mines drift into the approaches and the minefield opens on your station: an eight-by-eight field with eight mines, and 90 seconds. A safe area is already open.</p>
+  <h2 style="margin-top:22px"><span class="code">SI-6</span> THE MINEFIELD &amp; THE CABLE</h2>
+  <p><b>The minefield</b> sits on your station at all times: eight by eight, eight mines, a safe patch already open. <b>Clear it and the Watch's guns are free to fire: a beacon strikes a glacier</b>, pinning it to the case board. One field a minute; a mine costs nothing but the field.</p>
   <ul>
     <li><b>Left click</b> opens a square. A number is how many of the eight squares around it hold a mine.</li>
-    <li><b>Right click</b> flags a square you know is a mine.</li>
-    <li>Every field can be cleared by reasoning alone: no guessing is ever needed.</li>
+    <li><b>Right click</b> flags a square you know is a mine. No guessing is ever needed.</li>
   </ul>
-  <div class="warn">Open a mine, or run out of time, and the buoy is lost (the winch must be repaired).</div>
+  <p><b>The buoy cable</b> snaps every few minutes. Steer the splice with the arrow keys (or WASD) and collect eight loose ends within 45 seconds. The cable grows as you go; do not touch the walls or the cable itself.</p>
+  <div class="warn">If the splice fails, or time runs out, the buoy is lost (the winch must be repaired).</div>
 </section>
 
 <script type="module">
@@ -473,7 +473,7 @@ $('t-flow').innerHTML = '<tr><th>Step</th><th>Led by (with the operator)</th><th
   ['<b>Metal.</b> The scanner, set for the water at the buoy', 'ENGINEERING', 'SIGNALS names the plate runes'],
   ['<b>The Triad.</b> Tune in, decode, look up', 'ENGINEERING tunes · SIGNALS decodes', 'GUNNERY reads the codebook'],
   ['<b>Build beacons.</b> The workshop, on the Gunnery station', 'GUNNERY', 'ENGINEERING: the core (orange, green) · SIGNALS: the crystal (green)'],
-  ['<b>Defences.</b> Devil fire, mines, tripped breakers', 'each officer, at their station', '(LW-0E)'],
+  ['<b>Defences.</b> Devil fire, the buoy cable, the fuse box', 'each officer, at their station', '(LW-0E)'],
   ['<b>The fleet.</b> Deploy it, fire on the enemy', 'everyone', '(LW-0E)'],
   ['<b>Repairs.</b> The repair bay', 'the machine\'s owner (LW-0C)', ''],
   ['<b>Contact.</b> The green transmitter beacon', 'GUNNERY fires', 'every officer agrees · the password'],
@@ -492,7 +492,7 @@ $('pwrules').innerHTML = PW_RULES.map(r => '<li>' + r.text + '</li>').join('');
 {
   const ABOUT = { 'LW-0': 'the Watch, the three books, who leads each step', 'LW-0A': 'the decision matrix, the chart, the stations', 'LW-0B': 'the cold, the hunters, storms, shoals, remorhazes, the hit chance, beacon colours', 'LW-0C': 'what breaks and whose flowchart mends it, the password', 'LW-0D': 'what each case board cell means',
     'EN-1': 'heat, the furnace log, shed order, the damper', 'EN-2': 'rune functions by house, weight and page', 'EN-3': 'setting the scanner from the buoy weather', 'EN-4': 'frequency, gain, the band, the cabin radio', 'EN-5': 'the Engineering repair flowchart',
-    'GU-1': 'locked and unlocked orbs, the lever chart, plates by house', 'GU-2': 'the hit chance, firing, payloads', 'GU-3': 'call sign and band to meaning', 'GU-4': 'the Gunnery repair flowchart', 'GU-5': 'building beacons: the bench, the shell recipe, the call band', 'LW-0E': 'your station, the defences, the fleet', 'EN-6': 'the sounding core recipe, the breakers', 'SI-5': 'the transmitter crystal recipe, the minefield',
+    'GU-1': 'locked and unlocked orbs, the lever chart, plates by house', 'GU-2': 'the hit chance, firing, payloads', 'GU-3': 'call sign and band to meaning', 'GU-4': 'the Gunnery repair flowchart', 'GU-5': 'building beacons: the bench, the shell recipe, the call band', 'LW-0E': 'your station, the defences, the fleet', 'EN-6': 'the sounding core recipe, the breaker panel, the fuse box', 'SI-5': 'the transmitter crystal recipe, the minefield, the buoy cable',
     'SI-1': 'every rune, by house and weight', 'SI-2': 'one ping, reading the printout, the five echoes, the sonar head', 'SI-3': 'wave shapes, lamps to call sign', 'SI-4': 'the Signals repair flowchart' };
   const pages = visible();
   if (book === 'all') $('t-index').innerHTML = `<tr><td>The GM copy: the orientation, then each officer's pages in turn (EN, GU, SI).</td></tr>`;

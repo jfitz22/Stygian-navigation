@@ -22,8 +22,8 @@ export const TUNING = {
   currentRefresh: 4,       // seconds between current readings while powered
   // furnace
   furnaceStartHeat: 62,
-  burnIdle: 0.03,          // heat lost per second with nothing switched on
-  burnSteps: [0.07, 0.11, 0.16], // ...plus this for the first, second and third system (1: 0.10, 2: 0.21, 3: 0.37 a second)
+  burnIdle: 0.0255,        // heat lost per second with nothing switched on
+  burnSteps: [0.0595, 0.0935, 0.136], // ...plus this for the first, second and third system (1: 0.085, 2: 0.18, 3: 0.31 a second)
   damperBurn: 0.6,         // the LOW damper burns this fraction of the heat...
   damperSlow: 1.6,         // ...but everything powered works this much slower (spin-up, readings, scans, repairs, tracking)
   heatLogEvery: 2,         // seconds between furnace log samples (the log keeps three minutes)
@@ -56,7 +56,8 @@ export const TUNING = {
   greenStock: 3,           // transmitter beacons: the Navy's call
   cureTime: 15,            // seconds a sealed beacon cures in the rack while the WORKSHOP is powered
   // the officers' stations: a defence event for each, every few minutes
-  defenceEvery: [180, 420],// seconds between one station's events
+  defenceEvery: { gunnery: [180, 300], signals: [180, 420], engineer: [180, 420] },   // seconds between one station's events
+  rewardCooldown: 60,      // seconds before a station's steady puzzle can pay out again (Minesweeper, Lights Out)
   defenceGap: 45,          // seconds kept between any two stations' events
   overheatHeat: 90,        // furnace heat in the red: Engineering's breakers trip too
   overheatEvery: 60,       // ...at most this often

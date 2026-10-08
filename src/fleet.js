@@ -4,7 +4,11 @@
 
 export const SIZE = 8;
 export const SHIPS = [4, 3, 3, 2];
+import { RUNES } from './glyphs.js';
 export const SHIP_NAMES = ['THE CINDERWAKE', 'THE GALLOWS', 'THE BRIMSTONE', 'THE LANTERN'];
+export const ENEMY_NAMES = ['THE WAILING TITHE', 'THE BRASS PENITENT', 'THE CINDER WIDOW', 'THE HOLLOW CENSER'];
+// A square as the crew says it: the column rune's name, then the row number.
+export const square = (x, y) => RUNES[COL_RUNES[x]].name.toUpperCase() + ' ' + (y + 1);
 export const COL_RUNES = [0, 5, 10, 13, 2, 7, 8, 15];   // RUNES indices for the column marks
 export const ENEMY_DELAY = 3;          // seconds before the enemy answers a shot
 export const IDLE_SHOT = 45;           // seconds of silence before the enemy takes a free shot
@@ -65,6 +69,7 @@ export function newFleet(rng, deploy) {
     enemyAt: null,    // when the enemy fires next (after our shot)
     idleFrom: 0,      // when the last shot was fired by anyone
     wins: 0, losses: 0, last: null,
+    log: [],          // the battle log, newest last: [{ t, text, kind }]
   };
 }
 export const allPlaced = f => f.mine.every(s => s.x != null);
@@ -114,4 +119,20 @@ export function enemyAim(f, rng) {
   const checker = all.filter(([x, y]) => (x + y) % 2 === 0);
   const pool = checker.length && rng() > ENEMY_CARELESS ? checker : all;
   return pool[Math.floor(rng() * pool.length)];
+}
+
+// The battle log: one line per shot, as the radio would report it.
+export function logShot(f, by, r, t) {
+  if (!r) return;
+  const sq = square(r.x, r.y), afloat = f.mine.filter(s => !cellsOf(s).every(c => f.theirShots[key(...c)] === 'hit'));
+  let text, kind = r.hit ? 'hit' : 'miss';
+  if (by === 'us') {
+    const gun = afloat.length ? SHIP_NAMES[f.mine.indexOf(afloat[Math.floor(t * 7) % afloat.length])] : 'THE WATCH';
+    text = r.sunk >= 0 ? `${gun} fires on ${sq}: a hit. ${ENEMY_NAMES[r.sunk]} IS SINKING.` : r.hit ? `${gun} fires on ${sq}: a hit, and fire aboard.` : `${gun} fires on ${sq}: a splash, nothing there.`;
+  } else {
+    const i = f.mine.findIndex(s => cellsOf(s).some(([a, b]) => a === r.x && b === r.y));
+    text = r.sunk >= 0 ? `Enemy shell on ${sq}. ${SHIP_NAMES[r.sunk]} IS GOING DOWN.` : r.hit ? `Enemy shell on ${sq}: ${SHIP_NAMES[i]} is hit.` : `Enemy shell on ${sq}: it falls short.`;
+    kind = r.hit ? 'struck' : 'safe';
+  }
+  f.log.push({ t, text, kind }); if (f.log.length > 30) f.log.shift();
 }

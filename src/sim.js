@@ -17,7 +17,7 @@ export const SPINUP = { cameras: 1, sonar: 1.5, radio: 2, scanner: 4, currents: 
 export const DEFAULT_PRIORITY = ['sonar', 'cameras', 'currents', 'radio', 'scanner', 'repair', 'workshop'];
 // The officers' stations and the defence each one plays.
 export const ROLES = ['gunnery', 'signals', 'engineer'];
-export const DEFENCE = { gunnery: 'missile', signals: 'mines', engineer: 'lights' };
+export const DEFENCE = { gunnery: 'missile', signals: 'snake', engineer: 'wires' };
 export const DT = 0.1;
 export const BREAKABLE = { furnace: 'FURNACE GRATE', launcher: 'BEACON LAUNCHER', winch: 'BUOY WINCH', fuse: 'RADIO RECEIVER', scanner: 'METAL SCANNER', sonarhead: 'SONAR HEAD' };
 // GM levers (multipliers). 1 is the designed game.
@@ -350,6 +350,7 @@ export function createWorld(seed = newSeed(), opts = {}) {
     hold: opts.deploy ? 'deploy' : null,   // the watch does not run while this is set
     reinforce: false,   // devil reinforcements: paused until the GM resumes
     defence: { next: {}, active: {}, live: {}, overheatAt: -999, seq: 0 }, defRng: mulberry32(seed + 0xDEF0),
+    rewards: { mines: 0, lights: 0 },   // when each steady puzzle can pay out again
     monsters: [],       // released from frozen ice by a beacon hit
     tags: [], events: [],
     elgarzPlan: null,
@@ -1189,7 +1190,7 @@ export function fleetFire(w, x, y) {
   if (f.phase !== 'play' || w.reinforce || f.enemyAt != null) return null;
   const r = FL.fireAtEnemy(f, x, y);
   if (!r) return null;
-  f.last = { by: 'us', ...r, t: w.t }; emit(w, 'fleetshot', { by: 'us', ...r });
+  f.last = { by: 'us', ...r, t: w.t }; FL.logShot(f, 'us', r, w.t); emit(w, 'fleetshot', { by: 'us', ...r });
   if (r.all) { f.wins++; emit(w, 'fleetwin'); resetFleets(w); return r; }
   f.enemyAt = w.t + FL.ENEMY_DELAY; f.idleFrom = w.t;
   return r;
@@ -1198,7 +1199,7 @@ function enemyShot(w, free) {
   const f = w.fleet, [x, y] = FL.enemyAim(f, w.fleetRng), r = FL.fireAtUs(f, x, y);
   f.enemyAt = null; f.idleFrom = w.t;
   if (!r) return;
-  f.last = { by: 'them', ...r, t: w.t, free }; emit(w, 'fleetshot', { by: 'them', free, ...r });
+  f.last = { by: 'them', ...r, t: w.t, free }; FL.logShot(f, 'them', r, w.t); if (free) f.log[f.log.length - 1].text = 'Nobody was firing. ' + f.log[f.log.length - 1].text; emit(w, 'fleetshot', { by: 'them', free, ...r });
   if (r.all) { f.losses++; w.reinforce = true; w.paused = true; emit(w, 'reinforcements'); }
 }
 function fleetStep(w) {
@@ -1212,6 +1213,7 @@ function resetFleets(w) {
   const f = w.fleet;
   f.mine = FL.shiftFleet(f.mine, w.fleetRng); f.enemy = FL.randomFleet(w.fleetRng);
   f.myShots = {}; f.theirShots = {}; f.enemyAt = null; f.idleFrom = w.t;
+  (f.log = f.log || []).push({ t: w.t, text: 'A new enemy fleet on the horizon. Our ships are refitted and take new stations.', kind: 'info' });
 }
 // The GM has fought off the reinforcements at the table: the watch resumes.
 function endReinforcements(w) {
@@ -1225,7 +1227,7 @@ function endReinforcements(w) {
 const randBetween = (w, [a, b]) => a + w.defRng() * (b - a);
 function scheduleDefence(w, role, from) {
   const d = w.defence;
-  let at = from + randBetween(w, T.defenceEvery);
+  let at = from + randBetween(w, T.defenceEvery[role]);
   for (let k = 0; k < 20; k++) {
     const clash = ROLES.some(r => r !== role && d.next[r] != null && Math.abs(d.next[r] - at) < T.defenceGap);
     if (!clash) break;
@@ -1280,8 +1282,31 @@ export function defenceResult(w, role, id, res = {}) {
 
 // ---------- everything a station can ask for ----------
 export function setCallsign(w, bergId, text) { w.callsigns[bergId] = String(text || '').toUpperCase().replace(/[^RWB]/g, '').slice(0, 3); emit(w, 'callsign'); }
+// ---------- the steady puzzles: optional, with a small reward ----------
+// Signals' Minesweeper: a red beacon strikes a glacier for free (always large, never Elgarz; the crew is not told).
+export function minesReward(w) {
+  if (w.t < w.rewards.mines) return false;
+  const pool = w.bergs.filter(b => b.large && !b.elgarz && !b.tag && b.echo.sig !== 'monster' && inReach(b));
+  if (!pool.length) return false;
+  const b = pool[Math.floor(w.defRng() * pool.length)];
+  w.rewards.mines = w.t + T.rewardCooldown;
+  beaconHits(w, b, 'red', w.t);
+  emit(w, 'freebeacon', { num: b.num });
+  return true;
+}
+// Engineering's Lights Out: a free shovel in the fuel chute.
+export function lightsReward(w) {
+  if (w.t < w.rewards.lights) return false;
+  w.rewards.lights = w.t + T.rewardCooldown;
+  const f = w.furnace, had = f.chute;
+  f.chute = Math.min(T.chuteMax, f.chute + 1);
+  emit(w, 'freefuel', { full: had === f.chute });
+  return true;
+}
 export function stationAction(w, role, a) {
   if (!a || !a.act) return;
+  if (a.act === 'minesweeper' && role === 'signals') minesReward(w);
+  if (a.act === 'lightsout' && role === 'engineer') lightsReward(w);
   if (a.act === 'seal' && role === 'gunnery') sealBeacon(w, a.color);
   if (a.act === 'defence') defenceResult(w, role, a.id, a.res);
   if (a.act === 'callsign') setCallsign(w, a.bergId, a.text);
@@ -1478,7 +1503,7 @@ export function snapshot(w) {
     storms: stormsAt(w, w.t),
     lock: w.lock, ghost: ghostAt(w, w.t), power: Object.fromEntries(SYSTEMS.map(s => [s, w.power[s].on])),
     beacons: w.beacons.stock, orange: w.beacons.orange, green: w.beacons.green, workshop: w.workshop, fleet: w.fleet, hold: w.hold, reinforce: w.reinforce,
-    defence: { next: w.defence.next, active: w.defence.active, live: w.defence.live }, callsigns: w.callsigns, calibrated: w.scanner.calibrated, broken: brokenList(w).map(b => b.name),
+    defence: { next: w.defence.next, active: w.defence.active, live: w.defence.live }, callsigns: w.callsigns, rewards: w.rewards, calibrated: w.scanner.calibrated, broken: brokenList(w).map(b => b.name),
     furnace: { lit: w.furnace.lit, heat: w.furnace.heat, chute: w.furnace.chute }, music: w.music, fatigue: w.fatigue,
     camCode: camCode(w), activeCam: w.activeCam, tom: { x: w.tom.x, y: w.tom.y, mode: w.tom.mode },
     furnaceState: furnaceState(w), sonarStrain: sonarStrain(w), camRune: w.camRune, brokenIds: Object.keys(w.broken).filter(k => w.broken[k]),

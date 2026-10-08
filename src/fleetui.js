@@ -1,6 +1,6 @@
 // The fleet panel: deployment, the two grids and the firing pad. Mounted on the operator's cabin wall and on every
 // officer's station. It only draws a fleet state and calls `send(action)`; the game decides what happens.
-import { SIZE, SHIPS, SHIP_NAMES, COL_RUNES, IDLE_SHOT, cellsOf, key } from './fleet.js';
+import { SIZE, SHIPS, SHIP_NAMES, ENEMY_NAMES, COL_RUNES, IDLE_SHOT, ENEMY_DELAY, cellsOf, key } from './fleet.js';
 import { glyphSVG } from './glyphs.js';
 
 const css = `
@@ -10,8 +10,10 @@ const css = `
 .fl .grid { display: grid; grid-template-columns: 22px repeat(${SIZE}, var(--c)); grid-template-rows: 22px repeat(${SIZE}, var(--c)); gap: 2px; }
 .fl .hd { display: flex; align-items: center; justify-content: center; font-size: 12px; color: #b9a77c; }
 .fl .hd svg { color: #e8cf98; }
-.fl .cell { background: #0d1a20; border: 1px solid #22404a; position: relative; }
-.fl .cell.ship { background: #4b5560; border-color: #8a96a2; }
+.fl .cell { border: 1px solid #22404a; position: relative; overflow: visible;
+  background: repeating-linear-gradient(170deg, #0c1a22 0 6px, #0e1f28 6px 9px); background-size: 40px 40px; animation: flsea 6s linear infinite; }
+@keyframes flsea { to { background-position: 40px 12px; } }
+.fl .cell.ship { background: linear-gradient(#5d6873, #3e4750); border-color: #8a96a2; animation: none; }
 .fl .cell.ship.sunk { background: #3a1410; border-color: #a33; }
 .fl .cell.hit::after, .fl .cell.miss::after { content: ''; position: absolute; inset: 28%; border-radius: 50%; }
 .fl .cell.hit::after { background: #ff4b3a; box-shadow: 0 0 8px #ff4b3a; }
@@ -36,6 +38,20 @@ const css = `
 .fl .ready { background: #1f4a3a; color: #d9ffe6; border: 2px solid #2bd96b; padding: 8px 18px; font: 600 14px 'Cinzel', serif; letter-spacing: 3px; cursor: pointer; }
 .fl .ready:disabled { opacity: .35; cursor: default; }
 .fl .hint { font-size: 11px; color: #8e9a90; }
+.fl .clockbar { height: 8px; background: #0a0806; border: 1px solid #3a2d1c; border-radius: 4px; overflow: hidden; }
+.fl .clockbar i { display: block; height: 100%; background: linear-gradient(90deg, #a3291c, #ffb347); transition: width .25s linear; }
+.fl .clockbar.enemy i { background: linear-gradient(90deg, #ff4b3a, #ff9a8a); }
+.fl .log { font-size: 12px; line-height: 1.5; max-height: 132px; overflow: hidden; border-top: 1px solid #2a2a2a; padding-top: 6px; }
+.fl .log div { opacity: .55; } .fl .log div:first-child { opacity: 1; } .fl .log div:nth-child(2) { opacity: .8; }
+.fl .log .hit { color: #ffb347; } .fl .log .struck { color: #ff8a7a; } .fl .log .safe { color: #9ad0ff; } .fl .log .info { color: #5cff9d; }
+.fl .cell.shellin::before { content: ''; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px; border-radius: 50%; background: #ffe4a0; box-shadow: 0 0 10px #ffb347; animation: flshell .55s ease-in forwards; z-index: 3; }
+@keyframes flshell { from { transform: translate(-60px, -140px) scale(1.8); opacity: .3; } 90% { opacity: 1; } to { transform: none; opacity: 0; } }
+.fl .cell.splash::after, .fl .cell.blast::after { inset: -6px !important; border-radius: 50%; animation: flring .8s ease-out .5s backwards; }
+.fl .cell.splash::after { background: none !important; border: 2px solid #9ad0ff; box-shadow: 0 0 10px #9ad0ff; }
+.fl .cell.blast::after { background: radial-gradient(circle, #fff1c0, #ff7a2a 45%, rgba(255,60,30,0) 70%) !important; }
+@keyframes flring { from { transform: scale(.2); opacity: 1; } to { transform: scale(1.4); opacity: 0; } }
+.fl .cell.sunk { animation: flburn 1.2s ease-in-out infinite alternate; }
+@keyframes flburn { to { box-shadow: inset 0 0 12px #ff4b3a; } }
 `;
 let styled = false;
 
@@ -43,7 +59,7 @@ let styled = false;
 export function mountFleet(el, get, send, opts = {}) {
   if (!styled) { const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s); styled = true; }
   el.classList.add('fl'); el.style.setProperty('--c', (opts.cell || 30) + 'px');
-  const ui = { entry: [], held: null, heldDir: 'h', hover: null, key: '' };
+  const ui = { entry: [], held: null, heldDir: 'h', hover: null, key: '', shotKey: null };
   const runeHead = x => glyphSVG(COL_RUNES[x], 16);
 
   function gridHTML(kind, f) {
@@ -57,7 +73,8 @@ export function mountFleet(el, get, send, opts = {}) {
       for (let x = 0; x < SIZE; x++) {
         const k = key(x, y), i = shipAt[k], show = i != null && (kind === 'mine' || sunk(i));
         const aim = kind === 'enemy' && ui.entry.length === 2 && ui.entry[0] === x && ui.entry[1] === y;
-        h += `<div class="cell${show ? ' ship' : ''}${show && sunk(i) ? ' sunk' : ''}${shots[k] ? ' ' + shots[k] : ''}${aim ? ' aim' : ''}" data-x="${x}" data-y="${y}"></div>`;
+        const nm = show ? (kind === 'mine' ? SHIP_NAMES[i] : ENEMY_NAMES[i]) : '';
+        h += `<div class="cell${show ? ' ship' : ''}${show && sunk(i) ? ' sunk' : ''}${shots[k] ? ' ' + shots[k] : ''}${aim ? ' aim' : ''}" data-x="${x}" data-y="${y}"${nm ? ` title="${nm}"` : ''}></div>`;
       }
     }
     return h;
@@ -71,9 +88,9 @@ export function mountFleet(el, get, send, opts = {}) {
     const idle = f.phase === 'play' && myTurn ? Math.max(0, Math.ceil(IDLE_SHOT - (t - f.idleFrom))) : null;
     const st = el.querySelector('.status');
     const statusText = f.phase === 'deploy' ? 'DEPLOY THE FLEET. Drag each ship onto the grid; right click or R turns it.'
-      : !myTurn ? '<b>THE ENEMY IS FIRING...</b>'
-      : `<b>YOUR SHOT.</b> The enemy fires anyway in ${idle} s.`;
-    if (k === ui.key) { if (st && st.innerHTML !== statusText) st.innerHTML = statusText; return; }
+      : !myTurn ? '<b>INCOMING: THE ENEMY IS FIRING...</b>'
+      : `<b>YOUR SHOT.</b> Choose a square. If nobody fires, the enemy fires anyway in <b>${idle} s</b>.`;
+    if (k === ui.key) { if (st && st.innerHTML !== statusText) st.innerHTML = statusText; clockBar(f, t); return; }
     ui.key = k;
     if (f.phase === 'deploy') {
       el.innerHTML = `<div class="status">${statusText}</div>
@@ -86,20 +103,39 @@ export function mountFleet(el, get, send, opts = {}) {
       const left = (ships, shots) => ships.filter(s => !cellsOf(s).every(c => shots[key(...c)] === 'hit')).length;
       el.innerHTML = `<div class="status">${statusText}</div>
         <div class="grids">
-          <div class="gwrap enemy"><div class="lbl">ENEMY WATERS · ${left(f.enemy, f.myShots)} SHIPS LEFT</div><div class="grid">${gridHTML('enemy', f)}</div></div>
-          <div class="gwrap mine"><div class="lbl">OUR FLEET · ${left(f.mine, f.theirShots)} SHIPS LEFT</div><div class="grid">${gridHTML('mine', f)}</div></div>
+          <div class="gwrap enemy"><div class="lbl">ENEMY WATERS · ${left(f.enemy, f.myShots)} OF ${ENEMY_NAMES.length} AFLOAT</div><div class="grid">${gridHTML('enemy', f)}</div></div>
+          <div class="gwrap mine"><div class="lbl">OUR FLEET · ${left(f.mine, f.theirShots)} OF ${SHIP_NAMES.length} AFLOAT</div><div class="grid">${gridHTML('mine', f)}</div></div>
         </div>
         <div class="pad">${[...Array(SIZE).keys()].map(x => `<button data-col="${x}">${runeHead(x)}</button>`).join('')}</div>
         <div class="pad">${[...Array(SIZE).keys()].map(y => `<button data-row="${y}">${y + 1}</button>`).join('')}
           <span class="entry">${ui.entry[0] != null ? runeHead(ui.entry[0]) : '·'} ${ui.entry[1] != null ? ui.entry[1] + 1 : '·'}</span>
           <button data-back>⌫</button><button class="fire" ${myTurn && ui.entry.length === 2 ? '' : 'disabled'}>FIRE</button></div>
+        <div class="clockbar"><i></i></div>
+        <div class="log">${(f.log || []).slice(-6).reverse().map(l => `<div class="${l.kind}">${l.text}</div>`).join('') || '<div class="info">The enemy fleet is somewhere out there. Fire when ready.</div>'}</div>
         <div class="hint">Victories ${f.wins} · losses ${f.losses}. Anyone at any station can fire.</div>`;
       el.querySelectorAll('[data-col]').forEach(b => b.onclick = () => { ui.entry = [Number(b.dataset.col)]; render(); });
       el.querySelectorAll('[data-row]').forEach(b => b.onclick = () => { if (ui.entry.length === 1) { ui.entry = [ui.entry[0], Number(b.dataset.row)]; render(); } });
       el.querySelector('[data-back]').onclick = () => { ui.entry = ui.entry.slice(0, -1); render(); };
       el.querySelector('.fire').onclick = () => { if (ui.entry.length === 2) { send({ act: 'fire', x: ui.entry[0], y: ui.entry[1] }); ui.entry = []; render(); } };
       el.querySelectorAll('.enemy .cell').forEach(c => c.onclick = () => { ui.entry = [Number(c.dataset.x), Number(c.dataset.y)]; render(); });
+      clockBar(f, t);
+      // the latest shot: a shell falls on the square, then a splash or a blast
+      const lk = f.last ? f.last.by + f.last.t : null;
+      if (lk && lk !== ui.shotKey) {
+        const fresh = ui.shotKey !== null; ui.shotKey = lk;
+        if (fresh && f.last.x != null) {
+          const c = el.querySelector(`.${f.last.by === 'us' ? 'enemy' : 'mine'} .cell[data-x="${f.last.x}"][data-y="${f.last.y}"]`);
+          if (c) { c.classList.add('shellin', f.last.hit ? 'blast' : 'splash'); setTimeout(() => c.classList.remove('shellin', 'blast', 'splash'), 1400); }
+          if (opts.onShot) opts.onShot(f.last);
+        }
+      }
     }
+  }
+  // the countdown: our turn drains towards the enemy's free shot; their turn runs down to their salvo
+  function clockBar(f, t) {
+    const bar = el.querySelector('.clockbar'); if (!bar || f.phase !== 'play') return;
+    const enemy = f.enemyAt != null, k = enemy ? Math.max(0, (f.enemyAt - t) / ENEMY_DELAY) : Math.max(0, 1 - (t - f.idleFrom) / IDLE_SHOT);
+    bar.classList.toggle('enemy', enemy); bar.firstElementChild.style.width = (k * 100).toFixed(1) + '%';
   }
 
   // deployment: drag a ship from the dock (or the grid) and drop it on a square; R or right click turns it
