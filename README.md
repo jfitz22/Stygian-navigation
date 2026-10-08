@@ -6,6 +6,7 @@ A 20-minute observatory minigame for a D&D session in Stygia. One player works t
 
 - **Play:** `index.html` (add `?seed=1234` to replay a particular sea; without it every watch is a fresh one)
 - **Operations Manual** (print or save as PDF, US Letter): `books.html?book=engineer`, `?book=gunnery`, `?book=signals`, and `?book=all` for the GM. Each book opens with the same orientation pages.
+- **Officers' stations** (one per manual holder, on their own computer): `station.html`. Choose Gunnery, Signals or Engineering and enter the code from the top bar of the operator's screen.
 - **GM truth view** (your screen only, passphrase `geryon`): `gm.html`
 - **Design:** [docs/design.md](docs/design.md)
 

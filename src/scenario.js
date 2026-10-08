@@ -51,12 +51,15 @@ export const TUNING = {
   sipRelief: 0.45,
   // beacons
   beaconSpeed: 200,        // miles per second
-  beaconStock: 12,         // plain red beacons; the rack rebuilds (until the workshop arrives)
-  beaconRebuild: 40,
-  orangeStock: 6,          // sounding charges: an echo on impact, no ping. Never rebuild.
-  blueStock: 6,            // drift logs: the ice's path is recorded from impact. Never rebuild.
-  greenStock: 4,           // "this is Elgarz" beacons. They never rebuild.
-  driftLogEvery: 5,        // seconds between drift-log points
+  beaconStock: 6,          // plain red beacons at the start of the watch; more come only from the workshop
+  orangeStock: 3,          // sounding charges: an echo on impact, no ping
+  greenStock: 3,           // transmitter beacons: the Navy's call
+  cureTime: 15,            // seconds a sealed beacon cures in the rack while the WORKSHOP is powered
+  // the officers' stations: a defence event for each, every few minutes
+  defenceEvery: [180, 420],// seconds between one station's events
+  defenceGap: 45,          // seconds kept between any two stations' events
+  overheatHeat: 90,        // furnace heat in the red: Engineering's breakers trip too
+  overheatEvery: 60,       // ...at most this often
   hitLarge: 14,            // beacon hit radius for large ice: hitLarge + length * hitPerMile
   hitPerMile: 0.6,
   hitSmall: 14,

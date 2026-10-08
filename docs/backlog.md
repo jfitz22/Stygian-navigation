@@ -23,7 +23,13 @@ New rune board (two FUEL, two COFFEE; COOLANT, DECOY, PURGE, SHUTTER, LOCKDOWN, 
 ## Done in revision 11
 Three books (Engineering, Gunnery, Signals) with a shared orientation; the first edition retired. A new repair system: four rows of lights, gauge and fault code, read by the owner's own flowchart. New breakdowns: the metal scanner, the sonar head (with a strain gauge), the buoy in a storm. A REPAIR power switch. The furnace burns by what is running; a shed order and a damper. The cabin (LOOK LEFT): the furnace log and checkers with Jerry. Orbs: a housing rune sets the plate order; unlocking earns tracking, zoom, follow and slower heating; relock on repair. Stygia is colder (−125° to −250°). Fatigue six minutes. GM break buttons.
 
-## Revision 12 (planned)
+## Done in revision 12
+Officers' stations (station.html, joined with the GM code): the Gunnery beacon workshop (parts by recipe from three books, a packing puzzle, curing on the new WORKSHOP switch), the Signals case board with call signs, the Engineering furnace screen. Triggered defences every 3–7 minutes: Missile Command (towers are orbs), Minesweeper (no-guess boards; the buoy), Lights Out (also on overheating; shed, purge, red lights). The fleet (Battleship against a devil fleet) on the cabin wall and every station, with deployment, the 45-second rule, refit on victory and reinforcements on defeat. Blue beacons retired; stock 6/3/3 with no refill. Checkers removed.
+
+## Stretch
+- Chess with Jerry, on every screen.
+
+## Revision 12 (as planned)
 - The beacon workshop on the Gunnery station (and the red rack stops refilling; 6 red, 3 of each other).
 
 - Player stations: one page per manual holder, joined with the GM code, each with an event-triggered minigame. A failure hits the main board (power out, lights to red, a screen blacked out, a password lockout).

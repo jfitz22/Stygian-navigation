@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Last Watch · Officer's Station</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Cinzel:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/station.css">
+</head>
+<body>
+<header id="bar">
+  <div class="plate">THE LAST WATCH <span id="rolename">· OFFICER'S STATION ·</span></div>
+  <div id="clock" class="nixie">--:--</div>
+  <div id="link"><i class="off"></i><span>not linked</span></div>
+  <button id="switch" class="small">CHANGE STATION</button>
+</header>
+
+<section id="join">
+  <div class="card">
+    <h1>OFFICER'S STATION</h1>
+    <p>Choose your station, and enter the four-character code from the top bar of the operator's screen.</p>
+    <div id="roles">
+      <button data-role="gunnery">GUNNERY<small>&amp; TARGETING</small></button>
+      <button data-role="signals">SIGNALS<small>&amp; SONAR</small></button>
+      <button data-role="engineer">ENGINEERING<small>&amp; POWER</small></button>
+    </div>
+    <input id="code" maxlength="4" placeholder="CODE" autocomplete="off">
+    <button id="go" class="big">TAKE YOUR STATION</button>
+    <p class="small" id="joinmsg"></p>
+  </div>
+</section>
+
+<main id="desk" class="hidden">
+  <section id="job" class="panel"><h2 id="jobtitle"></h2><div id="jobbody"></div></section>
+  <section id="fleetpanel" class="panel"><h2>THE FLEET <small>the Watch's naval defences</small></h2><div id="fleet"></div></section>
+</main>
+
+<div id="defence" class="hidden">
+  <div class="dhead"><b id="dtitle"></b><span id="dsub"></span><span id="dtime" class="nixie"></span></div>
+  <div id="dbody"></div>
+  <div id="dresult" class="hidden"></div>
+</div>
+<div id="alert" class="hidden"><div class="card"><h1 id="alerttitle"></h1><p id="alerttext"></p></div></div>
+
+<script type="module" src="src/station.js"></script>
+</body>
+</html>

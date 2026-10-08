@@ -17,7 +17,7 @@
   <!-- ================= THE CABIN (look left) ================= -->
   <div id="side">
     <header id="sidebar">
-      <div class="plate title">THE CABIN <span>· FURNACE LOG · JERRY'S TABLE ·</span></div>
+      <div class="plate title">THE CABIN <span>· FURNACE LOG · THE FLEET ·</span></div>
       <button id="lookback" class="lookbtn">LOOK RIGHT ▶</button>
     </header>
     <section class="panel" id="p-flog" style="left:16px;top:68px;width:1180px;height:996px">
@@ -38,12 +38,9 @@
         </div>
       </div>
     </section>
-    <section class="panel" id="p-jerry" style="left:1212px;top:68px;width:692px;height:996px">
-      <h2>CHECKERS WITH JERRY <small id="jerrystat"></small></h2>
-      <div id="cboard"></div>
-      <div id="jerrysay"></div>
-      <div id="jerryrow"><span id="jerryscore"></span><button id="cnew" class="small-btn">NEW GAME</button></div>
-      <div class="hint" style="padding:0 14px">You play the light pieces from the bottom. Jumps are compulsory. Leave Jerry waiting too long and he gets bored and presses something.</div>
+    <section class="panel" id="p-fleet" style="left:1212px;top:68px;width:692px;height:996px">
+      <h2>THE FLEET <small>the Watch's naval defences · every officer's station can fire too</small></h2>
+      <div id="fleetwall"></div>
     </section>
   </div>
 
@@ -156,6 +153,7 @@
       <div class="nixie" id="clock">00:00</div>
       <div id="watchno" class="lbl"></div>
       <div id="gmcode" class="lbl"></div>
+      <div id="stationlamps" title="Officers' stations"></div>
       <button id="mute" class="small-btn" title="Mute all sound (M)">SOUND ON</button>
     </div>
   </header>
@@ -291,6 +289,8 @@
   </div>
 </div>
 
+  <div id="deploybanner" class="hidden"><b>DEPLOY THE FLEET</b><span>The watch begins once every ship is placed.</span><button id="godeploy" class="lookbtn">◀ LOOK LEFT</button></div>
+  <div id="reinforce" class="hidden"><div class="wincard"><div class="small">THE FLEET IS LOST</div><h1>DEVIL REINFORCEMENTS</h1><p>The enemy is landing. The watch is paused until the officer of the watch gives the word.</p></div></div>
   <div id="fatigue"></div>
   <div id="blink"></div>
   <div id="pausecard" class="hidden">

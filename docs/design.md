@@ -60,6 +60,14 @@ Three officers each hold one book (`books.html?book=engineer|gunnery|signals`, `
 - **Gunnery & Targeting:** the orbs (lever chart, plate order by housing-rune house), aiming and beacons, the codebook (call sign + band → meaning), and its repair flowchart (launcher, orbs).
 - **Signals & Sonar:** the rune catalogue (asked for by both other books), sonar and echoes, decoding the radio lamps into a call sign, and its repair flowchart (winch, sonar head).
 
+## The officers' stations (revision 12)
+
+`station.html`, joined with the operator's GM code. The game stays the only source of truth: stations draw its snapshot and send actions (`stationAction` in sim.js). Each station says hello every 2 s; one not heard from for 7 s counts as gone, and its defence events are skipped (rescheduled), so the watch plays on without it.
+- **Gunnery: the beacon workshop.** Choose a colour, take a casing (a serial and a status lamp), fit the parts the recipes call for (the shell in the Gunnery book, the sounding core in the Engineering book for orange and green, the transmitter crystal in the Signals book for green; `src/workshop.js`), pack the charge (a chamber cut into pieces, so always solvable), seal. It cures in the rack while the WORKSHOP switch is on (15 s). Stock starts at 6 red, 3 orange, 3 green; nothing refills on its own. Blue beacons are retired.
+- **Signals:** the full case board, with the call signs they decode (shown on the operator's board too). **Engineering:** the furnace log, shed order and damper.
+- **Defences** (`src/games.js`), each station every 3–7 minutes, at least 45 s from another's: Gunnery Missile Command over the seven orb towers (each tower struck is that orb destroyed); Signals Minesweeper, 8×8 with 8 mines in 90 s, no-guess boards (lose: the buoy); Engineering Lights Out, 5×5 in 60 s, also when the furnace goes above 90 (lose: the lowest-priority system off, a shovel purged, lights red). A station that drops out mid-game costs nothing.
+- **The fleet** (`src/fleet.js`, `src/fleetui.js`): Battleship against a devil fleet on an 8×8 grid (rune columns, number rows), on the cabin wall and every station. The watch holds after lighting until the four ships (4, 3, 3, 2) are deployed. Anyone fires; the enemy answers 3 s later and takes a free shot after 45 s of silence. Victory: a new enemy fleet, ours refitted and shifted a few squares. Defeat: devil reinforcements; the watch pauses and only the GM can resume it.
+
 ## The cockpit
 
 The operator has three views and pans between them with **◀ LOOK LEFT / ▲ LOOK UP / ▼ LOOK DOWN** on the top bar next to **❚❚ PAUSE** (the operator or the GM can pause; a card shows until someone resumes). When looking up, the top half of the main board is still visible below the deck.
@@ -68,7 +76,7 @@ The operator has three views and pans between them with **◀ LOOK LEFT / ▲ LO
 
 **Orb control:** each orb feed shows its post's WIND and AIR temperature, and a rune is carved on its housing. Set two focus levers from the weather and press three servo plates in the order for the housing rune's house. A locked orb can still lock ice and show its length (red at 20 mi or under). An unlocked orb turns, zooms ×2, tracks drift, follows its tracked ice while watched, and heats more slowly. It relocks when it breaks; a repaired orb has a new housing rune.
 
-**The cabin (look left):** the furnace log (heat in numbers, the last three minutes, the next three as a solid line for what is on now and dotted lines for 1, 2 and 3 systems), the shed order (drag to rank the systems; the lowest goes first, with an alarm), the damper (NORMAL or LOW: LOW burns at 60% but everything powered works 1.6× slower), and checkers with Jerry. Jerry replies a few seconds after your move (more than half his moves are careless); leave him waiting 60 s and he presses a nuisance rune.
+**The cabin (look left):** the furnace log (heat in numbers, the last three minutes, the next three as a solid line for what is on now and dotted lines for 1, 2 and 3 systems), the shed order (drag to rank the systems; the lowest goes first, with an alarm), the damper (NORMAL or LOW: LOW burns at 60% but everything powered works 1.6× slower), and the fleet.
 
 **Overhead deck:**
 - **Beacon launcher:** colour, fire, aim quality and a shot report.
