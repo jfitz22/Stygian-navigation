@@ -93,9 +93,9 @@
   <table id="t-flow"></table>
 </section>
 
-<section class="page" data-book="all" data-sec="LW-0A" data-title="The decision matrix and the cockpit">
-  <h2><span class="code">LW-0A</span> THE DECISION MATRIX</h2>
-  <div class="fig"><div id="f-sieve"></div><div class="cap"><b>FIG. 0.1</b> The decision matrix. Each test narrows the field. Only Elgarz carries every sign.</div></div>
+<section class="page" data-book="all" data-sec="LW-0A" data-title="Identifying Elgarz and the cockpit">
+  <h2><span class="code">LW-0A</span> IDENTIFYING ELGARZ</h2>
+  <div class="fig"><div id="f-sieve"></div><div class="cap"><b>FIG. 0.1</b> Identifying Elgarz. Each test narrows the field. Only Elgarz carries every sign.</div></div>
   <h3>The chart</h3>
   <p>The Last Watch stands on an island mid-sea. Squares run <b>A–L</b> across and <b>1–12</b> down, <span data-v="CELL"></span> miles each. Call positions by square. Shaded corners are out of reach.</p>
   <p>The <b>Tomb of Levistus</b> drifts, ringed at <span data-v="TOMB_RADIUS"></span> miles. Levistus keeps his own close: <b>nothing inside the ring is Elgarz.</b> Four hatched <b>shoals</b> scatter the sonar. Some ice travels together, notably <b>the Graveyard</b>.</p>
@@ -105,7 +105,7 @@
 <section class="page" data-book="all" data-sec="LW-0B" data-title="The sea">
   <h2><span class="code">LW-0B</span> THE SEA</h2>
   <p>The water of Stygia runs from about −185° to −255°, near −215° on a usual night: coldest near the Tomb, and colder as the night goes on. Things live in it. All of them go for the buoy. <b>Ping, then move the buoy.</b></p>
-  <p class="aside"><b>On the cold.</b> Nothing can be colder than <b>absolute zero</b>: −273.15° (0 K; −459.67° on the old Fahrenheit scale). The ice by the Tomb comes within twenty degrees of it. Nowhere else in the Hells is so near.</p>
+  <p class="aside">Nothing can be colder than <b>absolute zero</b>, −273 °C or 0 K. The ice by the Tomb comes within twenty degrees of it.</p>
   <h3>The hunters</h3>
   <p><b>The Grindmaw</b> answers every ping. It races to the spot (fast from far off, slow over the last square and a half), eats any buoy it finds there, then circles the Watch. <b>Old Tom</b> wakes after about ten minutes and does the same for every <b>buoy splashdown</b>, circling the other way. <b>Frozen monsters</b> sleep in some ice; a beacon strike wakes one, and it swims for the buoy. Move the buoy a full buoy range away and it loses interest.</p>
   <div class="fig"><div id="f-hunters"></div><div class="cap"><b>FIG. 0.3</b> The hunters. Each eats a buoy it finds, then circles the Watch: opposite ways.</div></div>
@@ -115,8 +115,8 @@
     <li><b>Shoals:</b> nothing inside one returns an echo, and a buoy on the rocks hears nothing. Use the orbs instead.</li>
     <li><b>Remorhazes</b> burrow towards an orb that is watched too long. Look away and it cools. The COOLANT rune cools every orb at once.</li>
   </ul>
-  <h3>Hit chance and beacons</h3>
-  <p>The launcher shows the <b>HIT CHANCE</b> for a beacon fired now at the locked ice. A fresh fix and a good drift measurement keep it high: a buoy reading taken close to the ice, or an unlocked orb tracking it. <b>Wind and snow at an orb cap what its track is worth</b> (never below 50%); a fresh current reading near the ice has no such limit, and the launcher uses whichever is better. <b>Ice already carrying a beacon reports its own position: 100%.</b> When the chance is low, the line beneath it says why.</p>
+  <h3>Beacons</h3>
+  <p><b>Check HIT CHANCE before firing.</b> Gunnery can help improve it (GU-2).</p>
   <p><span class="lamp R"></span> <b>Red</b> pins the ice to the case board and lets the radio hear it. <span class="lamp Y"></span> <b>Orange</b> also prints its echo. <span class="lamp G"></span> <b>Green</b> carries the Navy's call (GU-2), and recovers any infernal artifact the scanner has named in that glacier. New beacons are built in the Gunnery workshop.</p>
 </section>
 
@@ -183,11 +183,11 @@
 
 <section class="page" data-book="engineer" data-sec="EN-1" data-title="Furnace and power">
   <h2><span class="code">EN-1</span> FURNACE &amp; POWER</h2>
-  <div class="ask"><b>ASK THE OPERATOR:</b> the numbers on the FURNACE LOG (look left, in the cabin) · how many shovels are in the FUEL CHUTE</div>
-  <p>Everything runs on the furnace. It burns all the time, and <b>each system switched on burns more</b>. <b>STOKE</b> shovels fuel from the chute, which holds <span data-t="chuteMax"></span>; only the <b>FUEL</b> rune fills it (EN-2). Up to three of the six systems can run, if the heat allows: <b>ORBS</b>, <b>SONAR</b>, <b>RADIO</b>, <b>SCANNER</b>, <b>CURRENTS</b> and <b>REPAIR</b>.</p>
+  <p><b>Your station shows the full furnace log</b>: the heat, the chute, and where the heat is heading.</p>
+  <p>Everything runs on the furnace. It burns all the time, and <b>each system switched on burns more</b>. <b>STOKE</b> shovels fuel from the chute, which holds <span data-t="chuteMax"></span>; only the <b>FUEL</b> rune fills it (EN-2). Up to three of the seven systems can run, if the heat allows: <b>ORBS</b>, <b>SONAR</b>, <b>RADIO</b>, <b>SCANNER</b>, <b>CURRENTS</b>, <b>REPAIR</b> and <b>WORKSHOP</b> (Gunnery's new beacons cure only while it is on).</p>
   <div class="fig"><div id="f-heat"></div><div class="cap"><b>FIG. EN.1</b> Heat against time with three, two and one systems running. The bands show how many systems the heat allows. One shovel lifts the line by the step shown.</div></div>
   <h3>The furnace log</h3>
-  <p>In the operator's cabin (look left). It gives the heat in numbers, the last three minutes, and where the heat is heading: a <b>solid</b> line for what is on now, <b>dotted</b> lines for the other choices, assuming no more shovels.</p>
+  <p>On your station, and on the cabin wall (look left). It gives the heat in numbers, the last three minutes, and where the heat is heading: a <b>solid</b> line for what is on now, <b>dotted</b> lines for the other choices, assuming no more shovels.</p>
   <ul>
     <li><b>SHED ORDER.</b> When the heat falls below a band, the system at the <b>bottom</b> of the list switches off and the alarm sounds. Put what you can least afford to lose at the top.</li>
     <li><b>DAMPER.</b> NORMAL, or LOW: burns <span data-k="damperPct"></span>, but everything powered works <span data-k="damperSlow"></span> slower (warming up, readings, scans, repairs, orb tracking).</li>
@@ -203,7 +203,7 @@
   <p>Twelve unlabelled runes. The board <b>flips every <span data-t="boardFlipEvery"></span> seconds</b> and after every <span data-t="boardFlipPresses"></span> presses: the runes rearrange and the page changes. What a rune does depends on its <b>house</b>, its <b>weight</b> and the <b>page</b>. Every page has FUEL and COFFEE somewhere.</p>
   <div class="two">
     <div class="fig"><div id="f-shift"></div><div class="cap"><b>FIG. EN.2</b> Page shift. Find the rune's weight on the left; read across to the page for the weight to use.</div></div>
-    <div class="fig"><div id="f-grid"></div><div class="cap"><b>FIG. EN.3</b> Function grid. House down the side, shifted weight across the top.</div></div>
+    <div class="fig"><div id="f-grid"></div><div class="cap"><b>FIG. EN.3</b> Function grid. House down the side, the weight to use on this page across the top.</div></div>
   </div>
   <table>
     <tr><th>Function</th><th>Effect</th></tr>
@@ -262,13 +262,13 @@
   <p class="ex" data-dept="engineer"></p>
 </section>
 
-<section class="page" data-book="engineer" data-sec="EN-6" data-title="The sounding core and the breakers">
+<section class="page" data-book="engineer" data-sec="EN-6" data-title="The sounding core">
   <h2><span class="code">EN-6</span> THE SOUNDING CORE</h2>
   <div class="ask crew"><b>ASK GUNNERY:</b> the casing's <b>serial</b> and the colour of its <b>status lamp</b></div>
   <p>Every <b>orange</b> and <b>green</b> beacon carries a sounding core, built to Engineering's design. Gunnery fits it at the bench; this book says which core. A core is told by its <b>notches</b> (one to four) and its <b>seal</b> (brass or rubber).</p>
   <ol id="rec-engineer"></ol>
   <p><b>Example.</b> Serial <b>KTR-47</b>, lamp yellow: 4 halved is 2, so two notches; there is an R, so a rubber seal.</p>
-  <h2 style="margin-top:22px"><span class="code">EN-7</span> THE BREAKERS &amp; THE FUSE BOX</h2>
+  <h2 style="margin-top:22px" data-title="The breakers and the fuse box"><span class="code">EN-7</span> THE BREAKERS &amp; THE FUSE BOX</h2>
   <p><b>The breaker panel</b> sits on your station at all times: six by six. <b>Pressing a breaker flips it and its four neighbours.</b> Get every breaker dark and the boiler hands the furnace <b>a free shovel of fuel</b>. One free shovel a minute; nothing goes wrong if you leave it.</p>
   <p><b>The fuse box</b> blows every few minutes, and whenever the furnace runs into the red. Drag each loose wire to the terminal of the same colour and stripe, within 20 seconds.</p>
   <div class="warn">If the fuse box is not rewired in time: the lowest system in the shed order switches off, a shovel is lost from the chute, and the cabin lights go red.</div>
@@ -280,6 +280,7 @@
   <h2><span class="code">GU-1</span> SCRYING ORBS</h2>
   <div class="ask"><b>ASK THE OPERATOR:</b> the WIND and AIR readout in the corner of the orb's feed</div>
   <div class="ask crew"><b>ASK SIGNALS:</b> the <b>house</b> of the rune carved on the orb's housing (the operator describes it)</div>
+  <div class="warn"><b>Two different locks.</b> <b>Unlocking</b> an orb lets it turn. <b>Locking</b> a target tells the launcher which iceberg you mean.</div>
   <p>Seven orbs ring the island. A <b>locked</b> orb looks one way only; click ice in it to lock on and read its <b>length</b> (red at 20 miles or under). An <b>unlocked</b> orb also <b>turns</b>, <b>zooms ×2</b>, <b>tracks drift</b> (hold the ice in view about <span data-t="trackTime"></span> s) and <b>follows its ice while watched</b>. Unlocked orbs heat more slowly, but a watched orb still draws a <b>remorhaz</b> in the end.</p>
   <h3>Unlocking</h3>
   <p><b>1.</b> Plot the orb's own WIND and AIR on FIG. GU.1 and set both levers. <b>2.</b> Press the three plates in the order for the <b>house of the housing rune</b> (FIG. GU.2). An orb stays unlocked until it breaks. A repaired orb comes back <b>locked, with a new housing rune</b>.</p>
@@ -291,11 +292,11 @@
 <section class="page" data-book="gunnery" data-sec="GU-2" data-title="Aiming and beacons">
   <h2><span class="code">GU-2</span> AIMING &amp; BEACONS</h2>
   <div class="ask"><b>ASK THE OPERATOR:</b> the HIT CHANCE · the line under it · where the fix came from (SONAR, ORB or BEACON)</div>
-  <p>Lock from the <b>sonar</b> or from an <b>orb</b>. The beacon flies to where the Watch predicts the ice will be. The HIT CHANCE is the odds of a strike if you fire now.</p>
+  <p>Lock from the <b>sonar</b> or from an <b>orb</b>. The beacon flies to where the Watch predicts the ice will be. The HIT CHANCE is the odds of a strike if you fire now. A fresh fix and a good drift measurement keep it high; when it is low, the line beneath it says why.</p>
   <table>
     <tr><th>Fix from</th><th>To keep the chance high</th></tr>
     <tr><td><b>SONAR</b></td><td>CURRENTS powered, buoy close to the ice. Each ping takes a fresh reading. A fix grows stale: after about a minute, ping again (mind the sonar head).</td></tr>
-    <tr><td><b>ORB</b></td><td>An <b>unlocked</b> orb. Hold the ice in view until <b>TRACKING ✓ DRIFT MEASURED</b>. Lose sight of it and the chance falls.</td></tr>
+    <tr><td><b>ORB</b></td><td>An <b>unlocked</b> orb. Hold the ice in view until <b>TRACKING ✓ DRIFT MEASURED</b>. Lose sight of it and the chance falls. <b>Wind and snow at the orb cap what its track is worth</b> (never below 50%); a fresh current reading near the ice has no such limit, and the launcher uses whichever is better.</td></tr>
     <tr><td><b>BEACON</b></td><td>Ice already carrying a beacon reports its own position: <b>100%</b>.</td></tr>
   </table>
   <ul>
@@ -339,6 +340,7 @@
     <li><b>SEAL.</b> A wrong part pops back out of its slot.</li>
     <li><b>Cure.</b> The beacon waits in the rack until the operator has the <b>WORKSHOP</b> switch on for <span data-t="cureTime"></span> s, then joins the launcher's stock.</li>
   </ol>
+  <div class="fig"><div id="f-beacon"></div><div class="cap"><b>FIG. GU.3</b> A beacon, built and in parts. The recipes say which part; this says where to look.</div></div>
   <h3>The shell: every beacon</h3>
   <ol id="rec-gunnery"></ol>
   <p id="rec-call"></p>
@@ -357,9 +359,10 @@
 <section class="page" data-book="signals" data-sec="SI-2" data-title="Sonar and echoes">
   <h2><span class="code">SI-2</span> SONAR &amp; ECHOES</h2>
   <div class="ask"><b>ASK THE OPERATOR:</b> for each contact: its length · the WATER temperature on the strip · the bumps (even or uneven?) · the tail (flat, wavy or pulsing?) · the HEAD STRAIN bars</div>
+  <p><b>Reading echoes yourself.</b> Click any contact on your copy of the sonar to print its echo. It does not change what the operator has selected or locked: read it, then talk them onto the right ice.</p>
   <p>Drop a buoy, then <b>PING</b> once. Every contact in range returns a full printout; <b>click each one</b> to read it. With CURRENTS powered, a ping also takes a current reading. Contacts fade after <span data-t="contactFade"></span> s. <b>Spare the sonar head:</b> <span data-t="sonarStrainPings"></span> pings inside <span data-t="sonarStrainWindow"></span> s crack it (SI-4). The HEAD STRAIN bars drain as it recovers.</p>
   <p>The printout sweeps across the strip every few seconds. <b>Watch two sweeps.</b> The first spike is the surface (taller means longer). Then one bump per chamber. Then the tail. A <b>wavy</b> tail ripples the same way every sweep; a <b>pulsing</b> tail beats in pairs that swell and fade.</p>
-  <div class="fig"><div id="f-echo"></div><div class="cap"><b>FIG. SI.1</b> The five echoes. An <b>orange sounding charge</b> prints the same with no ping.</div></div>
+  <div class="fig"><div id="f-echo"></div><div class="cap"><b>FIG. SI.1</b> The five echoes. The last two over two sweeps: a wavy tail repeats; a pulsing tail swells and fades. An <b>orange sounding charge</b> prints the same with no ping.</div></div>
   <div class="fig"><div id="f-classes"></div><div class="cap"><b>FIG. SI.2</b> Bumps down the side, tail across the top. <b>*</b> Mind the cold water.</div></div>
   <p><b>* Cold water.</b> Below <span data-v="COLD_WATER"></span>° on the strip, a frozen monster is too cold to pulse and reads as HALLS. The radio and the scanner tell them apart.</p>
 </section>
@@ -389,14 +392,13 @@
   <p class="ex" data-dept="signals"></p>
 </section>
 
-<section class="page" data-book="signals" data-sec="SI-5" data-title="The transmitter crystal and the minefield">
+<section class="page" data-book="signals" data-sec="SI-5" data-title="The transmitter crystal">
   <h2><span class="code">SI-5</span> THE TRANSMITTER CRYSTAL</h2>
   <div class="ask crew"><b>ASK GUNNERY:</b> the casing's <b>serial</b>, its <b>lamp</b>, and the <b>call band</b> from their codebook</div>
   <p>Every <b>green</b> beacon carries a transmitter crystal, cut to Signals' design: it is what carries the Navy's call to Elgarz. Gunnery fits it at the bench; this book says which crystal. A crystal is told by its <b>facets</b> (three, five or seven) and its <b>tint</b> (clear, smoky or rose).</p>
   <ol id="rec-signals"></ol>
   <p><b>Example.</b> Serial <b>KTR-47</b>, lamp yellow, call band MID: five facets; the letters are all different and the lamp is yellow, so smoky.</p>
-  <h2 style="margin-top:22px"><span class="code">SI-6</span> MINESWEEPING &amp; THE CABLE</h2>
-  <p><b>Reading echoes.</b> Click any contact on your copy of the sonar to print its echo. It does not change what the operator has selected or locked: read it, then talk them onto the right ice.</p>
+  <h2 style="margin-top:22px" data-title="Minesweeping and the cable"><span class="code">SI-6</span> MINESWEEPING &amp; THE CABLE</h2>
   <p><b>Minesweeping</b> sits on your station at all times: eight by eight, eight mines, a safe patch already open. <b>Complete a sweep and the Watch's guns are free to fire: a beacon strikes a random iceberg</b>, pinning it to the case board. Or choose to <b>plot an enemy ship</b> instead: its outline appears on the fleet tables. One sweep a minute; a mine costs nothing but the sweep.</p>
   <ul>
     <li><b>Left click</b> opens a square. A number is how many of the eight squares around it hold a mine.</li>
@@ -494,15 +496,52 @@ $('t-flow').innerHTML = '<tr><th>Step</th><th>Led by (with the operator)</th><th
 // ---------- LW-0C password rules, from the game's own list ----------
 $('pwrules').innerHTML = PW_RULES.filter(r => !r.layer).map(r => '<li>' + r.text + '</li>').join('');
 
+// ---------- FIG GU.3 the beacon, built and in parts ----------
+{
+  const lab = (x1, y1, x2, y2, s) => line(x1, y1, x2, y2, { w: 0.8 }) + `<circle cx="${x1}" cy="${y1}" r="2" fill="${INK}"/>` + txt(x2 + 4, y2 + 4, s, { size: 9.5 });
+  const under = (x, y, lines) => lines.map((l, i) => txt(x, y + i * 11, l, { size: i ? 8 : 9, anchor: 'middle', bold: !i })).join('');
+  const BR = '#b08d57', ST = '#8d8f86';
+  let b = '';
+  // built
+  b += `<path d="M40,64 Q70,22 100,64 Z" fill="${BR}" stroke="${INK}"/>`;
+  b += rect(40, 64, 60, 118, { fill: ST, rx: 4 });
+  b += rect(46, 76, 48, 16, { fill: '#e8dfc6' }) + txt(70, 88, 'KTR-47', { size: 9, anchor: 'middle', bold: true });
+  b += `<circle cx="70" cy="108" r="7" fill="#f2b01e" stroke="${INK}"/>`;
+  b += rect(40, 140, 60, 6, { fill: '#e33b2a' }) + rect(40, 152, 60, 6, { fill: '#e33b2a' });
+  b += `<path d="M40,160 L16,200 L40,192 Z M100,160 L124,200 L100,192 Z" fill="${ST}" stroke="${INK}"/>` + rect(66, 182, 8, 18, { fill: ST });
+  b += lab(86, 48, 150, 30, 'CAP') + lab(94, 84, 150, 72, 'SERIAL') + lab(76, 108, 150, 104, 'STATUS LAMP') + lab(98, 149, 150, 140, 'BANDS') + lab(118, 192, 150, 186, 'FINS');
+  b += txt(70, 224, 'BUILT', { anchor: 'middle', bold: true, size: 10 });
+  b += line(262, 14, 262, 228, { stroke: RULE, dash: '4 4' }) + txt(400, 14, 'IN PARTS', { anchor: 'middle', bold: true, size: 10 });
+  // the shell's parts
+  const px = 318;
+  b += `<path d="M${px - 22},56 Q${px},28 ${px + 22},56 Z" fill="${BR}" stroke="${INK}"/>` + under(px, 70, ['CAP', 'brass · iron · glass']);
+  b += `<ellipse cx="${px}" cy="110" rx="24" ry="7" fill="none" stroke="#e33b2a" stroke-width="4"/>` + under(px, 132, ['BANDS', 'one or two', 'red or white']);
+  b += `<path d="M${px - 18},176 L${px - 34},204 L${px - 18},198 Z M${px + 18},176 L${px + 34},204 L${px + 18},198 Z" fill="${ST}" stroke="${INK}"/>` + rect(px - 4, 182, 8, 18, { fill: ST }) + under(px, 218, ['FINS', 'straight · swept · split']);
+  // the sounding core: notches along the top, the seal round the middle
+  const cx = 400;
+  b += rect(cx - 22, 44, 44, 80, { fill: '#5a5f58', rx: 3 });
+  for (let i = 0; i < 3; i++) b += rect(cx - 16 + i * 12, 40, 6, 8, { fill: '#e8dfc6' });
+  b += rect(cx - 25, 80, 50, 8, { fill: '#2a2a2a' });
+  b += under(cx, 140, ['SOUNDING CORE', 'count the NOTCHES', 'see the SEAL', 'orange and green']);
+  // the transmitter crystal: count the faces
+  const gx = 500, gy = 74;
+  b += `<polygon points="${gx - 22},${gy} ${gx - 11},${gy - 17} ${gx + 11},${gy - 17} ${gx + 22},${gy} ${gx},${gy + 20}" fill="rgba(200,170,190,.5)" stroke="${INK}"/>` + line(gx - 11, gy - 17, gx, gy + 20, { w: 0.6 }) + line(gx + 11, gy - 17, gx, gy + 20, { w: 0.6 }) + line(gx - 22, gy, gx + 22, gy, { w: 0.6 });
+  b += under(gx, 140, ['CRYSTAL', 'count the FACETS', 'see the TINT', 'green only']);
+  $('f-beacon').innerHTML = svg(540, 232, b);
+}
 // ---------- the index of this book, built from its own pages ----------
 {
-  const ABOUT = { 'LW-0': 'the Watch, the three books, who leads each step', 'LW-0A': 'the decision matrix, the chart, the stations', 'LW-0B': 'the cold, the hunters, storms, shoals, remorhazes, the hit chance, beacon colours', 'LW-0C': 'what breaks and whose flowchart mends it, the password', 'LW-0D': 'what each case board cell means',
+  const ABOUT = { 'LW-0': 'the Watch, the three books, who leads each step', 'LW-0A': 'the tests that identify Elgarz, the chart, the cockpit', 'LW-0B': 'the cold, the hunters, storms, shoals, remorhazes, beacon colours', 'LW-0C': 'what breaks and whose flowchart mends it, the password', 'LW-0D': 'what each case board cell means',
     'EN-1': 'heat, the furnace log, shed order, the damper', 'EN-2': 'rune functions by house, weight and page', 'EN-3': 'setting the scanner from the buoy weather', 'EN-4': 'frequency, gain, the band, the cabin radio', 'EN-5': 'the Engineering repair flowchart',
-    'GU-1': 'locked and unlocked orbs, the lever chart, plates by house', 'GU-2': 'the hit chance, firing, payloads', 'GU-3': 'call sign and band to meaning', 'GU-4': 'the Gunnery repair flowchart', 'GU-5': 'building beacons: the bench, the shell recipe, the call band', 'LW-0E': 'your station, the defences, the fleet', 'EN-6': 'the sounding core recipe, the breaker panel, the fuse box', 'SI-5': 'the transmitter crystal recipe, the minefield, the buoy cable',
-    'SI-1': 'every rune, by house and weight', 'SI-2': 'one ping, reading the printout, the five echoes, the sonar head', 'SI-3': 'wave shapes, lamps to call sign', 'SI-4': 'the Signals repair flowchart' };
+    'GU-1': 'locked and unlocked orbs, the lever chart, plates by house', 'GU-2': 'the hit chance, firing, payloads', 'GU-3': 'call sign and band to meaning', 'GU-4': 'the Gunnery repair flowchart', 'GU-5': 'building beacons: the bench, the shell recipe, the call band', 'LW-0E': 'your station, the defences, the fleet', 'EN-6': 'the sounding core recipe', 'EN-7': 'the breaker panel, the fuse box', 'SI-5': 'the transmitter crystal recipe', 'SI-6': 'minesweeping, the buoy cable',
+    'SI-1': 'every rune, by house and weight', 'SI-2': 'reading any echo yourself, one ping, the five echoes, the sonar head', 'SI-3': 'wave shapes, lamps to call sign', 'SI-4': 'the Signals repair flowchart' };
   const pages = visible();
   if (book === 'all') $('t-index').innerHTML = `<tr><td>The GM copy: the orientation, then each officer's pages in turn (EN, GU, SI).</td></tr>`;
-  else $('t-index').innerHTML = '<tr><th>Section</th><th>Title</th><th>What is there</th><th>Page</th></tr>' + pages.map((p, i) => ABOUT[p.dataset.sec] ? `<tr><td><b>${p.dataset.sec}</b></td><td>${p.dataset.title}</td><td>${ABOUT[p.dataset.sec]}</td><td>${i + 1}</td></tr>` : '').join('');
+  else {
+    // one row for every section heading, so a second section sharing a page gets its own entry
+    const rows = pages.flatMap((p, i) => [...p.querySelectorAll('h2')].map((h, j) => ({ sec: (h.querySelector('.code') || {}).textContent, title: h.dataset.title || (j ? '' : p.dataset.title), page: i + 1 })));
+    $('t-index').innerHTML = '<tr><th>Section</th><th>Title</th><th>What is there</th><th>Page</th></tr>' + rows.map(r => ABOUT[r.sec] ? `<tr><td><b>${r.sec}</b></td><td>${r.title}</td><td>${ABOUT[r.sec]}</td><td>${r.page}</td></tr>` : '').join('');
+  }
 }
 // ---------- FIG 0.1 sieve ----------
 {
@@ -684,8 +723,18 @@ $('pwrules').innerHTML = PW_RULES.filter(r => !r.layer).map(r => '<li>' + r.text
 {
   const strip = (y, e, name, note, k = 0) => { const p = []; for (let x = 0; x <= ECHO_W; x++) p.push(`${(4 + x * 1.7).toFixed(1)},${(y + 46 - echoAt(e, 24, x, k, 0) * 0.55).toFixed(1)}`);
     return rect(2, y + 2, 322, 48, { stroke: RULE, fill: 'rgba(232,223,198,.6)' }) + `<polyline points="${p.join(' ')}" fill="none" stroke="${INK}" stroke-width="1.5"/>` + txt(340, y + 22, name, { bold: true, size: 12, fill: RED }) + txt(340, y + 38, note, { size: 10 }); };
+  // two sweeps side by side, drawn exactly as the strip draws them: what changes between sweeps is the point
+  const sweeps = (y, e, name, note1, note2) => {
+    let o = '';
+    for (const [i, k] of [[0, 0], [1, 1]]) {
+      const x0 = 2 + i * 166, p = []; for (let x = 0; x <= ECHO_W; x++) p.push(`${(x0 + 2 + x * 0.86).toFixed(1)},${(y + 46 - echoAt(e, 24, x, k, 0) * 0.5).toFixed(1)}`);
+      o += rect(x0, y + 2, 160, 48, { stroke: RULE, fill: 'rgba(232,223,198,.6)' }) + `<polyline points="${p.join(' ')}" fill="none" stroke="${INK}" stroke-width="1.3"/>` + txt(x0 + 156, y + 12, 'SWEEP ' + (i + 1), { size: 8, anchor: 'end', fill: RED });
+    }
+    return o + txt(340, y + 18, name, { bold: true, size: 12, fill: RED }) + txt(340, y + 33, note1, { size: 10 }) + txt(340, y + 46, note2, { size: 10 });
+  };
   let b = strip(0, ECHO_EXAMPLES.solid, 'SOLID', 'no bumps · flat tail') + strip(54, ECHO_EXAMPLES.caverns, 'CAVERNS', 'uneven bumps · flat tail') + strip(108, ECHO_EXAMPLES.halls, 'HALLS', 'even bumps · flat tail')
-    + strip(162, ECHO_EXAMPLES.flooded, 'FLOODED', 'bumps · steady wavy tail') + strip(216, ECHO_EXAMPLES.monster, 'FROZEN MONSTER', 'even bumps · beats that swell and fade', 0.8);
+    + sweeps(162, ECHO_EXAMPLES.flooded, 'FLOODED', 'bumps · wavy tail:', 'the same ripple every sweep')
+    + sweeps(216, ECHO_EXAMPLES.monster, 'FROZEN MONSTER', 'even bumps · pulsing tail: beats', 'in pairs that swell and fade');
   b += txt(52, 18, '← surface spike (taller = longer)', { size: 9, fill: RED });
   $('f-echo').innerHTML = svg(640, 270, b);
   $('f-classes').innerHTML = '<table style="margin:0;text-align:center"><tr><th></th><th>Flat tail</th><th>Wavy tail</th><th>Pulsing tail</th></tr>' +
