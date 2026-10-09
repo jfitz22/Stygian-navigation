@@ -1,3 +1,5 @@
+import { createBannerUI } from './banner-ui.js';
+import {art,sprite,artOn} from './art-assets.js';
 // An officer's station: joined to the game with the operator's code. Draws the game's snapshot and sends actions
 // back; the game decides what they do. Each station has a steady job, the shared fleet, and a defence game that
 // the game triggers every few minutes.
@@ -102,7 +104,10 @@ const fleetUI = mountFleet($('fleet'), () => ({ fleet: snap && snap.fleet, t: no
 let jobKey = '';
 const reported = new Set();
 function safely(name, fn) { try { fn(); } catch (e) { if (!reported.has(name)) { reported.add(name); console.error('station panel "' + name + '" failed:', e); } } }
+let bannerUI, bannerRole;
 function frame() {
+  if (role !== bannerRole) { bannerUI?.destroy(); bannerRole = role; bannerUI = createBannerUI(role, (eventId, key) => send({act:'banner-dismiss', eventId, key})); }
+
   const live = snap && performance.now() - snapAt < 4000;
   $('link').innerHTML = `<i class="${live ? 'on' : netState === 'SUBSCRIBED' || netState === 'LOCAL' ? 'wait' : 'off'}"></i><span>${live ? 'linked to the Watch' : code ? 'waiting for the Watch · code ' + code : 'not linked'}</span>`;
   $('lost').classList.toggle('hidden', !(linkedOnce && !live && !$('desk').classList.contains('hidden')));
@@ -117,6 +122,7 @@ function frame() {
     $('alert').classList.toggle('hidden', !snap.reinforce);
     if (snap.reinforce) { $('alerttitle').textContent = 'DEVIL REINFORCEMENTS'; $('alerttext').textContent = 'The fleet is lost and the enemy is landing. The watch is paused until the officer of the watch gives the word.'; }
   }
+  if (bannerUI) bannerUI.update($('desk').classList.contains('hidden') ? null : snap?.bannerEvent, snap?.bannerNow);
   requestAnimationFrame(frame);
 }
 
@@ -602,11 +608,11 @@ function startWires(g) {
   const { left, right } = GA.wiresBoard(g.rng), byId = Object.fromEntries(GA.WIRES.map(w => [w.id, w]));
   const W = 640, H = 380, LX = 70, RX = 570, ROW = i => 45 + i * 58, done = new Set();
   let drag = null;
-  const wireLine = (x1, y1, x2, y2, w) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${w.color}" stroke-width="12" stroke-linecap="round"/>` + (w.stripe ? `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${w.stripe}" stroke-width="4" stroke-dasharray="10 10"/>` : '');
+  const wireLine = (x1,y1,x2,y2,w) => {const sag=(Math.abs(x2-x1)<35?0:Math.min(50,Math.abs(x2-x1)*.12)),d=`M${x1},${y1} C${x1+(x2-x1)*.35},${y1+sag} ${x2-(x2-x1)*.35},${y2+sag} ${x2},${y2}`;return `<g pointer-events="none"><path d="${d}" fill="none" stroke="#080b09" stroke-width="16" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${w.color}" stroke-width="12" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${w.stripe||'#ffffff40'}" stroke-width="3" ${w.stripe?'stroke-dasharray="10 10"':''}/></g>`;};
   const draw = () => {
     let b = `<rect width="${W}" height="${H}" fill="#14110d"/>`;
     left.forEach((id, i) => { const w = byId[id]; b += wireLine(10, ROW(i), LX, ROW(i), w); });
-    right.forEach((id, i) => { const w = byId[id]; b += `<rect class="term" data-id="${id}" x="${RX - 14}" y="${ROW(i) - 18}" width="56" height="36" rx="4" fill="#2a2016" stroke="#b08d57" stroke-width="2"/>` + wireLine(RX + 6, ROW(i), RX + 34, ROW(i), w); });
+    right.forEach((id, i) => { const w = byId[id]; b += `<rect class="term" data-id="${id}" x="${RX - 26}" y="${ROW(i) - 19}" width="90" height="38" rx="4" fill="#2a2016" stroke="#b08d57" stroke-width="2"/>${artOn()?`<svg x="${RX-26}" y="${ROW(i)-19}" width="90" height="38" viewBox="170 210 1430 470" preserveAspectRatio="none" pointer-events="none"><image href="assets/terminal.png" width="1774" height="887"/></svg>`:''}` + wireLine(RX + 6, ROW(i), RX + 34, ROW(i), w); });
     for (const id of done) { const i = left.indexOf(id), j = right.indexOf(id); b += wireLine(LX, ROW(i), RX - 14, ROW(j), byId[id]); }
     if (drag) b += wireLine(LX, ROW(left.indexOf(drag.id)), drag.x, drag.y, byId[drag.id]);
     left.forEach((id, i) => { if (!done.has(id)) b += `<circle class="end" data-id="${id}" cx="${LX}" cy="${ROW(i)}" r="13" fill="#e8dfc6" stroke="#000" stroke-width="2"/>`; });
@@ -674,13 +680,13 @@ function startMissile(g) {
     if (arc) {
       ctx.fillStyle = '#0b1a22'; ctx.fillRect(0, HORIZON, W, GROUND - HORIZON);
       ctx.strokeStyle = 'rgba(127,216,255,.25)'; ctx.beginPath(); ctx.moveTo(0, HORIZON); ctx.lineTo(W, HORIZON); ctx.stroke();
-      for (const x of [60, 140, W - 140, W - 60]) { ctx.fillStyle = '#2a1010'; ctx.beginPath(); ctx.moveTo(x - 30, HORIZON); ctx.lineTo(x + 30, HORIZON); ctx.lineTo(x + 20, HORIZON + 10); ctx.lineTo(x - 20, HORIZON + 10); ctx.fill(); ctx.fillRect(x - 2, HORIZON - 26, 4, 26); ctx.fillStyle = '#7a2a1a'; ctx.beginPath(); ctx.moveTo(x + 2, HORIZON - 24); ctx.lineTo(x + 18, HORIZON - 14); ctx.lineTo(x + 2, HORIZON - 8); ctx.fill(); }
+      for (const x of [60, 140, W - 140, W - 60]) { if(sprite(ctx,'skiff',x-36,HORIZON-49,72,58,[70,150,1160,920]))continue; ctx.fillStyle = '#2a1010'; ctx.beginPath(); ctx.moveTo(x - 30, HORIZON); ctx.lineTo(x + 30, HORIZON); ctx.lineTo(x + 20, HORIZON + 10); ctx.lineTo(x - 20, HORIZON + 10); ctx.fill(); ctx.fillRect(x - 2, HORIZON - 26, 4, 26); ctx.fillStyle = '#7a2a1a'; ctx.beginPath(); ctx.moveTo(x + 2, HORIZON - 24); ctx.lineTo(x + 18, HORIZON - 14); ctx.lineTo(x + 2, HORIZON - 8); ctx.fill(); }
     }
     ctx.fillStyle = '#1a1410'; ctx.fillRect(0, GROUND, W, H - GROUND);
     for (const tw of towers) {
       const dead = tw.down || tw.hit;
-      ctx.fillStyle = dead ? '#3a1410' : '#5a6470'; ctx.fillRect(tw.x - 14, GROUND - 34, 28, 34);
-      ctx.fillStyle = dead ? '#5a1a12' : '#7fd8ff'; ctx.beginPath(); ctx.arc(tw.x, GROUND - 42, 10, 0, 7); ctx.fill();
+      ctx.save();if(dead)ctx.globalAlpha=.35;const painted=sprite(ctx,'tower',tw.x-21,GROUND-76,42,76,[350,125,570,1000]);ctx.restore();if(!painted){ctx.fillStyle = dead ? '#3a1410' : '#5a6470'; ctx.fillRect(tw.x - 14, GROUND - 34, 28, 34);}
+      ctx.fillStyle = dead ? '#5a1a12' : '#7fd8ff'; ctx.beginPath(); ctx.arc(tw.x, GROUND - (painted?65:42), painted?5:10, 0, 7); ctx.fill();
       ctx.fillStyle = dead ? '#ff8a7a' : '#cfc6ab'; ctx.font = '10px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.fillText(tw.name, tw.x, GROUND + 20);
     }
     ctx.fillStyle = '#b08d57'; ctx.beginPath(); ctx.moveTo(BX - 26, GROUND); ctx.lineTo(BX, GROUND - 26); ctx.lineTo(BX + 26, GROUND); ctx.fill();

@@ -103,7 +103,7 @@
       </div>
     </div>
     <div class="box"><b>RUNE EFFECTS</b> <span style="color:var(--dim)">(fire any of them now)</span>
-      <div class="grid" id="runebtns" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr"></div>
+      <div class="grid" title="SUCCUBUS rolls two banner covers. Most lift automatically; pull the cord on those that stay." id="runebtns" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr"></div>
     </div>
     <div class="box"><b>LEVERS</b> (1 = as designed)<div id="levers"></div></div>
     <div class="grid">
@@ -158,7 +158,7 @@ if (NET_ENABLED) {
   setInterval(() => { ch.send({ hello: true }); showNet(); }, 3000);
 }
 ch.postMessage = msg => ch.send(msg);
-const RUNES_GM = ['FUEL', 'COFFEE', 'COOLANT', 'DECOY', 'LAUNCH', 'PURGE', 'SHUTTER', 'LOCKDOWN', 'LIGHTS', 'RADIO', 'ALARM', 'CONFETTI', 'DEVIL', 'SUCCUBUS'];
+const RUNES_GM = ['FUEL', 'COFFEE', 'COOLANT', 'DECOY', 'LAUNCH', 'PURGE', 'SHUTTER', 'LOCKDOWN', 'LIGHTS', 'RADIO', 'ALARM', 'CONFETTI', 'SUCCUBUS'];
 document.getElementById('runebtns').innerHTML = RUNES_GM.map(f => `<button data-rune="${f}">${f}</button>`).join('');
 document.querySelectorAll('[data-rune]').forEach(b => b.onclick = () => ch.postMessage({ cmd: 'rune', arg: { fn: b.dataset.rune } }));
 document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => ch.postMessage({ cmd: b.dataset.cmd }));
@@ -240,7 +240,7 @@ function onSnap(s) { lastSnap = s; draw(s); }
 const fleetLeft = (ships, shots) => ships.filter(sh => { const cells = []; for (let i = 0; i < sh.len; i++) cells.push(sh.dir === 'h' ? (sh.x + i) + ',' + sh.y : sh.x + ',' + (sh.y + i)); return !cells.every(k => shots[k] === 'hit'); }).length;
 function draw(s) {
   drawArts(s);
-  document.getElementById('status').textContent = `seed ${s.seed} · watch ${fmt(s.t)}${s.paused ? ' · PAUSED' : ''}${s.won ? ' · ELGARZ MARKED' : ''} · furnace ${s.furnace.lit ? Math.round(s.furnace.heat) + '°' : 'OUT'}, chute ${s.furnace.chute} · fatigue ${Math.round(s.fatigue * 100)}% · beacons red ${s.beacons} orange ${s.orange} blue ${s.blue} green ${s.green} · scanner ${s.calibrated ? 'calibrated' : 'not calibrated'} · music ${s.music ? 'ON' : 'off'}`;
+  document.getElementById('status').textContent = `seed ${s.seed} · watch ${fmt(s.t)}${s.paused ? ' · PAUSED' : ''}${s.won ? ' · ELGARZ MARKED' : ''} · furnace ${s.furnace.lit ? Math.round(s.furnace.heat) + '°' : 'OUT'}, chute ${s.furnace.chute} · fatigue ${Math.round(s.fatigue * 100)}% · beacons red ${s.beacons} orange ${s.orange} green ${s.green} · scanner ${s.calibrated ? 'calibrated' : 'not calibrated'} · music ${s.music ? 'ON' : 'off'}`;
   document.getElementById('seed').placeholder = `seed (now ${s.seed})`;
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#081217'; ctx.fillRect(0, 0, cv.width, cv.height);
   ctx.setTransform(1, 0, 0, 1, off, off); ctx.fillStyle = '#0d1b22'; ctx.fillRect(0, 0, MAP * z, MAP * z);

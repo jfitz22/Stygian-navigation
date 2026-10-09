@@ -334,11 +334,11 @@ export const STATIONS = [
 // ---------- rune board ----------
 // Each rune's house and weight pick a function from this grid. On page N, count the rune's weight
 // forward N-1 steps (4 wraps round to 1) before reading the grid.
-// Two FUELs and two COFFEEs, each pair in different houses. COFFEE's neighbours in Ember are consequences,
+// Two FUELs, two COFFEEs and two SUCCUBUS, each pair in different houses. COFFEE's neighbours in Ember are consequences,
 // so miscounting the page shift there costs something.
 export const BOARD_GRID = {
   Ice: ['COFFEE', 'SUCCUBUS', 'COOLANT', 'CONFETTI'],
-  Iron: ['FUEL', 'SHUTTER', 'LAUNCH', 'DEVIL'],
+  Iron: ['FUEL', 'SHUTTER', 'LAUNCH', 'SUCCUBUS'],
   Ember: ['COFFEE', 'PURGE', 'ALARM', 'LIGHTS'],
   Bone: ['DECOY', 'LOCKDOWN', 'RADIO', 'FUEL'],
 };
