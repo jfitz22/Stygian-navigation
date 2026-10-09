@@ -18,7 +18,7 @@ export const SPINUP = { cameras: 1, sonar: 1.5, radio: 2, scanner: 4, currents: 
 export const DEFAULT_PRIORITY = ['sonar', 'cameras', 'currents', 'radio', 'scanner', 'repair', 'workshop'];
 // The officers' stations and the defence each one plays.
 export const ROLES = ['gunnery', 'signals', 'engineer'];
-export const DEFENCE = { gunnery: 'missile', signals: 'snake', engineer: 'wires' };
+export const DEFENCE = { gunnery: 'missile', signals: 'snake', engineer: 'stoke' };
 export const DT = 0.1;
 export const BREAKABLE = { furnace: 'FURNACE GRATE', launcher: 'BEACON LAUNCHER', winch: 'BUOY WINCH', fuse: 'RADIO RECEIVER', scanner: 'METAL SCANNER', sonarhead: 'SONAR HEAD' };
 // GM levers (multipliers). 1 is the designed game.
@@ -1336,8 +1336,8 @@ export function defenceResult(w, role, id, res = {}) {
     if (role === 'engineer') {
       const on = SYSTEMS.filter(s => w.power[s].on).sort((a, b) => w.priority.indexOf(b) - w.priority.indexOf(a));
       if (on.length) { w.power[on[0]].on = false; emit(w, 'brownout', { sys: on[0] }); }
-      w.furnace.chute = Math.max(0, w.furnace.chute - 1); w.lamps = 1;
-      emit(w, 'defencedone', { role, ok: false, sys: on[0] || null });
+      const lost = w.furnace.chute; w.furnace.chute = 0; w.lamps = 1;   // the stokehold fires failed: the chute went into them
+      emit(w, 'defencedone', { role, ok: false, sys: on[0] || null, lost });
     }
   } else emit(w, 'defencedone', { role, ok: true });
   return true;

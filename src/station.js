@@ -1,5 +1,6 @@
 import { createBannerUI } from './banner-ui.js';
 import {art,sprite,artOn} from './art-assets.js';
+import { stokeArt } from './stokeart.js';
 // An officer's station: joined to the game with the operator's code. Draws the game's snapshot and sends actions
 // back; the game decides what they do. Each station has a steady job, the shared fleet, and a defence game that
 // the game triggers every few minutes.
@@ -19,7 +20,7 @@ const JOB = { gunnery: 'THE BEACON WORKSHOP', signals: 'THE CASE BOARD', enginee
 const FIRST = {
   gunnery: ['<b>Build beacons</b> at the workshop: your book has the shell; Engineering has the core; Signals has the crystal.', '<b>When devil fire comes</b>, click to burst flak in its path: every tower it reaches is an orb lost.', '<b>The fleet</b> is everyone\'s: pick a rune and a number, then FIRE.'],
   signals: ['<b>Keep the case board</b>: decode each radio pattern and type in its call sign. The sonar here is a copy of the operator\'s.', '<b>Minesweeping</b> is optional: complete a sweep and the guns beacon a glacier for free.', '<b>When the buoy cable snaps</b>, steer with the arrow keys and collect the ends; the walls wrap round, your own cable does not.'],
-  engineer: ['<b>Keep the furnace alive</b>: the log shows where the heat is heading. Set the shed order and the damper.', '<b>The breaker panel</b> is optional: clear it for a free shovel of fuel.', '<b>When the fuse box blows</b>, drag each wire to the terminal of its colour and stripe.'],
+  engineer: ['<b>Keep the furnace alive</b>: the log shows where the heat is heading. Set the shed order and the damper.', '<b>The breaker panel</b> is optional: clear it for a free shovel of fuel.', '<b>When the stokehold fires fail</b>, run the decks with ↑ ↓ and fling coal with SPACE: keep all four fires in the green.'],
 };
 const SYS_LABEL = { cameras: 'ORBS', sonar: 'SONAR', radio: 'RADIO', scanner: 'SCANNER', currents: 'CURRENTS', repair: 'REPAIR', workshop: 'WORKSHOP' };
 const fmt = s => { s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
@@ -106,6 +107,7 @@ const reported = new Set();
 function safely(name, fn) { try { fn(); } catch (e) { if (!reported.has(name)) { reported.add(name); console.error('station panel "' + name + '" failed:', e); } } }
 let bannerUI, bannerRole;
 function frame() {
+  if (role === 'engineer') stokeArt();   // load the stokehold art early, so the first call shows it
   if (role !== bannerRole) { bannerUI?.destroy(); bannerRole = role; bannerUI = createBannerUI(role, (eventId, key) => send({act:'banner-dismiss', eventId, key})); }
 
   const live = snap && performance.now() - snapAt < 4000;
@@ -512,7 +514,7 @@ const DEF_TITLE = {
   missile: ['DEVIL FIRE INBOUND', 'Shoot it down before it reaches the towers. Click to burst flak in its path.'],
   missileArc: ['DEVIL SKIFFS ON THE HORIZON', 'Their shells arc in from the sides. Click to burst flak in their path.'],
   snake: ['THE BUOY CABLE HAS SNAPPED', `Splice it: steer with the arrow keys (or WASD) and collect ${GA.SN.need} loose ends. Do not touch the walls or the cable.`],
-  wires: ['THE FUSE BOX HAS BLOWN', 'Drag each loose wire to the terminal of the same colour and stripe.'],
+  stoke: ['THE STOKEHOLD FIRES ARE FAILING', 'Keep all four fires in the green. ↑ ↓ (or W S) changes deck, SPACE flings coal. A fire that dies or bursts is a fail; three and the stokehold is lost.'],
 };
 let current = null;
 const finished = new Set();
@@ -529,7 +531,7 @@ function startDefence(a) {
   $('dresult').classList.add('hidden'); $('defence').classList.remove('hidden');
   $('defence').scrollIntoView({ behavior: 'smooth', block: 'start' });
   audio.sfx.alarm();
-  ({ missile: startMissile, snake: startSnake, wires: startWires })[a.kind](current);
+  ({ missile: startMissile, snake: startSnake, stoke: startStoke })[a.kind](current);
   tickDefence();
 }
 function tickDefence() {
@@ -604,37 +606,87 @@ function startSnake(g) {
 }
 
 // ---------- The wires (Engineering) ----------
-function startWires(g) {
-  const { left, right } = GA.wiresBoard(g.rng), byId = Object.fromEntries(GA.WIRES.map(w => [w.id, w]));
-  const W = 640, H = 380, LX = 70, RX = 570, ROW = i => 45 + i * 58, done = new Set();
-  let drag = null;
-  const wireLine = (x1,y1,x2,y2,w) => {const sag=(Math.abs(x2-x1)<35?0:Math.min(50,Math.abs(x2-x1)*.12)),d=`M${x1},${y1} C${x1+(x2-x1)*.35},${y1+sag} ${x2-(x2-x1)*.35},${y2+sag} ${x2},${y2}`;return `<g pointer-events="none"><path d="${d}" fill="none" stroke="#080b09" stroke-width="16" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${w.color}" stroke-width="12" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${w.stripe||'#ffffff40'}" stroke-width="3" ${w.stripe?'stroke-dasharray="10 10"':''}/></g>`;};
-  const draw = () => {
-    let b = `<rect width="${W}" height="${H}" fill="#14110d"/>`;
-    left.forEach((id, i) => { const w = byId[id]; b += wireLine(10, ROW(i), LX, ROW(i), w); });
-    right.forEach((id, i) => { const w = byId[id]; b += `<rect class="term" data-id="${id}" x="${RX - 26}" y="${ROW(i) - 19}" width="90" height="38" rx="4" fill="#2a2016" stroke="#b08d57" stroke-width="2"/>${artOn()?`<svg x="${RX-26}" y="${ROW(i)-19}" width="90" height="38" viewBox="170 210 1430 470" preserveAspectRatio="none" pointer-events="none"><image href="assets/terminal.png" width="1774" height="887"/></svg>`:''}` + wireLine(RX + 6, ROW(i), RX + 34, ROW(i), w); });
-    for (const id of done) { const i = left.indexOf(id), j = right.indexOf(id); b += wireLine(LX, ROW(i), RX - 14, ROW(j), byId[id]); }
-    if (drag) b += wireLine(LX, ROW(left.indexOf(drag.id)), drag.x, drag.y, byId[drag.id]);
-    left.forEach((id, i) => { if (!done.has(id)) b += `<circle class="end" data-id="${id}" cx="${LX}" cy="${ROW(i)}" r="13" fill="#e8dfc6" stroke="#000" stroke-width="2"/>`; });
-    $('dbody').innerHTML = `<svg class="wiresvg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${b}</svg>`;
-    const svgEl = $('dbody').querySelector('svg');
-    svgEl.querySelectorAll('.end').forEach(e => e.onpointerdown = ev => { ev.preventDefault(); if (g.done) return; const p = pt(svgEl, ev); drag = { id: e.dataset.id, x: p.x, y: p.y }; draw(); });
+// ---------- The stokehold (Engineering): Tapper. Four decks, four fires, one stoker ----------
+function startStoke(g) {
+  const W = 960, H = 540, FLOOR = [96, 202, 311, 419], STOKER_X = 30, BOX_R = 948, BOX_H = 80, DOOR = 0.12;
+  $('dbody').innerHTML = `<canvas width="${W}" height="${H}" tabindex="0"></canvas><p class="hint" style="text-align:center">↑ ↓ or W S to change deck · SPACE to fling coal. Click the stokehold first if the keys do nothing.</p>`;
+  const cv = $('dbody').querySelector('canvas'), ctx = cv.getContext('2d'), art = stokeArt();
+  const st = GA.stokeStart(g.rng), fx = [];
+  let pos = 1, last = null, thrownAt = -9, shake = 0, ended = false;
+  const now = () => (performance.now() - g.t0) / 1000;
+  const onKey = e => {
+    if (g.done) return;
+    if (['ArrowUp', 'w', 'W'].includes(e.key)) { pos = Math.max(0, pos - 1); e.preventDefault(); }
+    else if (['ArrowDown', 's', 'S'].includes(e.key)) { pos = Math.min(GA.ST.lanes - 1, pos + 1); e.preventDefault(); }
+    else if (e.key === ' ') { e.preventDefault(); if (!e.repeat && GA.stokeThrow(st, pos)) { thrownAt = st.t; audio.sfx.stoke(); } }
   };
-  const pt = (svgEl, ev) => { const r = svgEl.getBoundingClientRect(); return { x: (ev.clientX - r.left) * W / r.width, y: (ev.clientY - r.top) * H / r.height }; };
-  const move = ev => { if (!drag) return; const svgEl = $('dbody').querySelector('svg'); if (!svgEl) return; const p = pt(svgEl, ev); drag.x = p.x; drag.y = p.y; draw(); };
-  const up = ev => {
-    if (!drag) return;
-    const t = document.elementFromPoint(ev.clientX, ev.clientY), id = drag.id; drag = null;
-    if (t && t.classList.contains('term')) {
-      if (t.dataset.id === id) { done.add(id); audio.sfx.click(); if (done.size === left.length) { draw(); finishDefence(true, {}, 'THE FUSE BOX IS REWIRED'); return; } }
-      else audio.sfx.spark();
+  addEventListener('keydown', onKey);
+  cv.onclick = () => cv.focus();
+  setTimeout(() => cv.focus({ preventScroll: true }), 50);
+  g.cleanup = () => removeEventListener('keydown', onKey);
+  const end = () => {
+    if (ended) return; ended = true;
+    const ok = st.fails < GA.ST.fails;
+    finishDefence(ok, {}, ok ? 'THE STOKEHOLD HELD' : 'THE STOKEHOLD FIRES FAILED · THE CHUTE IS EMPTY');
+  };
+  g.timeout = end;
+  // drawing helpers: a sprite by its height, anchored bottom-left; a placeholder until the art arrives
+  const put = (name, x, yBottom, h, alpha = 1) => {
+    const im = art[name]; if (!im) return 0;
+    const w = h * im.width / im.height; ctx.save(); ctx.globalAlpha = alpha; ctx.drawImage(im, x, yBottom - h, w, h); ctx.restore(); return w;
+  };
+  const boxW = () => art['box-good'] ? BOX_H * art['box-good'].width / art['box-good'].height : 92;
+  g.tick = () => {
+    // the fires follow the real clock in small steps, however seldom the screen is drawn
+    const t = now(), dt = last == null ? 0 : Math.min(0.1, t - last); last = t;
+    while (!ended && st.t < t - 0.05) for (const e of GA.stokeStep(st, 0.05, g.rng)) {
+      if (e.type === 'out') { audio.sfx.puff(); fx.push({ kind: 'smoke', lane: e.lane, at: t }); shake = 0.35; }
+      if (e.type === 'burst') { audio.sfx.vent(); audio.sfx.blowout(); fx.push({ kind: 'steam', lane: e.lane, at: t }); shake = 0.5; }
+      if (st.fails >= GA.ST.fails) { end(); break; }
     }
-    draw();
+    shake = Math.max(0, shake - dt);
+    ctx.save();
+    if (shake) ctx.translate((Math.random() - 0.5) * 10 * shake, (Math.random() - 0.5) * 8 * shake);
+    if (art.backdrop) { ctx.imageSmoothingQuality = 'high'; ctx.drawImage(art.backdrop, 0, 0, W, H); } else { ctx.fillStyle = '#16120c'; ctx.fillRect(0, 0, W, H); }
+    const bw = boxW(), bx = BOX_R - bw, door = bx + bw * DOOR;
+    st.lanes.forEach((l, i) => {
+      const fy = FLOOR[i], state = GA.stokeState(l), danger = state === 'dying' || state === 'roaring', blink = danger && Math.floor(t * 4) % 2 === 0;
+      if (i === pos) { ctx.fillStyle = 'rgba(255,190,90,.16)'; ctx.fillRect(0, fy - 92, W, 92); }
+      // the heat gauge beside the fire: the green band, the needle
+      const gx = bx - 22, gh = 66, gy = fy - 8 - gh, hy = v => gy + gh - Math.max(0, Math.min(100, v)) / 100 * gh;
+      ctx.fillStyle = 'rgba(10,8,6,.85)'; ctx.fillRect(gx - 2, gy - 2, 14, gh + 4);
+      ctx.fillStyle = '#7a1d14'; ctx.fillRect(gx, gy, 10, gh);
+      ctx.fillStyle = '#2f7a3a'; ctx.fillRect(gx, hy(GA.ST.high), 10, hy(GA.ST.low) - hy(GA.ST.high));
+      ctx.fillStyle = blink ? '#ffffff' : '#ffd36a'; ctx.fillRect(gx - 4, hy(l.heat) - 2, 18, 4);
+      // the fire, with a pulse round it when it is in danger
+      if (danger) { ctx.save(); ctx.shadowColor = state === 'dying' ? '#6fb3ff' : '#ff3b1f'; ctx.shadowBlur = blink ? 28 : 10; }
+      if (!put('box-' + state, bx, fy, BOX_H)) { ctx.fillStyle = { out: '#333', dying: '#5a2a1a', good: '#c8641e', roaring: '#ffd060', burst: '#fff' }[state]; ctx.fillRect(bx, fy - BOX_H, bw, BOX_H); }
+      if (danger) ctx.restore();
+      if (blink) { ctx.fillStyle = state === 'dying' ? '#9fd0ff' : '#ff8a6a'; ctx.font = '600 13px IBM Plex Mono'; ctx.textAlign = 'right'; ctx.fillText(state === 'dying' ? 'DYING' : 'TOO HOT', gx - 8, fy - 40); }
+    });
+    // coal in flight: slides down the deck and drops in at the door
+    for (const c of st.coal) {
+      const p = Math.min(1, (st.t - c.at) / GA.ST.travel), x = STOKER_X + 90 + (door - STOKER_X - 100) * p, y = FLOOR[c.lane] - 34 - Math.sin(p * Math.PI) * 16;
+      if (!put('coal', x - 14, y + 14, 26)) { ctx.fillStyle = '#ff8a2a'; ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill(); }
+    }
+    // the stoker, mid-throw for a moment after each shovel
+    const throwing = st.t - thrownAt < 0.18;
+    if (!put(throwing ? 'stoker-throw' : 'stoker-ready', STOKER_X, FLOOR[pos], 88)) { ctx.fillStyle = '#2f5e33'; ctx.fillRect(STOKER_X, FLOOR[pos] - 88, 40, 88); }
+    // smoke from a dead fire, steam from a burst one
+    for (const f of fx) {
+      const age = t - f.at; if (age > 1.4) continue;
+      put(f.kind, bx + bw * 0.25 - age * 10, FLOOR[f.lane] - 30 - age * 40, 70 + age * 30, Math.max(0, 1 - age / 1.4));
+    }
+    // three gauges for the three fails, at the foot of the stokehold
+    for (let k = 0; k < GA.ST.fails; k++) {
+      const x = 18 + k * 50, y = H - 12, broken = k < st.fails;
+      if (!put('gauge', x, y, 42, broken ? 0.55 : 1)) { ctx.fillStyle = '#b08d57'; ctx.beginPath(); ctx.arc(x + 21, y - 21, 20, 0, 7); ctx.fill(); }
+      if (broken) { ctx.strokeStyle = '#ff3b1f'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 9, y - 33); ctx.lineTo(x + 21, y - 21); ctx.lineTo(x + 15, y - 12); ctx.moveTo(x + 21, y - 21); ctx.lineTo(x + 34, y - 26); ctx.stroke(); }
+    }
+    ctx.fillStyle = 'rgba(10,8,6,.7)'; ctx.fillRect(170, H - 44, 250, 32); ctx.fillStyle = '#ffd36a'; ctx.font = '600 14px IBM Plex Mono'; ctx.textAlign = 'left';
+    ctx.fillText(`FAILS ${st.fails} OF ${GA.ST.fails}`, 182, H - 23);
+    ctx.restore();
   };
-  addEventListener('pointermove', move); addEventListener('pointerup', up);
-  g.cleanup = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); };
-  g.timeout = () => finishDefence(false, {}, 'TOO SLOW · A SYSTEM HAS DROPPED');
-  draw();
 }
 
 // ---------- Missile Command (Gunnery): devil fire from the sky, or shells arcing in from skiffs on the horizon ----------
