@@ -100,7 +100,7 @@ export function missileWaves(rng, watchMinutes, kind = 'fall') {
 // ---------- The cable (Signals' defence): Snake ----------
 // Splice the buoy's cable: steer the splice head round the grid and collect the loose ends. It starts fourteen long and
 // grows with every end, to twenty-two. Through a wall it comes out the other side; touch the cable itself and the splice fails.
-export const SN = { W: 20, H: 13, start: 14, need: 8, step: 0.13 };
+export const SN = { W: 20, H: 13, start: 17, need: 8, step: 0.13 };
 export function snakeStart() {
   const y = Math.floor(SN.H / 2);
   return Array.from({ length: SN.start }, (_, i) => [SN.start + 1 - i, y]);   // head first, moving right, from the left edge
@@ -126,7 +126,7 @@ export function snakeMove(body, dir, food) {
 export const ST = {
   lanes: 4, travel: 0.85, lump: 22, cooldown: 0.22, fails: 3,
   low: 25, high: 70, top: 90,       // the green band; under it the fire is dying, over it roaring; at the top it bursts
-  drain: [4.0, 8.5],                // heat lost per second, at the start and at the end (each fire scaled by its own pace)
+  drain: [4.07, 8.97],                // heat lost per second, at the start and at the end (each fire scaled by its own pace)
   pace: [0.6, 1.5], repace: [5, 9],   // each fire's own pace, re-rolled every few seconds
   start: [42, 62], relight: 38, vent: 50, flash: 1.1,
 };
