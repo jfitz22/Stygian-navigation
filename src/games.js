@@ -99,12 +99,12 @@ export function missileWaves(rng, watchMinutes, kind = 'fall') {
 
 // ---------- The cable (Signals' defence): Snake ----------
 // Splice the buoy's cable: steer the splice head round the grid and collect the loose ends. It starts twenty long and
-// grows with every end, to twenty-eight. Through a wall it comes out the other side; touch the cable itself, or one of
+// grows with every end, to thirty. Through a wall it comes out the other side; touch the cable itself, or one of
 // the stray sparks drifting through the water, and the splice fails. A loose end left too long sinks, and another floats up.
-export const SN = { W: 20, H: 13, start: 20, need: 8, step: 0.13, sparks: 3, sparkSpeed: 2.2, sink: 6 };
+export const SN = { W: 17, H: 13, start: 20, need: 10, step: 0.13, sparks: 3, sparkSpeed: 2.2, sink: 6 };
 export function snakeStart() {
   // head first, moving right along the middle row; the tail curls down the left side
-  const y = Math.floor(SN.H / 2), row = Math.min(SN.start, SN.W - 5), body = [];
+  const y = Math.floor(SN.H / 2), row = Math.min(SN.start, SN.W - 3), body = [];
   for (let i = 0; i < row; i++) body.push([row + 1 - i, y]);
   for (let k = 1; body.length < SN.start; k++) body.push([2, y + k]);
   return body;

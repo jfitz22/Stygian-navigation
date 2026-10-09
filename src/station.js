@@ -5,7 +5,7 @@ import { stokeArt } from './stokeart.js';
 // back; the game decides what they do. Each station has a steady job, the shared fleet, and a defence game that
 // the game triggers every few minutes.
 import { openLink, cleanCode } from './link.js';
-import { mountFleet } from './fleetui.js';
+import { mountFleet, mountFleetDept } from './fleetui.js';
 import * as WS from './workshop.js';
 import * as GA from './games.js';
 import { glyphSVG, echoAt, ECHO_W } from './glyphs.js';
@@ -15,9 +15,10 @@ import { mulberry32, artifactText } from './sim.js';
 import * as audio from './audio.js';
 
 const $ = id => document.getElementById(id);
-const ROLE_NAME = { gunnery: 'GUNNERY & TARGETING', signals: 'SIGNALS & SONAR', engineer: 'ENGINEERING & POWER' };
-const JOB = { gunnery: 'THE BEACON WORKSHOP', signals: 'THE CASE BOARD', engineer: 'THE FURNACE' };
+const ROLE_NAME = { gunnery: 'GUNNERY & TARGETING', signals: 'SIGNALS & SONAR', engineer: 'ENGINEERING & POWER', fleet: 'FLEET COMMAND' };
+const JOB = { gunnery: 'THE BEACON WORKSHOP', signals: 'THE CASE BOARD', engineer: 'THE FURNACE', fleet: 'FLEET COMMAND' };
 const FIRST = {
+  fleet: ['<b>You command the fleet.</b> Click their table to aim one shot for each of our ships afloat; both fleets fire together when the salvo clock runs out, or when you press FIRE.', '<b>The specials</b> are loaded by the departments: they describe their flags, your codebook turns each flag into a rune, they press the runes. Then you place the special and it goes with the salvo.', '<b>A sunk ship</b> can be salvaged: read its salvage board to Engineering, set what their flowchart says, and send the crew. Engineering\'s breaker panel powers it.'],
   gunnery: ['<b>Build beacons</b> at the workshop: your book has the shell; Engineering has the core; Signals has the crystal.', '<b>When devil fire comes</b>, click to burst flak in its path: every tower it reaches is an orb lost.', '<b>The fleet</b> is everyone\'s: pick a rune and a number, then FIRE.'],
   signals: ['<b>Keep the case board</b>: decode each radio pattern and type in its call sign. The sonar here is a copy of the operator\'s.', '<b>Minesweeping</b> is optional: complete a sweep and the guns beacon a glacier for free.', '<b>When the buoy cable snaps</b>, steer with the arrow keys and collect the ends; the walls wrap round, your own cable does not.'],
   engineer: ['<b>Keep the furnace alive</b>: the log shows where the heat is heading. Set the shed order and the damper.', '<b>The breaker panel</b> is optional: clear it for a free shovel of fuel.', '<b>When the stokehold fires fail</b>, run the decks with ↑ ↓ and fling coal with SPACE: keep all four fires in the green.'],
@@ -43,7 +44,7 @@ const link = openLink(m => {
 }, s => { netState = s; });
 const send = act => link.send({ station: { role, iid: snap ? snap.iid : null, ...act } });
 // the game's clock, run on between updates
-const ticking = () => snap && !snap.paused && !snap.hold && snap.started && !snap.reinforce;
+const ticking = () => snap && !snap.paused && !snap.hold && snap.started;
 const nowT = () => !snap ? 0 : snap.t + (ticking() ? Math.min(2, (performance.now() - snapAt) / 1000) : 0);
 
 document.querySelectorAll('#roles button').forEach(b => b.onclick = () => { role = b.dataset.role; document.querySelectorAll('#roles button').forEach(x => x.classList.toggle('sel', x === b)); });
@@ -85,6 +86,10 @@ function takeStation() {
   if (role === 'gunnery') buildWorkshop();
   if (role === 'engineer') buildFurnace();
   if (role === 'signals') buildSonar();
+  // the Fleet Officer's job is the fleet itself; the other officers watch it, and load their own special
+  $('fleetpanel').classList.toggle('hidden', role === 'fleet');
+  $('job').classList.toggle('fleetjob', role === 'fleet');
+  $('fleetdept').classList.toggle('hidden', role === 'fleet');
   buildSteady();
   firstCard();
 }
@@ -95,11 +100,31 @@ function doing() {
   if (role === 'gunnery') return ws.casing ? 'building a ' + ws.color + ' beacon' : 'at the bench';
   if (role === 'signals') return steady.state && steady.state.choosing ? 'choosing a reward' : steady.state && !steady.state.over ? 'minesweeping' : 'keeping the case board';
   if (role === 'engineer') return steady.state && !steady.state.over ? 'on the breaker panel' : 'watching the furnace';
+  if (role === 'fleet') return snap && snap.fleet && Object.keys(snap.fleet.salvage || {}).length ? 'salvaging a ship' : 'commanding the fleet';
   return '';
 }
 
 // ---------- the fleet ----------
-const fleetUI = mountFleet($('fleet'), () => ({ fleet: snap && snap.fleet, t: nowT() }), a => { send(a); audio.sfx.click(); }, { cell: 30, onShot: l => (l.hit ? audio.sfx.hit : audio.sfx.miss)() });
+const shotSound = l => (l.ours.some(o => o[2] === 'hit') ? audio.sfx.hit : audio.sfx.miss)();
+const fleetUI = mountFleet($('fleet'), () => ({ fleet: snap && snap.fleet, t: nowT(), mode: 'view' }), a => send(a), { cell: 26, onShot: shotSound });
+// the Fleet Officer commands from their own station (its job panel)
+let commandUI = null;
+const fleetCommandUI = () => commandUI || (commandUI = mountFleet($('jobbody'), () => ({ fleet: snap && snap.fleet, t: nowT(), mode: snap && snap.commander === 'fleet' ? 'command' : 'view', beacons: snap ? snap.beacons + snap.orange : null }), a => { send(a); audio.sfx.click(); }, { cell: 34, onShot: shotSound }));
+const deptUI = mountFleetDept($('fleetdeptbody'), () => ({ fleet: snap && snap.fleet }), a => { send(a); audio.sfx.click(); }, () => role);
+// a hit on your ship cracks your screen; the worse the ship, the worse the glass
+function drawCracks() {
+  const f = snap && snap.fleet, el = $('cracks');
+  const ship = f && f.mine && f.mine.find(s => s.crew === role);
+  const sev = !ship || f.phase === 'off' ? 0 : ship.hits.length >= ship.len ? 1 : ship.hits.length / ship.len;
+  const k = Math.round(sev * 10);
+  if (el.dataset.k === String(k)) return; el.dataset.k = k;
+  el.className = 'sev' + k; el.innerHTML = k ? crackSVG(sev) : '';
+}
+function crackSVG(sev) {
+  const lines = [['M0 120 L180 230 L260 200 L420 330', 'M180 230 L150 380', 'M260 200 L300 90'], ['M1920 60 L1700 220 L1620 200 L1480 360', 'M1700 220 L1760 420'], ['M960 1080 L1010 860 L940 760 L1060 600', 'M1010 860 L1180 900', 'M940 760 L820 700'], ['M0 900 L240 820 L300 880 L520 760'], ['M1920 820 L1700 760 L1600 820']];
+  const n = Math.max(1, Math.round(sev * lines.length));
+  return `<svg viewBox="0 0 1920 1080" preserveAspectRatio="none">${lines.slice(0, n).flat().map(d => `<path d="${d}" fill="none" stroke="rgba(220,235,245,.55)" stroke-width="${sev >= 1 ? 3 : 2}"/><path d="${d}" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="1" transform="translate(2,2)"/>`).join('')}</svg>`;
+}
 
 // ---------- the main loop ----------
 let jobKey = '';
@@ -115,14 +140,13 @@ function frame() {
   $('lost').classList.toggle('hidden', !(linkedOnce && !live && !$('desk').classList.contains('hidden')));
   if (snap) {
     $('clock').textContent = snap.hold === 'deploy' ? 'DEPLOY' : fmt(nowT());
-    safely('fleet', () => fleetUI.render());
+    if (role === 'fleet') safely('fleet command', () => fleetCommandUI().render()); else { safely('fleet', () => fleetUI.render()); safely('fleet dept', () => deptUI.render()); }
+    safely('cracks', drawCracks);
     if (role === 'gunnery') safely('workshop', drawWorkshop);
     if (role === 'signals') { safely('sonar', drawSonar); safely('case board', drawCaseBoard); }
     if (role === 'engineer') safely('furnace', drawFurnace);
     safely('steady', () => drawSteady());
     safely('defence', checkDefence);
-    $('alert').classList.toggle('hidden', !snap.reinforce);
-    if (snap.reinforce) { $('alerttitle').textContent = 'DEVIL REINFORCEMENTS'; $('alerttext').textContent = 'The fleet is lost and the enemy is landing. The watch is paused until the officer of the watch gives the word.'; }
   }
   if (bannerUI) bannerUI.update($('desk').classList.contains('hidden') ? null : snap?.bannerEvent, snap?.bannerNow);
   requestAnimationFrame(frame);
@@ -448,7 +472,7 @@ let steadyKey = '';
 function drawSteady(force) {
   if (!steady.kind || !steady.state) return;
   const cd = Math.ceil(cooldownLeft()), waiting = steady.state.over && cd > 0;
-  const k = JSON.stringify([waiting ? cd : -1, steady.msg, snap && snap.canReveal]) + (force ? Math.random() : '');
+  const k = JSON.stringify([waiting ? cd : -1, steady.msg, snap && snap.canReveal, snap && snap.needsPower]) + (force ? Math.random() : '');
   if (k === steadyKey && !force) return;
   steadyKey = k;
   // after a win, wait for the game's cooldown to arrive and run out before the next board
@@ -467,14 +491,14 @@ function drawMinesSteady(cd) {
   $('steadybody').innerHTML = `<div class="steadygrid">
     <div class="ms small">${h}</div>
     <div class="howto" style="max-width:330px">
-      Mines have drifted into the approaches. <b>Complete a sweep</b> and choose your reward: <b>a beacon strikes a random iceberg</b>, or <b>an enemy ship is plotted</b> on the fleet tables.<br><br>
+      Mines have drifted into the approaches. <b>Complete a sweep</b> and choose your reward: <b>a beacon strikes a random iceberg</b>, or <b>a square of an enemy hull is sighted</b> on the fleet tables.<br><br>
       <b>The numbers:</b> each one says how many of the eight squares touching it hold a mine. A <b>1</b> with only one hidden square beside it: that square is a mine.<br><br>
       <b>Left click</b> opens a square. <b>Right click</b> flags a mine. Start from the open patch; every field can be solved without guessing.<br><br>
       ${M.size - flags.size} mines unflagged. Nothing is lost if you hit one: start a new field.
     </div></div>
-    <div class="reward">${steady.msg}${st.over && !st.won ? ' <button class="btn" id="msnew">NEW FIELD</button>' : ''}${st.choosing ? ` <button class="btn" id="rwbeacon">BEACON AN ICEBERG</button> <button class="btn" id="rwreveal" ${snap && snap.canReveal ? '' : 'disabled title="No enemy ship left to plot (or the fleet is not in action)"'}>PLOT AN ENEMY SHIP</button>` : ''}${st.over && st.won && !st.choosing && cd > 0 ? ` The next sweep opens in ${cd} s.` : ''}</div>`;
+    <div class="reward">${steady.msg}${st.over && !st.won ? ' <button class="btn" id="msnew">NEW FIELD</button>' : ''}${st.choosing ? ` <button class="btn" id="rwbeacon">BEACON AN ICEBERG</button> <button class="btn" id="rwreveal" ${snap && snap.canReveal ? '' : 'disabled title="No enemy ship left to plot (or the fleet is not in action)"'}>SIGHT AN ENEMY HULL</button>` : ''}${st.over && st.won && !st.choosing && cd > 0 ? ` The next sweep opens in ${cd} s.` : ''}</div>`;
   const nb = $('msnew'); if (nb) nb.onclick = newSteadyBoard;
-  const choose = c => { st.choosing = false; st.wonAt = performance.now(); steady.msg = c === 'reveal' ? 'SWEEP COMPLETE. An enemy ship is plotted on the fleet tables.' : 'SWEEP COMPLETE. The guns are firing.'; send({ act: 'minesweeper', choice: c }); audio.sfx.calibrated(); drawSteady(true); };
+  const choose = c => { st.choosing = false; st.wonAt = performance.now(); steady.msg = c === 'reveal' ? 'SWEEP COMPLETE. An enemy hull is sighted on the fleet tables.' : 'SWEEP COMPLETE. The guns are firing.'; send({ act: 'minesweeper', choice: c }); audio.sfx.calibrated(); drawSteady(true); };
   if ($('rwbeacon')) $('rwbeacon').onclick = () => choose('beacon');
   if ($('rwreveal')) $('rwreveal').onclick = () => choose('reveal');
   if (st.over) return;
@@ -494,15 +518,20 @@ function drawLightsSteady(cd) {
   $('steadybody').innerHTML = `<div class="steadygrid">
     <div class="lo6${st.over ? ' rest' : ''}">${st.board.map((v, i) => `<button class="${v ? 'on' : ''}" data-i="${i}"></button>`).join('')}</div>
     <div class="howto" style="max-width:330px">
-      The breakers on the boiler line. <b>Get every breaker dark</b> and the boiler hands the furnace <b>a free shovel of fuel</b>.<br><br>
+      The breakers on the boiler line. <b>Get every breaker dark</b> and choose: <b>a free shovel of fuel</b>, or, while one of our ships is being salvaged, <b>power for that ship</b>.<br><br>
       <b>Pressing a breaker flips it and its four neighbours</b> (up, down, left, right).<br><br>
       One free shovel a minute. Take your time: nothing goes wrong here.
     </div></div>
-    <div class="reward">${steady.msg}${st.over && cd > 0 ? ` The next panel lights up in ${cd} s.` : ''}</div>`;
+    <div class="reward">${steady.msg}${st.choosing ? ` <button class="btn" id="lofuel">A SHOVEL OF FUEL</button> <button class="btn" id="lopower" ${snap && snap.needsPower ? '' : 'disabled title="No ship is waiting for power"'}>POWER THE SUNK SHIP</button>` : ''}${st.over && !st.choosing && cd > 0 ? ` The next panel lights up in ${cd} s.` : ''}</div>`;
+  const pick = c => { st.choosing = false; st.wonAt = performance.now(); steady.msg = c === 'power' ? 'PANEL CLEAR. Power goes to the ship under salvage.' : 'PANEL CLEAR. A shovel of fuel drops into the chute.'; send({ act: 'lightsout', choice: c }); audio.sfx.calibrated(); drawSteady(true); };
+  if ($('lofuel')) $('lofuel').onclick = () => pick('fuel');
+  if ($('lopower')) $('lopower').onclick = () => pick('power');
   if (st.over) return;
   $('steadybody').querySelectorAll('.lo6 button').forEach(b => b.onclick = () => {
     st.board = GA.loPress(st.board, Number(b.dataset.i)); audio.sfx.click();
-    if (GA.loSolved(st.board)) { st.over = true; st.won = true; st.wonAt = performance.now(); steady.msg = 'PANEL CLEAR. A shovel of fuel drops into the chute.'; send({ act: 'lightsout' }); audio.sfx.calibrated(); }
+    if (GA.loSolved(st.board)) { st.over = true; st.won = true; st.wonAt = performance.now(); audio.sfx.calibrated();
+      if (snap && snap.needsPower) { st.choosing = true; steady.msg = 'PANEL CLEAR. Choose:'; }
+      else { steady.msg = 'PANEL CLEAR. A shovel of fuel drops into the chute.'; send({ act: 'lightsout', choice: 'fuel' }); } }
     drawSteady(true);
   });
 }
@@ -690,7 +719,7 @@ function startStoke(g) {
     }
     // the stoker, mid-throw for a moment after each shovel
     const throwing = st.t - thrownAt < 0.18;
-    if (!put(throwing ? 'stoker-throw' : 'stoker-ready', STOKER_X, FLOOR[pos], 88)) { ctx.fillStyle = '#2f5e33'; ctx.fillRect(STOKER_X, FLOOR[pos] - 88, 40, 88); }
+    if (!put(throwing ? 'stoker-throw' : 'stoker-ready', STOKER_X, FLOOR[pos], 88) && !put('stoker-throw', STOKER_X, FLOOR[pos], 88)) { ctx.fillStyle = '#2f5e33'; ctx.fillRect(STOKER_X, FLOOR[pos] - 88, 40, 88); }
     // smoke from a dead fire, steam from a burst one
     for (const f of fx) {
       const age = t - f.at; if (age > 1.4) continue;

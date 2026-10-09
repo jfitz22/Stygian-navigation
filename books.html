@@ -137,7 +137,7 @@
   <div class="warn"><b>WRITE DOWN THE PASSWORD.</b> Every time it changes. The terminal prints the new one when it is accepted.</div>
   <h3>The base rules</h3>
   <ol id="pwrules" style="margin-top:2px"></ol>
-  <p class="aside">The rules of the deeper layers are set by the Hells themselves. The terminal shows each one as you descend.</p>
+  <p class="aside">Each layer deeper adds its own rule; the terminal shows it.</p>
   <div class="margin" style="right:0.95in;bottom:0.85in">default is JerryRulz! — WRITE DOWN THE NEW ONE, JERRY.<span class="re">It was on the back of the fuel docket. Not any more. —I.</span></div>
 </section>
 
@@ -160,23 +160,61 @@
 
 <section class="page" data-book="all" data-sec="LW-0E" data-title="Stations, defences and the fleet">
   <h2><span class="code">LW-0E</span> STATIONS, DEFENCES &amp; THE FLEET</h2>
-  <p>Each officer keeps a <b>station</b> of their own, linked to the Watch with the four-character code on the top bar of the operator's screen. A station holds the officer's standing duty, an optional puzzle that helps the Watch, and a share of the fleet. Every few minutes the enemy tests one station: the defence console lights up red and the officer there must hold.</p>
+  <p>Each officer keeps a <b>station</b> of their own, linked to the Watch with the four-character code on the top bar of the operator's screen. A station holds the officer's standing duty, an optional puzzle that helps the Watch, and the fleet tables. Every few minutes the enemy tests one station: the defence console lights up red and the officer there must hold.</p>
   <table>
     <tr><th>Station</th><th>Standing duty</th><th>Defence</th><th>If it fails</th></tr>
     <tr><td><b>GUNNERY</b></td><td>The beacon workshop (GU-5)</td><td><b>Devil fire</b> on the seven orb towers, from the sky or from skiffs on the horizon. Click to burst flak in its path. 30 s.</td><td>Every tower struck: that orb is destroyed.</td></tr>
-    <tr><td><b>SIGNALS</b></td><td>A copy of the sonar · the full case board and the call signs · minesweeping (SI-6)</td><td><b>The buoy cable snaps</b>: steer the splice (arrow keys) and collect 8 loose ends before they sink, without touching the cable itself or the stray sparks; the walls wrap round. 45 s.</td><td>The buoy is lost.</td></tr>
+    <tr><td><b>SIGNALS</b></td><td>A copy of the sonar · the full case board and the call signs · minesweeping (SI-6)</td><td><b>The buoy cable snaps</b>: steer the splice (arrow keys) and collect the loose ends before they sink, without touching the cable itself or the stray sparks; the walls wrap round. 45 s.</td><td>The buoy is lost.</td></tr>
     <tr><td><b>ENGINEERING</b></td><td>The furnace log, the shed order and the damper · the breaker panel (EN-7)</td><td><b>The stokehold fires fail</b>, every few minutes and whenever the furnace runs into the red: run the four decks and keep every boiler fire in the green. 45 s.</td><td>The lowest system in the shed order drops, the fuel chute is emptied, the lights go red.</td></tr>
+    <tr><td><b>FLEET OFFICER</b></td><td>Fleet command (FL-1)</td><td>None: the fleet is enough.</td><td>—</td></tr>
   </table>
   <h3>The fleet</h3>
-  <p>The Watch's naval defences, on the cabin wall and on every station. Columns are marked with runes and rows with numbers.</p>
+  <p>The Watch's four ships against a devil fleet, on two plotting tables: theirs and ours. Every station and the cabin wall show them. <b>The Fleet Officer commands</b>; with no Fleet Officer on station, the operator commands from the cabin wall.</p>
   <ul>
-    <li><b>Before the watch begins</b>, deploy the fleet: drag the four ships onto the table (ROTATE, R or right click turns one). The watch holds until all four are placed.</li>
-    <li><b>To fire</b>, choose a rune and a number, then FIRE. Anyone may fire, from any screen.</li>
-    <li>The enemy answers every shot, 10 to 15 s later. <b>If nobody fires for 60 s, it fires anyway.</b></li>
-    <li>Sink their fleet and another appears on the horizon. Ours is refitted and moved a few squares; you have 30 s to redeploy it (the enemy holds its fire), or press READY.</li>
-    <li>Lose all four ships and <b>devil reinforcements</b> attack. The watch halts until the officer of the watch gives the word.</li>
+    <li><b>Salvos.</b> Both fleets fire together when the salvo clock runs out, or sooner when the commander fires. Each side fires one shot for every ship it has afloat.</li>
+    <li><b>Each of our ships carries a department's crew</b> (the flagship carries the Fleet Officer). Hits on your ship crack your station's glass; a sunk ship leaves it shattered until she is relaunched.</li>
+    <li><b>Specials.</b> Each department loads one with a flag code: its station hoists three flags; the Fleet Officer's codebook turns them into three runes. Gunnery: the heavy shell. Signals: the sounding. Engineering: the boost.</li>
+    <li><b>Salvage.</b> A sunk ship is salvaged by the Fleet Officer and Engineering, and powered from Engineering's breaker panel (EN-7).</li>
+    <li><b>While one of our ships is down, the enemy shells the Watch</b>: now and then a machine breaks (repair it as usual, LW-0C). Lose the whole fleet and the shells crack the furnace grate; the fleet is refitted a minute later.</li>
   </ul>
   <div class="margin" style="right:0.95in;bottom:0.85in">fired at the same square twice.<span class="re">It will not let you. —I.</span></div>
+</section>
+
+<!-- ======================= FLEET COMMAND ======================= -->
+
+<section class="page" data-book="fleet" data-sec="FL-1" data-title="The battle">
+  <h2><span class="code">FL-1</span> THE BATTLE</h2>
+  <p>Your station shows two plotting tables, <b>12 × 12</b>: <b>their waters</b>, which you map with your shells, and <b>our fleet</b>. Their ships never move, so every mark stays true. Ships never touch, not even at a corner. Columns are marked with runes, rows with numbers.</p>
+  <h3>Deployment</h3>
+  <p>Before the watch begins, drag our four ships onto our table (ROTATE, R or right click turns one), or press RANDOM. The watch holds until you press READY. <b>THE LANTERN</b> (two long) is yours; <b>THE CINDERWAKE</b>, <b>THE GALLOWS</b> and <b>THE BRIMSTONE</b> carry Gunnery, Signals and Engineering.</p>
+  <h3>The salvo</h3>
+  <ul>
+    <li><b>Aim:</b> click their table, one shot for each of our ships afloat. Click a square again to take the shot back.</li>
+    <li><b>Fire:</b> both fleets fire together when the salvo clock runs out, or when you press FIRE.</li>
+    <li>A hit names the ship's length. A sunk ship shows its outline, and the water round it is marked clear.</li>
+    <li><b>The enemy reloads:</b> every hit it lands on us costs it a shot in the next salvo.</li>
+  </ul>
+  <h3>Specials</h3>
+  <p>A department loads its special with the flag code (FL-2). Once loaded, it is yours to place; it goes with the next salvo.</p>
+  <table>
+    <tr><th>Special</th><th>Loaded by</th><th>How to place it</th><th>What it does</th></tr>
+    <tr><td><b>HEAVY SHELL</b></td><td>Gunnery</td><td>Click their table: the top left of a 2 × 2.</td><td>Shells all four squares. <b>Uses one of the Watch's red beacons</b> (or an orange, if no red is left; never a green).</td></tr>
+    <tr><td><b>SOUNDING</b></td><td>Signals</td><td>Drag it over their table; <b>R</b> turns it between a row and a column; let go.</td><td>Tells you how many ship squares lie in that row or column.</td></tr>
+    <tr><td><b>BOOST</b></td><td>Engineering</td><td>Click one of our ships, then an arrow key (or a square beside it).</td><td>Moves that ship one square: the enemy's hits on it go stale.</td></tr>
+  </table>
+  <p>Press a placed special again to take it back.</p>
+  <div class="margin" style="right:0.95in;bottom:0.85in">shoot where the sounding says. not where you feel.</div>
+</section>
+
+<section class="page" data-book="fleet" data-sec="FL-2" data-title="The codebook and salvage">
+  <h2><span class="code">FL-2</span> THE CODEBOOK</h2>
+  <div class="ask crew"><b>ASK THE DEPARTMENT:</b> its three flags, from the top of the hoist down</div>
+  <p>Find each flag in its row, and read the rune in the column for its place in the hoist. Say the three runes by <b>house and weight</b> ("Iron, weight two"). Gunnery's and Engineering's pads are marked that way; <b>Signals' pad is not</b>: they find each rune in their rune catalogue. A wrong code loads nothing; the flags stay up.</p>
+  <table id="t-flagcode"></table>
+  <h2 style="margin-top:14px" data-title="Salvage"><span class="code">FL-3</span> SALVAGE</h2>
+  <div class="ask crew"><b>ASK ENGINEERING:</b> the setting for each row of the salvage board, from their flowchart</div>
+  <p>When one of our ships is sunk, a <b>salvage board</b> opens on your station: four rows, each with three lights, a gauge and a code. Read every row to Engineering; set what their flowchart says (OPEN, CLOSE or CUT); send the salvage crew. A wrong board resets. The ship also needs <b>power</b>: Engineering clears their breaker panel and chooses to power her. Sound and powered, she is relaunched with the next salvo. With nobody from Engineering on station, she relaunches by herself after five salvos.</p>
+  <div class="warn">While any of our ships is down, the enemy has a line on the Watch and shells it now and then: a machine breaks. Lose all four and the shells crack the furnace grate; the fleet is refitted a minute later.</div>
 </section>
 
 <!-- ======================= ENGINEERING & POWER ======================= -->
@@ -269,7 +307,8 @@
   <ol id="rec-engineer"></ol>
   <p><b>Example.</b> Serial <b>KTR-47</b>, lamp yellow: 4 halved is 2, so two notches; there is an R, so a rubber seal.</p>
   <h2 style="margin-top:22px" data-title="The breakers and the stokehold"><span class="code">EN-7</span> THE BREAKERS &amp; THE STOKEHOLD</h2>
-  <p><b>The breaker panel</b> sits on your station at all times: six by six. <b>Pressing a breaker flips it and its four neighbours.</b> Get every breaker dark and the boiler hands the furnace <b>a free shovel of fuel</b>. One free shovel a minute; nothing goes wrong if you leave it.</p>
+  <p><b>The breaker panel</b> sits on your station at all times: six by six. <b>Pressing a breaker flips it and its four neighbours.</b> Get every breaker dark and choose: <b>a free shovel of fuel</b>, or, while one of our ships is being salvaged, <b>power for that ship</b>. Once a minute; nothing goes wrong if you leave it.</p>
+  <p><b>The fleet.</b> Your special is the <b>boost</b> (one of our ships moves a square): load it with the flag code your station shows; the Fleet Officer reads it. When one of our ships is sunk, the Fleet Officer reads you its <b>salvage board</b>: answer each row with this book's repair flowchart (EN-5), exactly as for the repair bay.</p>
   <p><b>The stokehold</b> calls for you every few minutes, and whenever the furnace runs into the red: four boiler fires, one at the end of each deck, all burning down at their own pace. For 45 seconds, keep every fire in the <b>green</b>.</p>
   <ul>
     <li><b>↑ ↓</b> (or W S) runs the stoker between decks; <b>SPACE</b> flings a shovel of coal down the deck. It takes a moment to reach the fire: throw ahead of need.</li>
@@ -309,6 +348,7 @@
     <li>Every miss is reported with its distance and the reason; the chart marks where the ice really was.</li>
     <li><b>Green asks for the password</b>, then fires. Fire it only when the whole crew agrees.</li>
     <li>The launcher <b>jams every few shots</b> (GU-4). New beacons come only from the workshop (GU-5).</li>
+    <li><b>The fleet:</b> your special is the <b>heavy shell</b>, loaded with the flag code on your station. Each one fired takes a red beacon (or an orange; never a green).</li>
   </ul>
   <h3>Beacons</h3>
   <p>Every strike pins the ice to the <b>case board</b> and lets the <b>radio</b> hear it. A strike on a <b>frozen monster</b> wakes it.</p>
@@ -404,18 +444,20 @@
   <ol id="rec-signals"></ol>
   <p><b>Example.</b> Serial <b>KTR-47</b>, lamp yellow, call band MID: five facets; the letters are all different and the lamp is yellow, so smoky.</p>
   <h2 style="margin-top:22px" data-title="Minesweeping and the cable"><span class="code">SI-6</span> MINESWEEPING &amp; THE CABLE</h2>
-  <p><b>Minesweeping</b> sits on your station at all times: eight by eight, eight mines, a safe patch already open. <b>Complete a sweep and the Watch's guns are free to fire: a beacon strikes a random iceberg</b>, pinning it to the case board. Or choose to <b>plot an enemy ship</b> instead: its outline appears on the fleet tables. One sweep a minute; a mine costs nothing but the sweep.</p>
+  <p><b>Minesweeping</b> sits on your station at all times: eight by eight, eight mines, a safe patch already open. <b>Complete a sweep and the Watch's guns are free to fire: a beacon strikes a random iceberg</b>, pinning it to the case board. Or choose to <b>sight a square of an enemy hull</b> on the fleet tables. One sweep a minute; a mine costs nothing but the sweep.</p>
+  <p><b>The fleet.</b> Your special is the <b>sounding</b>: how many ship squares lie in one row or column. Load it with the flag code your station shows. The Fleet Officer reads the flags in their codebook and names each rune by <b>house and weight</b>; find it in your rune catalogue (SI-1) and press it.</p>
   <ul>
     <li><b>Left click</b> opens a square. A number is how many of the eight squares around it hold a mine.</li>
     <li><b>Right click</b> flags a square you know is a mine. No guessing is ever needed.</li>
   </ul>
-  <p><b>The buoy cable</b> snaps every few minutes. Steer the splice with the arrow keys (or WASD) and collect eight loose ends within 45 seconds. The cable starts twenty lengths long and grows to twenty-eight. Run into a wall and you come out the other side; run into the cable itself, or one of the <b>stray sparks</b> drifting through the water, and the splice fails. A loose end left for six seconds <b>sinks</b>, and another floats up somewhere else.</p>
+  <p><b>The buoy cable</b> snaps every few minutes. Steer the splice with the arrow keys (or WASD) and collect ten loose ends within 45 seconds. The cable starts twenty lengths long and grows to thirty. Run into a wall and you come out the other side; run into the cable itself, or one of the <b>stray sparks</b> drifting through the water, and the splice fails. A loose end left for six seconds <b>sinks</b>, and another floats up somewhere else.</p>
   <div class="warn">If the splice fails, or time runs out, the buoy is lost (the winch must be repaired).</div>
 </section>
 
 <script type="module">
 import { TUNING as T, TOMB_RADIUS, CELL, RADIO_TABLE, BOARD_GRID, BOARD_PAGES, PLATE_BY_HOUSE, windLever, tempLever, bandOf, COLD_WATER } from './src/scenario.js';
 import { RUNES, HOUSES, glyphSVG, leadingHouse, tempBandName, echoAt, ECHO_W, ECHO_EXAMPLES } from './src/glyphs.js';
+import { FLAGS, CODEBOOK, PAD, flagSVG, padName } from './src/fleet.js';
 import { RULES as PW_RULES } from './src/password.js';
 import { FLOWS, DEFAULT_ACTION, repairAction, OWNER, DEPTS } from './src/repair.js';
 import { burnRate, BREAKABLE } from './src/sim.js';
@@ -435,22 +477,23 @@ const BOOKS = {
   engineer: { name: 'ENGINEERING & POWER', short: 'ENGINEERING' },
   gunnery: { name: 'GUNNERY & TARGETING', short: 'GUNNERY' },
   signals: { name: 'SIGNALS & SONAR', short: 'SIGNALS' },
+  fleet: { name: 'FLEET COMMAND', short: 'FLEET' },
 };
 const book = new URLSearchParams(location.search).get('book');
 const bar = $('bar');
-const links = Object.entries(BOOKS).map(([k, b]) => `<a class="btn${book === k ? ' on' : ''}" href="?book=${k}">${b.name}</a>`).join('') + `<a class="btn${book === 'all' ? ' on' : ''}" href="?book=all">ALL THREE (GM)</a>`;
+const links = Object.entries(BOOKS).map(([k, b]) => `<a class="btn${book === k ? ' on' : ''}" href="?book=${k}">${b.name}</a>`).join('') + `<a class="btn${book === 'all' ? ' on' : ''}" href="?book=all">ALL BOOKS (GM)</a>`;
 if (!BOOKS[book] && book !== 'all') {
   document.querySelectorAll('.page').forEach(p => p.classList.add('off'));
-  bar.insertAdjacentHTML('beforeend', `<div class="picker"><h1 style="font-family:'Stardos Stencil';letter-spacing:4px">THE THREE BOOKS</h1>
-    <p>One book for each officer. Each opens with the same orientation pages, then holds only its own officer's pages. Print each one (US Letter) and hand them out. The GM copy has all three.</p>
+  bar.insertAdjacentHTML('beforeend', `<div class="picker"><h1 style="font-family:'Stardos Stencil';letter-spacing:4px">THE FOUR BOOKS</h1>
+    <p>One book for each officer. Each opens with the same orientation pages, then holds only its own officer's pages. Print each one (US Letter) and hand them out. The GM copy has all four.</p>
     <p>${links}</p><p style="font-size:11px">The operator does not get a book.</p></div>`);
 } else {
   bar.innerHTML = links + ` <button onclick="print()">PRINT OR SAVE AS PDF (US LETTER)</button>`;
   // "all" (the GM copy): the orientation once, then every officer's pages
   document.querySelectorAll('.page').forEach(p => { const b = p.dataset.book; if (!(b === 'all' || b === 'each' || book === 'all' || b === book)) p.classList.add('off'); });
   const cover = document.querySelector('[data-book="each"]');
-  cover.querySelector('.book').textContent = book === 'all' ? 'ALL THREE BOOKS' : BOOKS[book].name;
-  document.title = 'Operations Manual · ' + (BOOKS[book] ? BOOKS[book].name : 'all three books');
+  cover.querySelector('.book').textContent = book === 'all' ? 'ALL FOUR BOOKS' : BOOKS[book].name;
+  document.title = 'Operations Manual · ' + (BOOKS[book] ? BOOKS[book].name : 'all four books');
 }
 const visible = () => [...document.querySelectorAll('.page:not(.off)')];
 const shortName = book === 'all' ? 'GM COPY' : BOOKS[book] ? BOOKS[book].short : '';
@@ -472,6 +515,7 @@ visible().forEach((p, i) => {
     engineer: [...Array(8)].map((_, i) => { const a = i * Math.PI / 4; return `<rect x="79" y="22" width="12" height="18" fill="${INK}" transform="rotate(${i * 45} 85 85)"/>`; }).join('') + `<circle cx="85" cy="85" r="44" fill="${INK}"/><circle cx="85" cy="85" r="16" fill="#f1ead6" stroke="${RED}" stroke-width="3"/>`,
     gunnery: `<circle cx="85" cy="85" r="40" fill="none" stroke="${INK}" stroke-width="3"/><circle cx="85" cy="85" r="18" fill="none" stroke="${INK}" stroke-width="2"/>` + line(85, 20, 85, 64, { w: 3 }) + line(85, 106, 85, 150, { w: 3 }) + line(20, 85, 64, 85, { w: 3 }) + line(106, 85, 150, 85, { w: 3 }) + `<circle cx="85" cy="85" r="5" fill="${RED}"/>`,
     signals: [0, 1, 2].map(i => `<path d="M${40 + i * 4} ${85 + i * 18} Q 62 ${60 + i * 18} 85 ${85 + i * 18} T 130 ${85 + i * 18}" fill="none" stroke="${INK}" stroke-width="3" transform="translate(0 ${-18})"/>`).join('') + `<circle cx="85" cy="40" r="7" fill="${RED}"/>`,
+    fleet: `<path d="M85 28 V142 M60 52 H110 M42 104 Q85 160 128 104" fill="none" stroke="${INK}" stroke-width="7" stroke-linecap="round"/><circle cx="85" cy="28" r="10" fill="none" stroke="${INK}" stroke-width="5"/>`,
     all: `<path d="M85 20 L98 85 L85 150 L72 85 Z" fill="${INK}"/><path d="M20 85 L85 74 L150 85 L85 96 Z" fill="none" stroke="${INK}" stroke-width="2"/><circle cx="85" cy="85" r="10" fill="#f1ead6" stroke="${RED}" stroke-width="3"/>`,
   };
   $('coverart').innerHTML = svg(170, 170, ring + art[k]);
@@ -487,7 +531,7 @@ $('t-flow').innerHTML = '<tr><th>Step</th><th>Led by (with the operator)</th><th
   ['<b>The Triad.</b> Tune in, decode, look up', 'ENGINEERING tunes · SIGNALS decodes', 'GUNNERY reads the codebook'],
   ['<b>Build beacons.</b> The workshop, on the Gunnery station', 'GUNNERY', 'ENGINEERING: the core (orange, green) · SIGNALS: the crystal (green)'],
   ['<b>Defences.</b> Devil fire, the buoy cable, the stokehold', 'each officer, at their station', '(LW-0E)'],
-  ['<b>The fleet.</b> Deploy it, fire on the enemy', 'everyone', '(LW-0E)'],
+  ['<b>The fleet.</b> Salvos, specials, salvage', 'THE FLEET OFFICER (or the operator)', 'each department loads its special · ENGINEERING salvages (LW-0E)'],
   ['<b>Repairs.</b> The repair bay', 'the machine\'s owner (LW-0C)', ''],
   ['<b>Contact.</b> The green transmitter beacon', 'GUNNERY fires', 'every officer agrees · the password'],
 ].map(r => `<tr><td>${r[0]}</td><td class="lead">${r[1]}</td><td>${r[2]}</td></tr>`).join('');
@@ -534,11 +578,14 @@ $('pwrules').innerHTML = PW_RULES.filter(r => !r.layer).map(r => '<li>' + r.text
   b += under(gx, 140, ['CRYSTAL', 'count the FACETS', 'see the TINT', 'green only']);
   $('f-beacon').innerHTML = svg(540, 232, b);
 }
+// ---------- FL-2 the codebook: flag, place in the hoist, rune by house and weight ----------
+$('t-flagcode').innerHTML = '<tr><th>Flag</th><th>Top</th><th>Middle</th><th>Bottom</th></tr>' + FLAGS.map((name, f) => `<tr><td>${flagSVG(f, 34, 21)} ${name}</td>${[0, 1, 2].map(p => `<td><b>${padName(CODEBOOK[p][f])}</b></td>`).join('')}</tr>`).join('');
+
 // ---------- the index of this book, built from its own pages ----------
 {
   const ABOUT = { 'LW-0': 'the Watch, the three books, who leads each step', 'LW-0A': 'the tests that identify Elgarz, the chart, the cockpit', 'LW-0B': 'the cold, the hunters, storms, shoals, remorhazes, beacon colours', 'LW-0C': 'what breaks and whose flowchart mends it, the password', 'LW-0D': 'what each case board cell means',
     'EN-1': 'heat, the furnace log, shed order, the damper', 'EN-2': 'rune functions by house, weight and page', 'EN-3': 'setting the scanner from the buoy weather', 'EN-4': 'frequency, gain, the band, the cabin radio', 'EN-5': 'the Engineering repair flowchart',
-    'GU-1': 'locked and unlocked orbs, the lever chart, plates by house', 'GU-2': 'the hit chance, firing, payloads', 'GU-3': 'call sign and band to meaning', 'GU-4': 'the Gunnery repair flowchart', 'GU-5': 'building beacons: the bench, the shell recipe, the call band', 'LW-0E': 'your station, the defences, the fleet', 'EN-6': 'the sounding core recipe', 'EN-7': 'the breaker panel, the stokehold', 'SI-5': 'the transmitter crystal recipe', 'SI-6': 'minesweeping, the buoy cable',
+    'GU-1': 'locked and unlocked orbs, the lever chart, plates by house', 'GU-2': 'the hit chance, firing, payloads', 'GU-3': 'call sign and band to meaning', 'GU-4': 'the Gunnery repair flowchart', 'GU-5': 'building beacons: the bench, the shell recipe, the call band', 'LW-0E': 'your station, the defences, the fleet', 'EN-6': 'the sounding core recipe', 'EN-7': 'the breaker panel, the stokehold, the boost and salvage', 'FL-1': 'the tables, the salvo, the specials', 'FL-2': 'flags to runes, by place in the hoist', 'FL-3': 'the salvage board, power, shells on the Watch', 'SI-5': 'the transmitter crystal recipe', 'SI-6': 'minesweeping, the sounding, the buoy cable',
     'SI-1': 'every rune, by house and weight', 'SI-2': 'reading any echo yourself, one ping, the five echoes, the sonar head', 'SI-3': 'wave shapes, lamps to call sign', 'SI-4': 'the Signals repair flowchart' };
   const pages = visible();
   if (book === 'all') $('t-index').innerHTML = `<tr><td>The GM copy: the orientation, then each officer's pages in turn (EN, GU, SI).</td></tr>`;

@@ -26,6 +26,7 @@
       <button data-role="gunnery">GUNNERY<small>&amp; TARGETING</small></button>
       <button data-role="signals">SIGNALS<small>&amp; SONAR</small></button>
       <button data-role="engineer">ENGINEERING<small>&amp; POWER</small></button>
+      <button data-role="fleet">FLEET OFFICER<small>FLEET COMMAND</small></button>
     </div>
     <input id="code" maxlength="4" placeholder="CODE" autocomplete="off">
     <button id="go" class="big">TAKE YOUR STATION</button>
@@ -45,9 +46,11 @@
     <section id="job" class="panel"><h2 id="jobtitle"></h2><div id="jobbody"></div></section>
     <section id="steady" class="panel hidden"><h2 id="steadytitle"></h2><div id="steadybody"></div></section>
   </div>
-  <section id="fleetpanel" class="panel"><h2>THE FLEET <small>the Watch's naval defences</small></h2><div id="fleet"></div></section>
+  <section id="fleetdept" class="panel"><h2>THE FLEET: YOUR SPECIAL <small>loaded with the Fleet Officer's codebook</small></h2><div id="fleetdeptbody"></div></section>
+  <section id="fleetpanel" class="panel"><h2>THE FLEET <small>the Fleet Officer commands it</small></h2><div id="fleet"></div></section>
 </main>
 
+<div id="cracks"></div>
 <div id="alert" class="hidden"><div class="card"><h1 id="alerttitle"></h1><p id="alerttext"></p></div></div>
 
 <script type="module" src="src/station.js"></script>

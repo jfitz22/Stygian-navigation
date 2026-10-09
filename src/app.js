@@ -4,13 +4,14 @@ import {
   ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
   saveWorld, loadWorld, pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, inShoal, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
-  setDamper, setPriority, furnaceState, sonarStrain, repairWorking, stationAction, ROLES, stationSnapshot,
+  setDamper, setPriority, furnaceState, sonarStrain, repairWorking, stationAction, ROLES, OFFICERS, fleetCommander, stationSnapshot,
 } from './sim.js';
 import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES, SHOALS, SIZE_CUT } from './scenario.js';
 import { glyphSVG, echoAt, ECHO_W } from './glyphs.js';
 import { makeRepairBoard, repairAction, ownerOf, DEPTS } from './repair.js';
 import { drawFurnaceLog, furnaceNumbers, N_COLOR } from './furnacelog.js';
 import { mountFleet } from './fleetui.js';
+import * as FL from './fleet.js';
 import * as audio from './audio.js';
 import { GAME_TIME } from './games.js';
 import { openLink, newRoomCode, cleanCode, NET_ENABLED } from './link.js';
@@ -1340,7 +1341,7 @@ function handleEvents() {
       case 'scandone': audio.sfx.scandone(); break;
       case 'artifact': audio.sfx.reveal(); wire(`THE SCANNER NAMES AN INFERNAL ARTIFACT IN #${e.num}: ${e.name.toUpperCase()} · A GREEN BEACON WILL RECOVER IT`, 'info'); break;
       case 'artifactrecovered': audio.sfx.reveal(); confetti(); wire(`ARTIFACT RECOVERED FROM #${e.num}: ${e.name.toUpperCase()}`, 'info'); artCard(e); break;
-      case 'enemyrevealed': audio.sfx.lamps(); wire(`SIGNALS COMPLETED A SWEEP · ${e.name} IS PLOTTED ON THE FLEET TABLES`, 'info'); break;
+      case 'enemyrevealed': audio.sfx.lamps(); wire(`SIGNALS COMPLETED A SWEEP · AN ENEMY HULL IS SIGHTED AT ${e.square}`, 'info'); break;
       case 'launch': audio.sfx.launch(); if (e.wild) toast('LAUNCH WITH NOTHING LOCKED · THE BEACON FLIES WILD'); break;
       case 'hit': audio.sfx.hit(); if (e.color !== 'green') toast(`BEACON STRUCK ICEBERG #${e.num}`, 'info'); break;
       case 'greenwrong': toast(`GREEN BEACON STRUCK #${e.num} · NOTHING ANSWERS`); break;
@@ -1362,17 +1363,22 @@ function handleEvents() {
       case 'freefuel': audio.sfx.fuel(); wire(e.full ? 'ENGINEERING CLEARED THE BREAKER PANEL · THE CHUTE WAS ALREADY FULL' : 'ENGINEERING CLEARED THE BREAKER PANEL · A FREE SHOVEL IN THE CHUTE', 'info'); break;
       case 'defencedone': (stationHist[e.role] = stationHist[e.role] || []).push({ t: world.t, ok: e.ok, what: DEF_WHAT[e.role] || 'defence' }); if (e.ok) wire({ gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING HELD THE STOKEHOLD' }[e.role], 'info');
         else { audio.sfx.camdead(); wire({ gunnery: `DEVIL FIRE STRUCK ${e.n} TOWER${e.n > 1 ? 'S' : ''} · THOSE ORBS ARE DOWN`, signals: 'THE SPLICE FAILED · THE BUOY IS LOST · REPAIR THE WINCH ▲', engineer: `THE STOKEHOLD FIRES FAILED · ${e.sys ? SYS_LABEL[e.sys] + ' IS OFF, ' : ''}THE CHUTE IS EMPTY, LIGHTS RED` }[e.role]); } break;
-      case 'fleetwin': audio.sfx.reveal(); wire('THE ENEMY FLEET IS SUNK · REDEPLOY THE FLEET · A NEW ENEMY IS ON THE HORIZON', 'info'); break;
+      case 'fleetwin': audio.sfx.reveal(); wire('THE ENEMY FLEET IS SUNK · OUR FLEET IS REFITTED · A NEW ENEMY IS ON THE HORIZON', 'info'); break;
       case 'defencelost': break;
       case 'beaconsealed': audio.sfx.clunk(); toast(`GUNNERY SEALED A ${e.color.toUpperCase()} BEACON · IT CURES WHILE THE WORKSHOP IS ON`, 'info'); break;
       case 'beaconready': audio.sfx.calibrated(); toast(`A ${e.color.toUpperCase()} BEACON IS READY IN THE LAUNCHER`, 'info'); break;
       case 'callsign': audio.sfx.flip(); break;
       case 'fleetplace': audio.sfx.click(); break;
       case 'fleetready': audio.sfx.calibrated(); look('main'); toast('THE FLEET IS DEPLOYED · THE WATCH BEGINS', 'info'); break;
-      case 'fleetshot': if (e.by === 'them') { if (e.hit) audio.sfx.camdead(); toast(`THE ENEMY FLEET FIRED${e.free ? ' (NOBODY WAS SHOOTING)' : ''} · ${e.sunk >= 0 ? 'THEY SANK ONE OF OURS' : e.hit ? 'A HIT ON OUR FLEET' : 'A MISS'} · LOOK LEFT ◀`, e.hit ? '' : 'info'); }
-        else { audio.sfx[e.hit ? 'hit' : 'miss'](); if (e.sunk >= 0) toast('WE SANK AN ENEMY SHIP', 'info'); } break;
-      case 'reinforcements': audio.sfx.alarm(); break;
-      case 'reinforced': toast('THE REINFORCEMENTS ARE BEATEN OFF · THE FLEET IS REFITTED', 'info'); break;
+      case 'fleetsalvo': audio.sfx[e.ours.some(o => o[2] === 'hit') ? 'hit' : 'miss'](); if (e.theirs.some(o => o[2] === 'hit')) setTimeout(() => audio.sfx.camdead(), 700); break;
+      case 'fleetsunk': if (e.side === 'theirs') toast('WE SANK AN ENEMY SHIP', 'info'); else wire(`${FL.SHIP_NAMES[e.ship]} IS SUNK · SALVAGE HER: FLEET OFFICER AND ENGINEERING`); break;
+      case 'fleetrelaunch': audio.sfx.calibrated(); wire(`${FL.SHIP_NAMES[e.ship]} IS RELAUNCHED`, 'info'); break;
+      case 'fleetshell': audio.sfx.blowout(); wire(`ENEMY SHELLS ON THE WATCH · ${(BROKE_MSG[e.sys] || 'AN ORB IS DOWN')} · REPAIR BAY ▲`); break;
+      case 'fleetlost': audio.sfx.alarm(); wire('THE FLEET IS LOST · THE ENEMY SHELLS THE FURNACE · THE FLEET IS REFITTED IN A MINUTE'); break;
+      case 'fleetrefit': audio.sfx.calibrated(); wire('THE FLEET IS REFITTED AND BACK ON STATION', 'info'); break;
+      case 'fleetloaded': audio.sfx.lamps(); break;
+      case 'fleetsalvaged': audio.sfx.calibrated(); break;
+      case 'fleetpowered': audio.sfx.fuel(); wire(`ENGINEERING POWERED ${FL.SHIP_NAMES[e.ship]} FROM THE BREAKER PANEL`, 'info'); break;
       case 'casepinned': audio.sfx.flip(); toast(`#${e.num} IS PINNED TO THE CASE BOARD`, 'info'); break;
       case 'observed': audio.sfx.flip(); break;
       case 'verdict': if (e.v === 'EXCLUDED') audio.sfx.stamp(); else audio.sfx.click(); break;
@@ -1474,14 +1480,15 @@ function artCard(e) {
   $('stage').appendChild(n);
 }
 // The fleet: the Watch's naval defences, on the cabin wall (and on every officer's station).
-const fleetUI = mountFleet($('fleetwall'), () => ({ fleet: world.fleet, t: world.t }), a => { stationAction(world, 'operator', a); audio.sfx.click(); }, { cell: 58 });
+// The cabin wall commands the fleet only while nobody holds the Fleet Officer's station.
+const fleetUI = mountFleet($('fleetwall'), () => ({ fleet: world.fleet, t: world.t, mode: fleetCommander(world) === 'operator' ? 'command' : 'view', beacons: world.beacons.stock + world.beacons.orange }), a => { stationAction(world, 'operator', a); audio.sfx.click(); }, { cell: 31 });
 
 // ---------- the officers' stations ----------
 // Each station says hello every few seconds; a station not heard from for a while counts as gone, and its defence
 // events are skipped. Their actions go straight into the world.
 const stationSeen = {};
 function onStation(m) {
-  if (!ROLES.includes(m.role)) return;
+  if (!OFFICERS.includes(m.role)) return;
   if (m.iid && m.iid !== GAME_ID) return;   // that station follows another game on this code
   stationSeen[m.role] = performance.now();
   if (m.doing != null) stationDoing[m.role] = m.doing;
@@ -1489,15 +1496,14 @@ function onStation(m) {
 }
 let snapSoon = false;
 function drawStations() {
-  const html = ROLES.map(r => `<i class="${world.defence.live[r] ? 'on' : ''}${world.defence.active[r] ? ' busy' : ''}" title="${STATION_NAME[r]}${world.defence.live[r] ? ' station connected' : ' station not connected'}">${r[0].toUpperCase()}</i>`).join('');
+  const html = OFFICERS.map(r => `<i class="${world.defence.live[r] ? 'on' : ''}${world.defence.active[r] ? ' busy' : ''}" title="${STATION_NAME[r]}${world.defence.live[r] ? ' station connected' : ' station not connected'}">${r[0].toUpperCase()}</i>`).join('');
   if ($('stationlamps').innerHTML !== html) $('stationlamps').innerHTML = html;
   // the fleet must be deployed before the watch begins
   const deploying = world.hold === 'deploy' && ui.started;
   $('deploybanner').classList.toggle('hidden', !deploying || lookingLeft());
-  $('reinforce').classList.toggle('hidden', !world.reinforce);
   $('twogames').classList.toggle('hidden', performance.now() - otherGameAt > 5000);
 }
-const STATION_NAME = { gunnery: 'Gunnery', signals: 'Signals', engineer: 'Engineering' };
+const STATION_NAME = { gunnery: 'Gunnery', signals: 'Signals', engineer: 'Engineering', fleet: 'Fleet Officer' };
 
 // ---------- GM link ----------
 // Same computer: a browser channel. Another computer: the GM types the code shown on the top bar.
@@ -1546,7 +1552,7 @@ function simTick() {
   while (acc >= DT) { step(world, DT); acc -= DT; }
   if (snapSoon) { snapSoon = false; sendStations(); }
   const t = performance.now();
-  for (const r of ROLES) world.defence.live[r] = t - (stationSeen[r] || -1e9) < 7000;
+  for (const r of OFFICERS) world.defence.live[r] = t - (stationSeen[r] || -1e9) < 7000;
 }
 setInterval(simTick, 100);
 const banners = createBannerUI('operator', (eventId, key) => stationAction(world, 'operator', { act: 'banner-dismiss', eventId, key }));

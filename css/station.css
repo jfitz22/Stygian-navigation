@@ -156,3 +156,11 @@ button { font-family: inherit; cursor: pointer; }
 #echocv { border: 1px solid #6e5430; display: block; }
 #stormwarn { margin-top: 10px; background: #5a1a12; color: #fdd; border: 2px solid #ff4b3a; padding: 8px 12px; font: 600 13px 'IBM Plex Mono', monospace; letter-spacing: 1px; animation: blinkwarn .8s steps(2) infinite; }
 @keyframes blinkwarn { 50% { opacity: .55; } }
+
+/* revision 18: the Fleet Officer's station, the cracked glass */
+#job.fleetjob { grid-column: 1 / -1; }
+#cracks { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
+#cracks svg { width: 100%; height: 100%; }
+#cracks.sev10 { background: radial-gradient(ellipse at 50% 120%, rgba(60,60,60,.35), transparent 60%); }
+#cracks.sev10 svg { animation: crackflick 2.4s steps(2) infinite; }
+@keyframes crackflick { 50% { opacity: .7; } }

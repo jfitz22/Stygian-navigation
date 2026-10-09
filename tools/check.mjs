@@ -5,7 +5,7 @@ import {
   pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip, camCode, setLever, pressPlate, setCamTurn, camIsUnlocked, selectCam, gm,
   relockCase, setVerdict, isUp, inShoal, saveWorld, loadWorld, echoSeen, SYSTEMS,
   setDamper, setPriority, projectHeat, furnaceState, sonarStrain, breakThing, BREAKABLE,
-  sealBeacon, fleetPlace, fleetReady, fleetFire, startDefence, defenceResult, stationAction, ROLES, stationSnapshot,
+  sealBeacon, fleetPlace, fleetReady, fleetFire, fleetCommander, startDefence, defenceResult, stationAction, ROLES, stationSnapshot,
   orbCap, canReveal, artifactIn, camWeather,
 } from '../src/sim.js';
 import * as FL from '../src/fleet.js';
@@ -777,46 +777,80 @@ function sharkSetup(seed) {
   const st = w.beacons.stock; for (let i = 0; i < 600; i++) { keepFurnace(w); step(w, DT); }
   check(w.beacons.stock === st, 'The red rack no longer refills by itself');
 
-  // the fleet: the watch holds while the crew deploys
+  // the fleet: the watch holds while it deploys
   const wf = createWorld(92, { deploy: true }); light(wf); for (let i = 0; i < 50; i++) step(wf, DT);
   check(wf.t === 0 && wf.hold === 'deploy', 'With the furnace lit, the watch holds while the fleet deploys');
-  check(!fleetPlace(wf, 0, 6, 0, 'h'), 'A ship cannot hang off the grid');
-  fleetPlace(wf, 0, 0, 0, 'h'); check(!fleetPlace(wf, 1, 1, 0, 'v'), 'Ships cannot overlap');
+  check(!fleetPlace(wf, 1, 11, 0, 'h'), 'A ship cannot hang off the grid');
+  fleetPlace(wf, 0, 0, 0, 'h'); check(!fleetPlace(wf, 1, 0, 1, 'h'), 'Ships may not touch, not even at a corner');
   check(!fleetReady(wf), 'The watch will not start with ships still to place');
-  fleetPlace(wf, 1, 0, 2, 'h'); fleetPlace(wf, 2, 0, 4, 'h'); fleetPlace(wf, 3, 0, 6, 'h');
+  fleetPlace(wf, 1, 0, 3, 'h'); fleetPlace(wf, 2, 0, 6, 'h'); fleetPlace(wf, 3, 0, 9, 'h');
   check(fleetReady(wf) && !wf.hold, 'Once every ship is placed the watch begins');
-  for (let i = 0; i < 10; i++) step(wf, DT);
-  check(wf.t > 0.5, '...and time runs');
   const f = wf.fleet;
-  const shot = fleetFire(wf, 0, 0);
-  check(shot && fleetFire(wf, 1, 1) === null, 'One shot, then the enemy answers before the next');
-  const wait = f.enemyAt - wf.t;
-  check(wait >= 10 && wait <= 15, `The enemy takes 10 to 15 s to answer (${wait.toFixed(1)} s)`);
-  for (let i = 0; i < 155; i++) step(wf, DT);
-  check(Object.keys(f.theirShots).length === 1 && fleetFire(wf, 1, 1), 'The enemy fires back, and it is our turn again');
-  for (let i = 0; i < 155; i++) step(wf, DT);
-  const n0 = Object.keys(f.theirShots).length;
-  for (let i = 0; i < (FL.IDLE_SHOT + 1) * 10; i++) { keepFurnace(wf); step(wf, DT); }
-  check(Object.keys(f.theirShots).length === n0 + 1, 'Nobody fires for 45 s: the enemy takes a free shot');
-  // sink their fleet: a new enemy, and ours shifted and repaired
-  const before = JSON.stringify(f.mine);
-  for (const sh of f.enemy) for (const [x, y] of FL.cellsOf(sh)) { f.enemyAt = null; fleetFire(wf, x, y); }
-  check(f.wins === 1 && JSON.stringify(f.mine) !== before && !Object.keys(f.myShots).length && !Object.keys(f.theirShots).length && f.mine.every((_, i) => FL.fits(f.mine, i)),
-    'Sinking their fleet: a new enemy fleet, and ours moves a few squares and is repaired');
-  check(f.phase === 'redeploy' && f.prevMine && f.prevMine.length === 4, 'After a victory there is a redeploy window, and the old stations are shown');
-  check(fleetPlace(wf, 3, f.mine[3].x, f.mine[3].y, f.mine[3].dir === 'h' ? 'v' : 'h') || true, '(ships can be moved while redeploying)');
-  const quiet = Object.keys(f.theirShots).length;
-  for (let i = 0; i < (FL.REDEPLOY_TIME - 2) * 10; i++) { keepFurnace(wf); wf.fatigue = 0; step(wf, DT); }
-  check(f.phase === 'redeploy' && Object.keys(f.theirShots).length === quiet && wf.t > 30, 'The enemy holds its fire while we redeploy, and the watch keeps running');
-  for (let i = 0; i < 40; i++) { keepFurnace(wf); step(wf, DT); }
-  check(f.phase === 'play', 'After thirty seconds the action resumes by itself (READY ends it sooner)');
-  // lose every ship: reinforcements, and only the GM can resume
-  for (const sh of f.mine) for (const [x, y] of FL.cellsOf(sh)) f.theirShots[FL.key(x, y)] = 'hit';
-  delete f.theirShots[FL.key(...FL.cellsOf(f.mine[0])[0])];
-  for (let k = 0; k < 64 && !wf.reinforce; k++) { f.enemyAt = 0; step(wf, DT); }   // the enemy keeps firing until the last cell goes
-  check(wf.reinforce && wf.paused, 'Losing every ship brings devil reinforcements, and the watch pauses');
-  gm(wf, 'pause'); check(wf.paused, 'The crew cannot resume it themselves');
-  gm(wf, 'reinforced'); check(!wf.paused && !wf.reinforce && !Object.keys(f.theirShots).length, 'The GM resumes it once the fight is over, with the fleet repaired');
+  check(fleetCommander(wf) === 'operator', 'With no Fleet Officer on station, the operator commands the fleet');
+  stationAction(wf, 'gunnery', { act: 'aim', x: 5, y: 5 }); check(!f.aim.length, '...and an officer cannot aim it');
+  wf.defence.live.fleet = true; stationAction(wf, 'operator', { act: 'aim', x: 5, y: 5 });
+  check(fleetCommander(wf) === 'fleet' && !f.aim.length, 'With a Fleet Officer on station, the operator only watches');
+  for (const [x, y] of [[1, 1], [3, 3], [5, 5], [7, 7]]) stationAction(wf, 'fleet', { act: 'aim', x, y });
+  stationAction(wf, 'fleet', { act: 'aim', x: 9, y: 9 });
+  check(f.aim.length === 4, 'Salvo: one shot aimed for each of our ships afloat');
+  stationAction(wf, 'fleet', { act: 'aim', x: 7, y: 7 }); check(f.aim.length === 3, '...and clicking a square again un-aims it');
+  const round0 = f.round; for (let i = 0; i < (FL.SALVO + 1) * 10; i++) { keepFurnace(wf); wf.fatigue = 0; step(wf, DT); }
+  check(f.round === round0 + 1 && Object.keys(f.marks).length >= 3 && Object.keys(f.theirShots).length >= 1, 'When the salvo clock runs out both fleets fire together');
+  stationAction(wf, 'fleet', { act: 'fire' }); check(f.round === round0 + 2, 'The Fleet Officer can fire sooner');
+  gm(wf, 'salvo', { secs: 120 }); check(f.salvoEvery === 120 && f.nextSalvo - wf.t <= 120, 'The GM sets the time between salvos');
+  // the enemy reloads after a hit: it fires one shot fewer next round
+  { const g = FL.newFleet(mulberry32(5)); FL.randomDeploy(g, mulberry32(6)); FL.begin(g, 0); g.reload = 2; check(FL.enemyAim(g, mulberry32(7)).length === FL.ENEMY_SHIPS.length - 2, 'Every hit the enemy lands costs it a shot next round'); }
+  // the specials: flag codes
+  const d = f.dept.signals, want = FL.flagCode(d.flags);
+  stationAction(wf, 'signals', { act: 'fleetcode', runes: want.map(r => (r + 1) % 8) }); check(!f.loaded.sounding, 'A wrong code loads nothing');
+  stationAction(wf, 'signals', { act: 'fleetcode', runes: want }); check(f.loaded.sounding && f.dept.signals.state === 'loaded', 'The right code loads the sounding');
+  check(FL.padName(0) === 'ICE 1' && FL.PAD.length === 8 && FL.FLAGS.length === 12, 'The codebook names its runes by house and weight; twelve flags');
+  const e0 = f.enemy[0], [ex, ey] = FL.cellsOf(e0)[0];
+  stationAction(wf, 'fleet', { act: 'special', kind: 'sounding', args: { line: 'row', n: ey } }); stationAction(wf, 'fleet', { act: 'fire' });
+  const sd = f.soundings[f.soundings.length - 1], real = f.enemy.reduce((a, s) => a + FL.cellsOf(s).filter(q => q[1] === ey).length, 0);
+  check(sd && sd.count === real && !f.loaded.sounding && f.dept.signals.state === 'cooldown', `A sounding counts the ship squares in its line (${real}), and the flags come down for a while`);
+  // the heavy shell takes a red or orange beacon, never a green
+  f.loaded.heavy = true; const red0 = wf.beacons.stock, green0 = wf.beacons.green;
+  stationAction(wf, 'fleet', { act: 'special', kind: 'heavy', args: { x: ex, y: ey } }); stationAction(wf, 'fleet', { act: 'fire' });
+  check(wf.beacons.stock === red0 - 1 && wf.beacons.green === green0 && f.marks[ex + ',' + ey] === 'hit', 'A heavy shell bursts over a 2 × 2 and uses one red beacon');
+  wf.beacons.stock = 0; wf.beacons.orange = 0; f.loaded.heavy = true; stationAction(wf, 'fleet', { act: 'special', kind: 'heavy', args: { x: 0, y: 0 } }); stationAction(wf, 'fleet', { act: 'fire' });
+  check(f.loaded.heavy && wf.beacons.green === green0, '...and with only greens left it will not fire');
+  // the boost moves one of ours a square
+  f.loaded.boost = true; const s3 = f.mine[3], y3 = s3.y; stationAction(wf, 'fleet', { act: 'special', kind: 'boost', args: { ship: 3, dx: 0, dy: 1 } }); stationAction(wf, 'fleet', { act: 'fire' });
+  check(s3.y === y3 + 1, 'A boost moves one of our ships a square');
+  // a sunk ship: salvage it with Engineering, and power it from the breaker panel; meanwhile the Watch is shelled
+  for (const s of f.mine) s.hits = []; f.salvage = {}; wf.shelled = null;
+  const s1 = f.mine[1]; s1.hits = [0, 1]; wf.defence.live.engineer = true;
+  const last = FL.cellsOf(s1)[2]; f.ai.hits = []; f.ai.shot = {}; for (let y = 0; y < FL.SIZE; y++) for (let x = 0; x < FL.SIZE; x++) if (x !== last[0] || y !== last[1]) f.ai.shot[x + ',' + y] = true;
+  stationAction(wf, 'fleet', { act: 'fire' });
+  check(FL.sunk(s1) && f.salvage[1], 'When one of ours is sunk, a salvage board opens for it');
+  const sv = f.salvage[1]; sv.board.rows.forEach((row, j) => stationAction(wf, 'fleet', { act: 'salvageset', i: 1, row: j, action: 'OPEN' }));
+  stationAction(wf, 'fleet', { act: 'salvagesend', i: 1 });
+  const ok = sv.board.rows.every(r => repairAction('engineer', r) === 'OPEN');
+  check(sv.done === ok, 'A wrong salvage setting resets the board');
+  sv.board.rows.forEach((row, j) => stationAction(wf, 'fleet', { act: 'salvageset', i: 1, row: j, action: repairAction('engineer', row) }));
+  stationAction(wf, 'fleet', { act: 'salvagesend', i: 1 }); check(sv.done, "Engineering's flowchart reads the salvage board");
+  wf.rewards.lights = 0; stationAction(wf, 'engineer', { act: 'lightsout', choice: 'power' }); check(sv.power, "The breaker panel powers the sunk ship");
+  stationAction(wf, 'fleet', { act: 'fire' }); check(!FL.sunk(s1) && !f.salvage[1] && !s1.hits.length, 'Sound and powered: she is relaunched, and her station mends');
+  wf.shelled = null; for (const k of Object.keys(f.salvage)) { f.mine[k].hits = []; delete f.salvage[k]; }
+  const s2 = f.mine[2]; s2.hits = [0, 1, 2]; f.salvage[2] = { board: { rows: [] }, done: false, power: false, since: f.round }; f.shellRound = f.round; wf.defence.live.engineer = false;
+  const brokenBefore = Object.values(wf.broken).filter(Boolean).length + wf.cams.filter(c => c.broken).length;
+  for (let k = 0; k < FL.SALVAGE_AUTO; k++) stationAction(wf, 'fleet', { act: 'fire' });
+  check(!FL.sunk(s2), `With nobody from Engineering on station, a sunk ship relaunches by itself after ${FL.SALVAGE_AUTO} rounds`);
+  check(Object.values(wf.broken).filter(Boolean).length + wf.cams.filter(c => c.broken).length > brokenBefore && wf.events.some(e => e.type === 'fleetshell'), 'While one of ours is down, enemy shells break a machine on the Watch');
+  // sink their fleet: ours is refitted, a new fleet comes
+  f.marks = {}; for (const k of Object.keys(f.salvage)) { f.mine[k].hits = []; delete f.salvage[k]; }
+  { const n = FL.shotsAllowed(f); f.enemy.forEach((s, i) => { s.hits = Array.from({ length: s.len }, (_, j) => j).slice(i < n ? 1 : 0); }); f.aim = f.enemy.slice(0, n).map(s => FL.cellsOf(s)[0]); }
+  f.mine[0].hits = [0]; const wins0 = f.wins; stationAction(wf, 'fleet', { act: 'fire' });
+  check(f.wins === wins0 + 1 && f.mine.every(s => !s.hits.length) && !Object.keys(f.marks).length, 'Sinking their fleet: ours is refitted and a new fleet comes');
+  // lose the whole fleet: the grate cracks, and a minute later the fleet is refitted
+  for (const s of f.mine) s.hits = Array.from({ length: s.len }, (_, i) => i).slice(1);
+  f.ai.shot = {}; f.ai.hits = []; for (let y = 0; y < FL.SIZE; y++) for (let x = 0; x < FL.SIZE; x++) if (!f.mine.some(s => FL.cellsOf(s)[0][0] === x && FL.cellsOf(s)[0][1] === y)) f.ai.shot[x + ',' + y] = true;
+  f.reload = 0; f.enemy.forEach(s => { s.hits = []; });
+  for (let k = 0; k < 4 && f.phase === 'play'; k++) stationAction(wf, 'fleet', { act: 'fire' });
+  check(f.phase === 'refit' && wf.broken.furnace, 'Losing the whole fleet: the enemy shells the furnace grate, and the fleet refits');
+  for (let i = 0; i < (FL.REFIT_TIME + 2) * 10; i++) step(wf, DT);
+  check(f.phase === 'play' && f.mine.every(s => s.x != null && !s.hits.length), '...a minute later it is back on station');
 
   // the defences: none without a station connected
   const wd = createWorld(93); light(wd);
@@ -864,12 +898,12 @@ function sharkSetup(seed) {
   wr.furnace.chute = 1; stationAction(wr, 'engineer', { act: 'lightsout' }); const c1 = wr.furnace.chute; stationAction(wr, 'engineer', { act: 'lightsout' });
   check(c1 === 2 && wr.furnace.chute === 2, 'Clearing the breaker panel puts a free shovel in the chute, once a minute');
   // the defence games themselves
-  { let body = GA.snakeStart(); check(body.length === 20 && GA.SN.start + GA.SN.need === 28 && body.every((c, i) => !i || Math.abs(c[0] - body[i - 1][0]) + Math.abs(c[1] - body[i - 1][1]) === 1), 'The cable starts twenty long, all in one piece, and must reach twenty-eight');
+  { let body = GA.snakeStart(); check(body.length === 20 && GA.SN.start + GA.SN.need === 30 && body.every((c, i) => !i || Math.abs(c[0] - body[i - 1][0]) + Math.abs(c[1] - body[i - 1][1]) === 1), 'The cable starts twenty long, all in one piece, and must reach thirty');
     const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 21 && !r.dead, 'Each loose end makes the cable longer');
-    let b2 = GA.snakeStart(), dead = false; for (let i = 0; i < 40 && !dead; i++) { const m = GA.snakeMove(b2, [1, 0], null); b2 = m.body; dead = m.dead; } check(!dead, 'Through a wall the cable comes out the other side');
+    let b2 = GA.snakeStart(), dead = false; for (let i = 0; i < 3 && !dead; i++) { const m = GA.snakeMove(b2, [1, 0], null); b2 = m.body; dead = m.dead; } check(!dead && b2[0][0] < 3, 'Through a wall the cable comes out the other side');
     { let ok = true; for (let k = 0; k < 200; k++) { const r2 = mulberry32(k + 1), b0 = GA.snakeStart(), sp = GA.sparksStart(r2, b0); if (sp.length !== GA.SN.sparks || sp.some(s => b0.some(c => Math.abs(c[0] - s.x) + Math.abs(c[1] - s.y) < 3))) ok = false; }
       check(ok, 'Three stray sparks, always starting well clear of the cable'); }
-    { const sp = [{ x: 19.9, y: 3, dx: 1, dy: 0 }]; GA.sparksStep(sp, 0.1); check(sp[0].x < 1 && GA.sparkHits(sp, [0, 3]) && !GA.sparkHits(sp, [5, 5]), 'A spark drifts through the wall like the cable, and touching it is a hit'); }
+    { const sp = [{ x: GA.SN.W - 0.1, y: 3, dx: 1, dy: 0 }]; GA.sparksStep(sp, 0.1); check(sp[0].x < 1 && GA.sparkHits(sp, [0, 3]) && !GA.sparkHits(sp, [5, 5]), 'A spark drifts through the wall like the cable, and touching it is a hit'); }
     check(GA.SN.sink === 6, 'A loose end sinks after six seconds');
     let b3 = GA.snakeStart(); for (const d of [[0, 1], [-1, 0], [0, -1]]) { const m = GA.snakeMove(b3, d, null); b3 = m.body; if (d[1] === -1) check(m.dead, 'Turning back into the cable fails the splice'); }
     { // the stokehold: a dead fire and a burst one each cost a fail; a fire left alone dies; a steady stoker holds 45 s
@@ -891,7 +925,7 @@ function sharkSetup(seed) {
     check(GA.GAME_TIME.missile === 30 && GA.missileWaves(rng, 0, 'fall').length >= 16 && GA.missileWaves(rng, 20, 'fall').length >= 28 && GA.missileWaves(rng, 20, 'arc').length <= 0.75 * GA.missileWaves(rng, 20, 'fall').length && GA.missileWaves(rng, 0, 'arc').every(w => w.from < 0.2 || w.from > 0.8), 'Thirty seconds of devil fire, twice as much as before; the skiffs fire from the sides, about 30% less'); }
   // the stations' own small update, and the rehearsal
   { const ss = JSON.stringify(stationSnapshot(wo, { iid: 'x', born: 1 }));
-    check(ss.length < 6000 && ['fleet', 'furnaceState', 'sonar', 'cases', 'workshop', 'defence'].every(k => ss.includes('"' + k + '"')), `The stations' update is small (${ss.length} bytes) and has what they draw`);
+    check(ss.length < 10000 && ['fleet', 'furnaceState', 'sonar', 'cases', 'workshop', 'defence'].every(k => ss.includes('"' + k + '"')), `The stations' update is small (${ss.length} bytes) and has what they draw`);
     gm(wo, 'rehearse'); check(ROLES.every((r, i) => Math.abs(wo.defence.next[r] - (wo.t + 1 + i * 50)) < 0.01), 'The rehearsal lines up every station\'s event, one after another'); }
   check(createWorld(5).bergs.length + createWorld(5).reserve.length === 40, 'The sea holds forty glaciers');
   // a station's actions go through one door
@@ -943,37 +977,22 @@ function sharkSetup(seed) {
     w2.readings = { t: w2.t, x: b2.x, y: b2.y, surface: { x: 0, y: 0 }, deep: { x: 0, y: 0 }, wind: { x: 0, y: 0 }, windFrom: 0, windSpeed: 0, temp: -170 };
     T.orbCapWind = -100; const q2 = aimQuality(w2); T.orbCapWind = T0.orbCapWind;
     check(q2.chance > q.chance, 'A fresh current reading beside the ice beats the capped orb track'); }
-  // Signals can plot an enemy ship instead of beaconing a glacier
+  // Signals can sight a square of an enemy hull instead of beaconing a glacier
   const wf = createWorld(1004, { deploy: true }); light(wf); gm(wf, 'fleet-auto'); for (let i = 0; i < 20; i++) step(wf, DT);
-  check(canReveal(wf), 'With the fleet in action, there is an enemy ship to plot');
+  check(canReveal(wf), 'With the fleet in action, there is an enemy hull to sight');
   const tags0 = wf.tags.length; stationAction(wf, 'signals', { act: 'minesweeper', choice: 'reveal' });
-  const ri = wf.fleet.revealed[0];
-  check(wf.fleet.revealed.length === 1 && wf.tags.length === tags0 && FL.cellsOf(wf.fleet.enemy[ri]).every(cc => !wf.fleet.myShots[FL.key(...cc)]), 'Plotting reveals one enemy ship that has not been hit');
+  const seen = Object.entries(wf.fleet.marks).filter(([, v]) => v === 'seen');
+  check(seen.length === 1 && wf.tags.length === tags0 && wf.fleet.enemy.some(s => FL.cellsOf(s).some(q => q.join() === seen[0][0])), 'Minesweeping sights one square of an enemy hull');
   stationAction(wf, 'signals', { act: 'minesweeper', choice: 'reveal' });
-  check(wf.fleet.revealed.length === 1, '...once a minute');
+  check(Object.values(wf.fleet.marks).filter(v => v === 'seen').length === 1, '...once a minute');
 }
 
-// ---------- the fleet prototype: Salvo & Soundings ----------
+// ---------- the fleet's balance (simulated crews) ----------
 {
-  const S = await import('../src/salvo.js');
-  const bt = S.newBattle(42), N = S.SV.N;
-  const touching = b => b.ships.some((s, i) => b.ships.some((o, j) => j > i && S.cellsOf(s).some(([x, y]) => S.cellsOf(o).some(([a, c]) => Math.abs(a - x) <= 1 && Math.abs(c - y) <= 1))));
-  check(!touching(bt.ours) && !touching(bt.theirs) && [bt.ours, bt.theirs].every(b => b.ships.every(s => S.cellsOf(s).every(([x, y]) => x >= 0 && y >= 0 && x < N && y < N && !S.iceAt(b, x, y)))), 'The salvo boards: every ship on the board, off the ice, none touching');
-  const d = bt.dept.signals, wrong = S.flagCode(d.flags).map(r => (r + 1) % S.CODE_RUNES);
-  check(S.enterCode(bt, 'signals', wrong) === 'wrong' && S.enterCode(bt, 'signals', S.flagCode(d.flags)) === 'loaded', 'A special loads only with the code the flags read to');
-  S.begin(bt);
-  check(S.shotsAllowed(bt) === 4 && [[0, 0], [1, 1], [2, 2], [3, 3]].every(([x, y]) => S.toggleAim(bt, x, y)) && !S.toggleAim(bt, 4, 4), 'Salvo: one shot for each of our ships afloat');
-  bt.aim = []; const t = bt.theirs.ships[3], [tx, ty] = S.cellsOf(t)[0]; S.toggleAim(bt, tx, ty); S.toggleAim(bt, ...S.cellsOf(t)[1]);
-  const tk = bt.tokens.find(k => k.kind === 'sounding'); S.useSpecial(bt, tk.id, { line: 'row', n: ty }); S.fire(bt);
-  const real = Array.from({ length: N }, (_, x) => S.shipAt(bt.theirs.ships, x, ty) ? 1 : 0).reduce((a, b) => a + b, 0);
-  check(S.sunk(t) && bt.marks.get(tx + ',' + ty) === 'hit' && bt.soundings[0].count === real, `Hits are marked, a sunk ship shows itself, and a sounding counts its line (${real})`);
-  check([...bt.marks.values()].includes('clear'), '...and the water round a sunk ship is marked clear (ships never touch)');
-  const w = S.newBattle(7); S.begin(w); for (const s of w.theirs.ships) S.cellsOf(s).forEach((c, i) => s.hits.add(i)); w.ours.ships[1].hits.add(0); const ev = S.fire(w);
-  check(ev.some(e => e.type === 'wave') && w.wave === 2 && w.ours.ships.every(s => !s.hits.size), 'Sink their fleet: ours is refitted and a new wave comes');
-  const { session } = await import('./sim-salvo.mjs');
-  const runs = Array.from({ length: 80 }, (_, i) => session(i + 1, 40, 35));
-  const waves = runs.reduce((a, r) => a + r.waves.length, 0), lost = runs.filter(r => r.lost).length;
-  check(waves / 80 > 2 && lost / (waves + lost) < 0.15, `A steady Fleet Officer usually wins: ${(waves / 80).toFixed(1)} waves a session, ${Math.round(lost / (waves + lost) * 100)}% of waves lost`);
+  const { session } = await import('./sim-fleet.mjs');
+  const runs = Array.from({ length: 60 }, (_, i) => session(i + 1));
+  const waves = runs.reduce((a, r) => a + r.waves.length, 0), lost = runs.reduce((a, r) => a + r.losses, 0);
+  check(waves / 60 > 2 && lost / 60 < 0.3, `A steady crew usually wins at sea: ${(waves / 60).toFixed(1)} enemy fleets sunk in 40 minutes, ${(lost / 60).toFixed(2)} of ours lost`);
 }
 
 // ---------- shots ----------
