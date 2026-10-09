@@ -125,8 +125,8 @@ export function snakeMove(body, dir, food) {
 // fails and the defence is lost. A dead fire relights low and a burst one vents back to the middle, so play goes on.
 export const ST = {
   lanes: 4, travel: 0.85, lump: 22, cooldown: 0.22, fails: 3,
-  low: 25, high: 75,                // the green band; under it the fire is dying, over it roaring
-  drain: [3.6, 7.6],                // heat lost per second, at the start and at the end (each fire scaled by its own pace)
+  low: 25, high: 70, top: 90,       // the green band; under it the fire is dying, over it roaring; at the top it bursts
+  drain: [4.0, 8.5],                // heat lost per second, at the start and at the end (each fire scaled by its own pace)
   pace: [0.6, 1.5], repace: [5, 9],   // each fire's own pace, re-rolled every few seconds
   start: [42, 62], relight: 38, vent: 50, flash: 1.1,
 };
@@ -156,7 +156,7 @@ export function stokeStep(st, dt, rng, length = GAME_TIME.stoke) {
     if (st.t >= l.repaceAt) { l.pace = ST.pace[0] + rng() * (ST.pace[1] - ST.pace[0]); l.repaceAt = st.t + ST.repace[0] + rng() * (ST.repace[1] - ST.repace[0]); }
     l.heat -= drain * l.pace * dt;
     if (l.heat <= 0) { st.fails++; l.heat = ST.relight; l.flash = 'out'; l.flashAt = st.t; ev.push({ type: 'out', lane: i }); }
-    else if (l.heat >= 100) { st.fails++; l.heat = ST.vent; l.flash = 'burst'; l.flashAt = st.t; ev.push({ type: 'burst', lane: i }); }
+    else if (l.heat >= ST.top) { st.fails++; l.heat = ST.vent; l.flash = 'burst'; l.flashAt = st.t; ev.push({ type: 'burst', lane: i }); }
   });
   return ev;
 }

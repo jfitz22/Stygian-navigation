@@ -653,7 +653,7 @@ function startStoke(g) {
       const fy = FLOOR[i], state = GA.stokeState(l), danger = state === 'dying' || state === 'roaring', blink = danger && Math.floor(t * 4) % 2 === 0;
       if (i === pos) { ctx.fillStyle = 'rgba(255,190,90,.16)'; ctx.fillRect(0, fy - 92, W, 92); }
       // the heat gauge beside the fire: the green band, the needle
-      const gx = bx - 22, gh = 66, gy = fy - 8 - gh, hy = v => gy + gh - Math.max(0, Math.min(100, v)) / 100 * gh;
+      const gx = bx - 22, gh = 66, gy = fy - 8 - gh, hy = v => gy + gh - Math.max(0, Math.min(GA.ST.top, v)) / GA.ST.top * gh;
       ctx.fillStyle = 'rgba(10,8,6,.85)'; ctx.fillRect(gx - 2, gy - 2, 14, gh + 4);
       ctx.fillStyle = '#7a1d14'; ctx.fillRect(gx, gy, 10, gh);
       ctx.fillStyle = '#2f7a3a'; ctx.fillRect(gx, hy(GA.ST.high), 10, hy(GA.ST.low) - hy(GA.ST.high));

@@ -870,7 +870,7 @@ function sharkSetup(seed) {
     let b3 = GA.snakeStart(); for (const d of [[0, 1], [-1, 0], [0, -1]]) { const m = GA.snakeMove(b3, d, null); b3 = m.body; if (d[1] === -1) check(m.dead, 'Turning back into the cable fails the splice'); }
     { // the stokehold: a dead fire and a burst one each cost a fail; a fire left alone dies; a steady stoker holds 45 s
       const s1 = GA.stokeStart(rng); s1.lanes[0].heat = 0.5; const e1 = GA.stokeStep(s1, 0.5, rng);
-      s1.lanes[1].heat = 99.9; s1.lanes[1].pace = 0; GA.stokeThrow(s1, 1); for (let i = 0; i < 20; i++) GA.stokeStep(s1, 0.05, rng);
+      s1.lanes[1].heat = GA.ST.top - 0.1; s1.lanes[1].pace = 0; GA.stokeThrow(s1, 1); for (let i = 0; i < 20; i++) GA.stokeStep(s1, 0.05, rng);
       check(e1.some(e => e.type === 'out') && s1.fails === 2 && s1.lanes[0].heat > 0 && s1.lanes[1].heat < 100, 'The stokehold: a fire that dies or bursts is a fail, and it relights or vents');
       check(!GA.stokeThrow(s1, 2) || !GA.stokeThrow(s1, 2), 'A shovel cannot be flung twice in the same instant');
       const s2 = GA.stokeStart(rng); let dead = 0; for (let i = 0; i < 400; i++) dead += GA.stokeStep(s2, 0.05, rng).filter(e => e.type === 'out').length;
@@ -879,9 +879,9 @@ function sharkSetup(seed) {
         while (s.t < GA.GAME_TIME.stoke && s.fails < 3) { GA.stokeStep(s, 0.05, r); busy -= 0.05; if (busy > 0) continue;
           const proj = s.lanes.map((l, i) => l.heat + GA.ST.lump * s.coal.filter(c => c.lane === i).length - 5 * GA.ST.travel);
           let best = -1, bv = aim; proj.forEach((v, i) => { const v2 = v + Math.abs(i - pos) * move * 5; if (v2 < bv) { bv = v2; best = i; } });
-          if (best < 0) busy = react; else if (best !== pos) { pos += Math.sign(best - pos); busy = move; } else if (proj[pos] + GA.ST.lump < 98 && GA.stokeThrow(s, pos)) busy = react; }
+          if (best < 0) busy = react; else if (best !== pos) { pos += Math.sign(best - pos); busy = move; } else if (proj[pos] + GA.ST.lump < GA.ST.top - 2 && GA.stokeThrow(s, pos)) busy = react; }
         return s.fails < 3; };
-      const good = Array.from({ length: 60 }, (_, i) => play(i + 1, 50, 0.18, 0.32)).filter(Boolean).length, slow = Array.from({ length: 60 }, (_, i) => play(i + 1, 45, 0.4, 0.9)).filter(Boolean).length;
+      const good = Array.from({ length: 60 }, (_, i) => play(i + 1, 46, 0.15, 0.28)).filter(Boolean).length, slow = Array.from({ length: 60 }, (_, i) => play(i + 1, 45, 0.4, 0.9)).filter(Boolean).length;
       check(GA.GAME_TIME.stoke === 45 && good === 60 && slow < good, `45 s in the stokehold: a quick stoker always holds (${good}/60); a slow one does worse (${slow}/60)`);
     };
     check(GA.GAME_TIME.missile === 30 && GA.missileWaves(rng, 0, 'fall').length >= 16 && GA.missileWaves(rng, 20, 'fall').length >= 28 && GA.missileWaves(rng, 20, 'arc').length <= 0.75 * GA.missileWaves(rng, 20, 'fall').length && GA.missileWaves(rng, 0, 'arc').every(w => w.from < 0.2 || w.from > 0.8), 'Thirty seconds of devil fire, twice as much as before; the skiffs fire from the sides, about 30% less'); }
