@@ -953,6 +953,28 @@ function sharkSetup(seed) {
   check(wf.fleet.revealed.length === 1, '...once a minute');
 }
 
+// ---------- the fleet prototype (the Fleet Officer's shared sea) ----------
+{
+  const SEA = await import('../src/seawar.js');
+  const sea = SEA.newSea(42);
+  const allCells = [...sea.ours, ...sea.theirs].flatMap(s => SEA.cellsOf(s).map(c => c.join()));
+  check(new Set(allCells).size === allCells.length && sea.ours.every(s => SEA.cellsOf(s).every(([x, y]) => y >= SEA.SW.N - SEA.SW.home)) && sea.theirs.every(s => SEA.cellsOf(s).every(([x, y]) => y < SEA.SW.home)), 'The prototype sea: both fleets in their own home waters, nothing overlapping');
+  check(!SEA.deploy(sea, sea.ours[1].id, 0, 2, 'h'), 'Our ships deploy only in our home waters');
+  const d = sea.dept.signals, wrong = SEA.flagCode(d.flags).map(r => (r + 1) % SEA.CODE_RUNES);
+  check(SEA.enterCode(sea, 'signals', wrong) === 'wrong' && SEA.enterCode(sea, 'signals', SEA.flagCode(d.flags)) === 'loaded' && sea.tokens.length === 1, 'A special loads only with the code the flags read to');
+  SEA.begin(sea); const t = sea.theirs[0], [tx, ty] = SEA.cellsOf(t)[0];
+  SEA.setOrder(sea, sea.ours[0].id, { type: 'fire', x: tx, y: ty }); SEA.resolveBeat(sea);
+  check(t.hits.size === 1 && sea.ourShots.get(tx + ',' + ty).r === 'hit' && sea.dept.signals.state === 'loaded', 'A shell on an enemy square is a hit, and it is marked');
+  for (let i = 0; i < SEA.SW.fade; i++) SEA.resolveBeat(sea);
+  check(!sea.ourShots.has(tx + ',' + ty), 'Old shot marks fade: the ships move');
+  const w = SEA.newSea(7); SEA.begin(w); for (const s of w.theirs) SEA.cellsOf(s).forEach((c, i) => s.hits.add(i)); w.ours[1].hits.add(0); const ev = SEA.resolveBeat(w);
+  check(ev.some(e => e.type === 'wave') && w.wave === 2 && w.ours.every(s => !s.hits.size) && w.theirs.every(s => !s.hits.size), 'Sink their fleet: ours is refitted and a new wave comes');
+  const { session } = await import('./sim-seawar.mjs');
+  const runs = Array.from({ length: 60 }, (_, i) => session(i + 1, 40, { codeDelay: 40, advance: 0.3, useSpecials: true }));
+  const waves = runs.reduce((a, r) => a + r.waves, 0), lost = runs.filter(r => r.lost).length;
+  check(waves / 60 > 2.5 && lost / (waves + lost) < 0.15, `A steady Fleet Officer usually wins: ${(waves / 60).toFixed(1)} waves a session, ${Math.round(lost / (waves + lost) * 100)}% of waves lost`);
+}
+
 // ---------- shots ----------
 function shot(seed, { readNear, delay, color = 'green' }) {
   const w = createWorld(seed); light(w);
