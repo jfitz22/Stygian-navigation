@@ -1357,11 +1357,11 @@ function handleEvents() {
       case 'broke': audio.sfx.camdead(); if (e.sys !== 'winch' || ui.buoyDeadAt !== world.t) toast(BROKE_MSG[e.sys] + ' · REPAIR BAY ▲'); break;
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
-      case 'defence': audio.sfx.alarm(); toast({ gunnery: 'GUNNERY STATION: DEVIL FIRE INBOUND ON THE TOWERS', signals: 'SIGNALS STATION: THE BUOY CABLE HAS SNAPPED', engineer: e.reason === 'overheat' ? 'THE FURNACE IS IN THE RED · ENGINEERING: THE FUSE BOX HAS BLOWN' : 'ENGINEERING STATION: THE FUSE BOX HAS BLOWN' }[e.role]); break;
+      case 'defence': audio.sfx.alarm(); toast({ gunnery: 'GUNNERY STATION: DEVIL FIRE INBOUND ON THE TOWERS', signals: 'SIGNALS STATION: THE BUOY CABLE HAS SNAPPED', engineer: e.reason === 'overheat' ? 'THE FURNACE IS IN THE RED · ENGINEERING: THE STOKEHOLD FIRES ARE FAILING' : 'ENGINEERING STATION: THE STOKEHOLD FIRES ARE FAILING' }[e.role]); break;
       case 'freebeacon': audio.sfx.launch(); wire(`SIGNALS COMPLETED A MINESWEEP · THE GUNS FIRED · A BEACON STRUCK #${e.num}`, 'info'); break;
       case 'freefuel': audio.sfx.fuel(); wire(e.full ? 'ENGINEERING CLEARED THE BREAKER PANEL · THE CHUTE WAS ALREADY FULL' : 'ENGINEERING CLEARED THE BREAKER PANEL · A FREE SHOVEL IN THE CHUTE', 'info'); break;
-      case 'defencedone': (stationHist[e.role] = stationHist[e.role] || []).push({ t: world.t, ok: e.ok, what: DEF_WHAT[e.role] || 'defence' }); if (e.ok) wire({ gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING REWIRED THE FUSE BOX' }[e.role], 'info');
-        else { audio.sfx.camdead(); wire({ gunnery: `DEVIL FIRE STRUCK ${e.n} TOWER${e.n > 1 ? 'S' : ''} · THOSE ORBS ARE DOWN`, signals: 'THE SPLICE FAILED · THE BUOY IS LOST · REPAIR THE WINCH ▲', engineer: `THE FUSE BOX FAILED · ${e.sys ? SYS_LABEL[e.sys] + ' IS OFF, ' : ''}A SHOVEL LOST, LIGHTS RED` }[e.role]); } break;
+      case 'defencedone': (stationHist[e.role] = stationHist[e.role] || []).push({ t: world.t, ok: e.ok, what: DEF_WHAT[e.role] || 'defence' }); if (e.ok) wire({ gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING HELD THE STOKEHOLD' }[e.role], 'info');
+        else { audio.sfx.camdead(); wire({ gunnery: `DEVIL FIRE STRUCK ${e.n} TOWER${e.n > 1 ? 'S' : ''} · THOSE ORBS ARE DOWN`, signals: 'THE SPLICE FAILED · THE BUOY IS LOST · REPAIR THE WINCH ▲', engineer: `THE STOKEHOLD FIRES FAILED · ${e.sys ? SYS_LABEL[e.sys] + ' IS OFF, ' : ''}THE CHUTE IS EMPTY, LIGHTS RED` }[e.role]); } break;
       case 'fleetwin': audio.sfx.reveal(); wire('THE ENEMY FLEET IS SUNK · REDEPLOY THE FLEET · A NEW ENEMY IS ON THE HORIZON', 'info'); break;
       case 'defencelost': break;
       case 'beaconsealed': audio.sfx.clunk(); toast(`GUNNERY SEALED A ${e.color.toUpperCase()} BEACON · IT CURES WHILE THE WORKSHOP IS ON`, 'info'); break;
@@ -1449,8 +1449,8 @@ function drawCabin() {
 }
 // The crew board: one card per officer's station.
 const stationDoing = {}, stationHist = {};
-const DEF_WHAT = { gunnery: 'devil fire', signals: 'cable splice', engineer: 'fuse box' };
-const DEF_NAME = { missile: 'DEVIL FIRE ON THE TOWERS', snake: 'THE BUOY CABLE SNAPPED', wires: 'THE FUSE BOX BLEW' };
+const DEF_WHAT = { gunnery: 'devil fire', signals: 'cable splice', engineer: 'stokehold' };
+const DEF_NAME = { missile: 'DEVIL FIRE ON THE TOWERS', snake: 'THE BUOY CABLE SNAPPED', stoke: 'THE STOKEHOLD FIRES ARE FAILING' };
 function drawCrew() {
   const now = performance.now(), cards = ROLES.map(r => {
     const live = world.defence.live[r], ev = world.defence.active[r];

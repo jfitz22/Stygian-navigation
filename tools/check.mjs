@@ -848,9 +848,9 @@ function sharkSetup(seed) {
   check(!wo.buoy && wo.broken.winch, 'A failed splice loses the buoy');
   wo.furnace.heat = 70; wo.furnace.chute = 3; setPriority(wo, ['sonar', 'cameras', 'currents']);
   startDefence(wo, 'engineer'); defenceResult(wo, 'engineer', wo.defence.active.engineer.id, { ok: false });
-  check(!wo.power.currents.on && wo.power.sonar.on && wo.furnace.chute === 2 && wo.lamps === 1, 'Failing the wires: the lowest-priority system drops, a shovel is purged, the lights go red');
+  check(!wo.power.currents.on && wo.power.sonar.on && wo.furnace.chute === 0 && wo.lamps === 1, 'Losing the stokehold: the lowest-priority system drops, the chute is emptied, the lights go red');
   wo.defence.live.engineer = true; wo.furnace.heat = 95; wo.furnace.pending = 0; step(wo, DT);
-  check(wo.defence.active.engineer && wo.defence.active.engineer.reason === 'overheat', 'A furnace in the red blows the fuse box');
+  check(wo.defence.active.engineer && wo.defence.active.engineer.reason === 'overheat', 'A furnace in the red sets the stokehold fires failing');
   const stale = wo.defence.active.engineer.id; wo.defence.active.engineer.at -= 200; wo.furnace.heat = 60; step(wo, DT);
   check(!wo.defence.active.engineer && wo.lamps === 1, 'A station that drops out mid-game costs nothing');
   check(!defenceResult(wo, 'engineer', stale, { ok: false }), 'A late result for a finished event is ignored');
@@ -864,11 +864,26 @@ function sharkSetup(seed) {
   wr.furnace.chute = 1; stationAction(wr, 'engineer', { act: 'lightsout' }); const c1 = wr.furnace.chute; stationAction(wr, 'engineer', { act: 'lightsout' });
   check(c1 === 2 && wr.furnace.chute === 2, 'Clearing the breaker panel puts a free shovel in the chute, once a minute');
   // the defence games themselves
-  { let body = GA.snakeStart(); check(body.length === 14 && GA.SN.start + GA.SN.need === 22, 'The cable starts fourteen long and must reach twenty-two');
-    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 15 && !r.dead, 'Each loose end makes the cable longer');
+  { let body = GA.snakeStart(); check(body.length === 17 && GA.SN.start + GA.SN.need === 25, 'The cable starts seventeen long and must reach twenty-five');
+    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 18 && !r.dead, 'Each loose end makes the cable longer');
     let b2 = GA.snakeStart(), dead = false; for (let i = 0; i < 40 && !dead; i++) { const m = GA.snakeMove(b2, [1, 0], null); b2 = m.body; dead = m.dead; } check(!dead, 'Through a wall the cable comes out the other side');
     let b3 = GA.snakeStart(); for (const d of [[0, 1], [-1, 0], [0, -1]]) { const m = GA.snakeMove(b3, d, null); b3 = m.body; if (d[1] === -1) check(m.dead, 'Turning back into the cable fails the splice'); }
-    check(Array.from({ length: 100 }, () => GA.wiresBoard(rng)).every(({ left, right }) => left.length === 6 && new Set(right).size === 6 && right.every((id, i) => id !== left[i])), 'The fuse box always has six wires, none opposite its own terminal');
+    { // the stokehold: a dead fire and a burst one each cost a fail; a fire left alone dies; a steady stoker holds 45 s
+      const s1 = GA.stokeStart(rng); s1.lanes[0].heat = 0.5; const e1 = GA.stokeStep(s1, 0.5, rng);
+      s1.lanes[1].heat = GA.ST.top - 0.1; s1.lanes[1].pace = 0; GA.stokeThrow(s1, 1); for (let i = 0; i < 20; i++) GA.stokeStep(s1, 0.05, rng);
+      check(e1.some(e => e.type === 'out') && s1.fails === 2 && s1.lanes[0].heat > 0 && s1.lanes[1].heat < 100, 'The stokehold: a fire that dies or bursts is a fail, and it relights or vents');
+      check(!GA.stokeThrow(s1, 2) || !GA.stokeThrow(s1, 2), 'A shovel cannot be flung twice in the same instant');
+      const s2 = GA.stokeStart(rng); let dead = 0; for (let i = 0; i < 400; i++) dead += GA.stokeStep(s2, 0.05, rng).filter(e => e.type === 'out').length;
+      check(dead >= 4 && s2.fails >= 3, 'Left alone, every fire dies inside twenty seconds');
+      const play = (seed, aim, move, react) => { const r = mulberry32(seed), s = GA.stokeStart(r); let pos = 1, busy = 0;
+        while (s.t < GA.GAME_TIME.stoke && s.fails < 3) { GA.stokeStep(s, 0.05, r); busy -= 0.05; if (busy > 0) continue;
+          const proj = s.lanes.map((l, i) => l.heat + GA.ST.lump * s.coal.filter(c => c.lane === i).length - 5 * GA.ST.travel);
+          let best = -1, bv = aim; proj.forEach((v, i) => { const v2 = v + Math.abs(i - pos) * move * 5; if (v2 < bv) { bv = v2; best = i; } });
+          if (best < 0) busy = react; else if (best !== pos) { pos += Math.sign(best - pos); busy = move; } else if (proj[pos] + GA.ST.lump < GA.ST.top - 2 && GA.stokeThrow(s, pos)) busy = react; }
+        return s.fails < 3; };
+      const good = Array.from({ length: 60 }, (_, i) => play(i + 1, 46, 0.15, 0.28)).filter(Boolean).length, slow = Array.from({ length: 60 }, (_, i) => play(i + 1, 45, 0.4, 0.9)).filter(Boolean).length;
+      check(GA.GAME_TIME.stoke === 45 && good === 60 && slow < good, `45 s in the stokehold: a quick stoker always holds (${good}/60); a slow one does worse (${slow}/60)`);
+    };
     check(GA.GAME_TIME.missile === 30 && GA.missileWaves(rng, 0, 'fall').length >= 16 && GA.missileWaves(rng, 20, 'fall').length >= 28 && GA.missileWaves(rng, 20, 'arc').length <= 0.75 * GA.missileWaves(rng, 20, 'fall').length && GA.missileWaves(rng, 0, 'arc').every(w => w.from < 0.2 || w.from > 0.8), 'Thirty seconds of devil fire, twice as much as before; the skiffs fire from the sides, about 30% less'); }
   // the stations' own small update, and the rehearsal
   { const ss = JSON.stringify(stationSnapshot(wo, { iid: 'x', born: 1 }));

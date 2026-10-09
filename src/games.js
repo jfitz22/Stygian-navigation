@@ -1,9 +1,9 @@
 // The station games: the puzzle generators and their rules. Pure, no DOM, so the tests can check that every board
 // can be solved. The drawing and the controls live in station.js.
-//   Triggered defences: Gunnery Missile Command, Signals the cable (Snake), Engineering the wires.
+//   Triggered defences: Gunnery Missile Command, Signals the cable (Snake), Engineering the stokehold (Tapper).
 //   Steady, optional puzzles with a reward: Signals Minesweeper, Engineering Lights Out.
 
-export const GAME_TIME = { missile: 30, snake: 45, wires: 20 };   // seconds each defence lasts
+export const GAME_TIME = { missile: 30, snake: 45, stoke: 45 };   // seconds each defence lasts
 
 // ---------- Lights Out (Engineering's steady puzzle): a 6 x 6 breaker panel ----------
 export const LO = 6;
@@ -100,7 +100,7 @@ export function missileWaves(rng, watchMinutes, kind = 'fall') {
 // ---------- The cable (Signals' defence): Snake ----------
 // Splice the buoy's cable: steer the splice head round the grid and collect the loose ends. It starts fourteen long and
 // grows with every end, to twenty-two. Through a wall it comes out the other side; touch the cable itself and the splice fails.
-export const SN = { W: 20, H: 13, start: 14, need: 8, step: 0.13 };
+export const SN = { W: 20, H: 13, start: 17, need: 8, step: 0.13 };
 export function snakeStart() {
   const y = Math.floor(SN.H / 2);
   return Array.from({ length: SN.start }, (_, i) => [SN.start + 1 - i, y]);   // head first, moving right, from the left edge
@@ -119,15 +119,44 @@ export function snakeMove(body, dir, food) {
   return { body: next, ate, dead };
 }
 
-// ---------- The wires (Engineering's defence) ----------
-// Six loose wires on the left, six terminals on the right, matched by colour and stripe. The terminals are shuffled.
-export const WIRES = [
-  { id: 'R', color: '#e33b2a', stripe: null }, { id: 'Y', color: '#f2b01e', stripe: null }, { id: 'B', color: '#3b7bff', stripe: null },
-  { id: 'RW', color: '#e33b2a', stripe: '#f4f1e6' }, { id: 'YK', color: '#f2b01e', stripe: '#111' }, { id: 'BW', color: '#3b7bff', stripe: '#f4f1e6' },
-];
-export function wiresBoard(rng) {
-  const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-  const left = shuffle(WIRES.map(w => w.id));
-  let right; do { right = shuffle(left); } while (right.some((id, i) => id === left[i]));   // no wire starts opposite its terminal
-  return { left, right };
+// ---------- The stokehold (Engineering's defence): Tapper ----------
+// Four boiler fires, one at the end of each deck. Each drains on its own; the stoker runs between decks and flings coal,
+// which takes a moment to slide down the deck. A fire that goes out, or one stoked past the top, is a fail; three
+// fails and the defence is lost. A dead fire relights low and a burst one vents back to the middle, so play goes on.
+export const ST = {
+  lanes: 4, travel: 0.85, lump: 22, cooldown: 0.22, fails: 3,
+  low: 25, high: 70, top: 90,       // the green band; under it the fire is dying, over it roaring; at the top it bursts
+  drain: [4.07, 8.97],                // heat lost per second, at the start and at the end (each fire scaled by its own pace)
+  pace: [0.6, 1.5], repace: [5, 9],   // each fire's own pace, re-rolled every few seconds
+  start: [42, 62], relight: 38, vent: 50, flash: 1.1,
+};
+export function stokeStart(rng) {
+  const lanes = Array.from({ length: ST.lanes }, () => ({ heat: ST.start[0] + rng() * (ST.start[1] - ST.start[0]), pace: ST.pace[0] + rng() * (ST.pace[1] - ST.pace[0]), repaceAt: ST.repace[0] + rng() * (ST.repace[1] - ST.repace[0]), flash: null, flashAt: -9 }));
+  return { t: 0, lanes, coal: [], fails: 0, lastThrow: -9 };
+}
+// Fling a shovel down a deck. Returns false while the shovel is still swinging.
+export function stokeThrow(st, lane) {
+  if (st.t - st.lastThrow < ST.cooldown || lane < 0 || lane >= ST.lanes) return false;
+  st.lastThrow = st.t; st.coal.push({ lane, at: st.t });
+  return true;
+}
+export const stokeState = l => l.flash ? l.flash : l.heat < ST.low ? 'dying' : l.heat > ST.high ? 'roaring' : 'good';
+// Advance by dt (the defence lasts GAME_TIME.stoke). Returns what happened: [{ type: 'land'|'out'|'burst', lane }].
+export function stokeStep(st, dt, rng, length = GAME_TIME.stoke) {
+  const ev = [];
+  st.t += dt;
+  const ramp = Math.min(1, st.t / length), drain = ST.drain[0] + (ST.drain[1] - ST.drain[0]) * ramp;
+  st.coal = st.coal.filter(c => {
+    if (st.t - c.at < ST.travel) return true;
+    const l = st.lanes[c.lane]; l.heat += ST.lump; ev.push({ type: 'land', lane: c.lane });
+    return false;
+  });
+  st.lanes.forEach((l, i) => {
+    if (l.flash && st.t - l.flashAt > ST.flash) l.flash = null;
+    if (st.t >= l.repaceAt) { l.pace = ST.pace[0] + rng() * (ST.pace[1] - ST.pace[0]); l.repaceAt = st.t + ST.repace[0] + rng() * (ST.repace[1] - ST.repace[0]); }
+    l.heat -= drain * l.pace * dt;
+    if (l.heat <= 0) { st.fails++; l.heat = ST.relight; l.flash = 'out'; l.flashAt = st.t; ev.push({ type: 'out', lane: i }); }
+    else if (l.heat >= ST.top) { st.fails++; l.heat = ST.vent; l.flash = 'burst'; l.flashAt = st.t; ev.push({ type: 'burst', lane: i }); }
+  });
+  return ev;
 }
