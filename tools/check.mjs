@@ -276,7 +276,7 @@ function sharkSetup(seed) {
     for (const fn of ['CONFETTI', 'DEVIL']) {
       const k = w8.board.runes.findIndex(r => runeFunction(r, w8.board.page) === fn);
       if (k < 0) continue; const n0 = w8.board.presses; w8.events.length = 0; pressBoard(w8, k);
-      check(w8.events.some(e => e.type === fn.toLowerCase()) && w8.board.presses !== n0, fn + ' fires its effect and still counts as a press');
+      check(w8.events.some(e => e.type === (fn === 'DEVIL' ? 'succubus' : fn.toLowerCase())) && w8.board.presses !== n0, fn + ' fires its effect and still counts as a press');
     }
   }
   const w6 = createWorld(3); light(w6); w6.fatigue = 0.9; w6.coffee.sips = 1; sip(w6);

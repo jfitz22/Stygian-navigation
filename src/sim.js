@@ -1,3 +1,4 @@
+import { rollBanners, dismissBanner } from './banners.js';
 // The Last Watch simulation. Pure logic, no DOM. Runs in the browser and in Node.
 import {
   MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, TOMB_RADIUS, TUNING as T, CAMERAS, NOTABLES,
@@ -503,7 +504,8 @@ export function runeEffect(w, fn) {
   if (fn === 'LOCKDOWN') { if (w.seal) emit(w, 'deny', { msg: 'ALREADY LOCKED' }); else openSeal(w, 'lockdown', { change: true }); }
   if (fn === 'LIGHTS') { w.lamps = (w.lamps + 1) % 3; emit(w, 'lights', { mode: w.lamps }); }
   if (fn === 'RADIO') { w.music = !w.music; emit(w, 'cabinradio', { on: w.music }); }
-  if (fn === 'ALARM' || fn === 'CONFETTI' || fn === 'DEVIL' || fn === 'SUCCUBUS') emit(w, fn.toLowerCase());
+  if (fn === 'ALARM' || fn === 'CONFETTI') emit(w, fn.toLowerCase());
+  if (fn === 'DEVIL' || fn === 'SUCCUBUS') { rollBanners(w); emit(w, 'succubus'); }
 }
 export const shuttered = w => w.t < w.shutterUntil;
 // A noisemaker fired from the buoy, landing to the side of the Grindmaw's approach so it swerves off the buoy.
@@ -977,7 +979,8 @@ export function spawnDue(w) {
 export function gm(w, cmd, arg = {}) {
   if (cmd === 'pause' && !w.reinforce) { w.paused = !w.paused; emit(w, w.paused ? 'paused' : 'resumed'); }
   if (cmd === 'camunlock') { w.camUnlocked[w.activeCam] = true; }
-  if (cmd === 'confetti' || cmd === 'devil') emit(w, cmd);
+  if (cmd === 'confetti') emit(w, cmd);
+  if (cmd === 'devil' || cmd === 'succubus') runeEffect(w, 'SUCCUBUS');
   if (cmd === 'repair') {
     w.cams.forEach(c => { c.broken = false; c.heat = 0; }); w.remorhazes = []; w.sonarPings = [];
     for (const k of Object.keys(w.broken)) w.broken[k] = false;
@@ -1380,6 +1383,7 @@ export function lightsReward(w) {
 }
 export function stationAction(w, role, a) {
   if (!a || !a.act) return;
+  if (a.act === 'banner-dismiss') { dismissBanner(w, role, a.eventId, a.key); return; }
   if (a.act === 'minesweeper' && role === 'signals') minesReward(w, a.choice);
   if (a.act === 'lightsout' && role === 'engineer') lightsReward(w);
   if (a.act === 'seal' && role === 'gunnery') sealBeacon(w, a.color);
@@ -1574,6 +1578,7 @@ export function stationSnapshot(w, extra = {}) {
       .filter(([, h]) => w.buoy && dist(h, w.buoy) < T.buoyRadius).map(([kind, h]) => ({ kind, x: h.x, y: h.y })),
     pinging: w.pings.some(p => !p.delivered) };
   return {
+    bannerEvent: w.bannerEvent || null, bannerNow: Date.now(),
     ...extra, t: w.t, started: w.started, paused: w.paused, hold: w.hold, reinforce: w.reinforce, won: w.won,
     furnaceState: furnaceState(w), power: Object.fromEntries(SYSTEMS.map(s => [s, w.power[s].on])),
     beacons: w.beacons.stock, orange: w.beacons.orange, green: w.beacons.green, workshop: w.workshop,
@@ -1587,6 +1592,7 @@ export function stationSnapshot(w, extra = {}) {
 export function snapshot(w) {
   const pend = w.reserve.find(b => b.elgarz);
   return {
+    bannerEvent: w.bannerEvent || null,
     seed: w.seed, t: w.t, won: w.won, paused: w.paused, started: w.started, levers: w.levers,
     bergs: w.bergs.map(b => ({ id: b.id, num: b.num, name: b.name, x: b.x, y: b.y, large: b.large, length: b.length, sig: b.echo.sig, released: !!b.released, hollow: b.hollow, metal: b.metal, radio: b.radio, elgarz: b.elgarz, notable: b.notable, tombDrawn: b.tombDrawn, tag: b.tag })),
     pending: w.reserve.map(b => ({ name: b.name, elgarz: b.elgarz })), elgarzAt: pend ? pend.spawnAt : null, elgarzPlan: w.elgarzPlan,

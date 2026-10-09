@@ -1,5 +1,7 @@
 # The Last Watch
 
+**Revision 15 — review branch.** Based on Revision 14; not approved for live deployment. See [revision notes and checks](docs/revision-15.md).
+
 ![The Last Watch, mid-game](docs/screenshot.png)
 
 A 20-minute observatory minigame for a D&D session in Stygia. One player works the machine on stream; three officers each hold one book of the Operations Manual (Engineering, Gunnery, Signals) and decode what it says. No job can be done from one book. Find Elgarz, prove it, mark it with a green beacon.

@@ -1,3 +1,4 @@
+import {art,sprite,artOn} from './art-assets.js';
 import {
   createWorld, newSeed, step, light, stoke, slotsAvailable, setPower, isUp, selectCam, deployBuoy, ping, lockContact, lockFromCamera,
   ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
@@ -15,7 +16,7 @@ import { GAME_TIME } from './games.js';
 import { openLink, newRoomCode, cleanCode, NET_ENABLED } from './link.js';
 import { checkPassword, keyboardOnly, WRONG_TRIES, LAYERS, layerOf, maskPassword } from './password.js';
 import { sealInput, shuttered, artifactText } from './sim.js';
-import { succubus } from './succubus.js';
+import { createBannerUI } from './banner-ui.js';
 
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -503,6 +504,7 @@ function drawCamera() {
   const Z = ui.zoom[cam.id] ? 2 : 1;
   const sky = ctx.createLinearGradient(0, 0, 0, HORIZON); sky.addColorStop(0, '#04110e'); sky.addColorStop(1, '#16302c');
   ctx.fillStyle = sky; ctx.fillRect(0, 0, Wd, HORIZON);
+  if(artOn()){ctx.save();ctx.globalAlpha=.55;sprite(ctx,'fog',0,0,Wd,HORIZON);ctx.restore();}
   for (let k = 0; k < 3; k++) {
     ctx.strokeStyle = `rgba(92,255,180,${0.06 + 0.03 * k})`; ctx.lineWidth = 14 - k * 4; ctx.beginPath();
     for (let x = 0; x <= Wd; x += 8) { const y = 30 + k * 18 + 10 * Math.sin(x / 70 + t * 0.15 + k + cam.facing); x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
@@ -541,6 +543,7 @@ function drawCamera() {
     const lum = b.look === 'horn' ? [220, 210, 190] : b.look === 'cairn' || b.look === 'arsenal' ? [150, 160, 170] : b.look === 'hulk' ? [214, 205, 170] : [220, 236, 240];
     ig.addColorStop(0, `rgba(${lum.join(',')},${1 - fog})`); ig.addColorStop(1, `rgba(${lum.map(v => v * 0.45).join(',')},${1 - fog * 0.9})`);
     ctx.fillStyle = ig; ctx.fill();
+    if(artOn()){ctx.save();ctx.clip();ctx.globalAlpha=1-fog;const variant=b.large?2:b.look==='horn'?1:0;sprite(ctx,'ice'+variant,x0,base-hScale*1.4,width,hScale*1.4);ctx.restore();}
     const sg = ctx.createLinearGradient(x0, 0, x0 + width, 0);
     sg.addColorStop(0, 'rgba(255,255,255,0.10)'); sg.addColorStop(0.55, 'rgba(0,0,0,0)'); sg.addColorStop(1, `rgba(10,25,40,${0.45 * (1 - fog)})`);
     ctx.fillStyle = sg; ctx.fill();
@@ -1445,7 +1448,7 @@ function handleEvents() {
       case 'purge': audio.sfx.purge(); toast(e.n ? `FUEL CHUTE PURGED · ${e.n} SHOVEL${e.n > 1 ? 'S' : ''} LOST` : 'FUEL CHUTE PURGED · IT WAS EMPTY ANYWAY'); break;
       case 'shutter': audio.sfx.shutter(); toast(`SHUTTERS DOWN OVER THE SONAR AND THE ORBS · ${T.shutterTime} S`); break;
       case 'decoy': audio.sfx.launch(); toast('DECOY AWAY · THE GRINDMAW IS CHASING THE NOISE', 'info'); break;
-      case 'succubus': succubus(); break;
+      case 'succubus': audio.sfx.sultry(); break;
       case 'sealed': audio.sfx.seal(); toast(SEAL_TITLE[e.reason] + ' · ENTER THE CURRENT PASSWORD'); break;
       case 'pwwrong': audio.sfx.deny(); toast(`WRONG PASSWORD · ${e.left} ${e.left === 1 ? 'TRY' : 'TRIES'} BEFORE THE SYSTEM REBOOTS`); break;
       case 'pwaccepted': audio.sfx.calibrated(); if (e.next === 'set') toast('PASSWORD ACCEPTED · NOW SET A NEW ONE', 'info'); break;
@@ -1453,7 +1456,7 @@ function handleEvents() {
       case 'unsealed': if (ui.sealKey !== 'confirm') ui.sealKey = ''; break;
       case 'reboot': audio.sfx.reboot(); wire('FIVE WRONG PASSWORDS · THE SYSTEM HAS REBOOTED · THE PASSWORD IS BACK TO THE FACTORY DEFAULT'); break;
       case 'confetti': confetti(); break;
-      case 'devil': devil(); break;
+      case 'devil': break;
       case 'telemetry': audio.sfx.lock(); toast(`BEACON TELEMETRY FROM #${e.num} · LIVE POSITION AND DRIFT`, 'info'); break;
       case 'spark': audio.sfx.spark(); break;
       case 'win': audio.sfx.win(); look(false); startCutscene(); break;
@@ -1597,7 +1600,10 @@ function simTick() {
   for (const r of ROLES) world.defence.live[r] = t - (stationSeen[r] || -1e9) < 7000;
 }
 setInterval(simTick, 100);
+const banners = createBannerUI('operator', (eventId, key) => stationAction(world, 'operator', { act: 'banner-dismiss', eventId, key }));
 function frame(now) {
+  banners.update(world.bannerEvent, Date.now());
+  if (banners.covered('p-cams')) setCamTurn(world, 0);
   simTick();
   handleEvents();
   drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower(); drawBoard(); drawRepairBay(); drawCamCtl(); drawCases(); drawCut(now); $('pausecard').classList.toggle('hidden', !world.paused); $('pausebtn').textContent = world.paused ? '▶ RESUME' : '❚❚ PAUSE'; drawTicker(Math.min(0.1, (now - (frame.prev || now)) / 1000)); frame.prev = now;

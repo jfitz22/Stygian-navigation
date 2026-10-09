@@ -16,8 +16,18 @@ function client() {
 
 // onMessage(msg), onStatus('LOCAL' | 'CONNECTING' | 'SUBSCRIBED' | 'CLOSED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'OFFLINE')
 export function openLink(onMessage, onStatus = () => {}) {
+  const sender = Array.from(crypto.getRandomValues(new Uint32Array(4)), n => n.toString(16)).join('-'), seen = new Set(), latest = new Map(); let sequence = 0;
+  const receive = msg => {
+    if (msg._mid) { if (seen.has(msg._mid)) return; seen.add(msg._mid); if (seen.size > 2048) seen.delete(seen.values().next().value); }
+    if ((msg.ss || msg.snap) && msg._sender) {
+      const key = msg._sender + (msg.ss ? ":ss" : ":snap");
+      if (msg._seq <= (latest.get(key) || 0)) return;
+      latest.set(key, msg._seq);
+    }
+    onMessage(msg);
+  };
   const local = 'BroadcastChannel' in window ? new BroadcastChannel('lastwatch-gm:' + location.pathname.replace(/[^/]*$/, '')) : null;
-  if (local) local.onmessage = ev => onMessage(ev.data || {});
+  if (local) local.onmessage = ev => receive(ev.data || {});
   let remote = null, ready = false, room = null;
   const link = {
     get room() { return room; },
@@ -33,7 +43,7 @@ export function openLink(onMessage, onStatus = () => {}) {
         const sb = await client();
         if (room !== code) return;
         const ch = sb.channel('lastwatch-' + code, { config: { broadcast: { self: false } } });
-        ch.on('broadcast', { event: 'm' }, ({ payload }) => onMessage(payload || {}));
+        ch.on('broadcast', { event: 'm' }, ({ payload }) => receive(payload || {}));
         ch.subscribe(s => { if (remote !== ch) return; ready = s === 'SUBSCRIBED'; onStatus(s); });
         remote = ch;
       } catch (e) { onStatus('OFFLINE'); }
@@ -42,6 +52,7 @@ export function openLink(onMessage, onStatus = () => {}) {
     async rejoin() { const c = room; if (!c) return; if (remote) { try { const sb = await client(); sb.removeChannel(remote); } catch (e) { } } remote = null; ready = false; room = null; return link.join(c); },
     // remote = false keeps a message on this computer (used to send fewer snapshots over the network)
     send(msg, toRemote = true) {
+      msg = { ...msg, _mid: sender + ":" + (++sequence), _sender: sender, _seq: sequence };
       if (local) local.postMessage(msg);
       if (toRemote && remote && ready) remote.send({ type: 'broadcast', event: 'm', payload: msg });
     },
