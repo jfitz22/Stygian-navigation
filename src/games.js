@@ -98,13 +98,35 @@ export function missileWaves(rng, watchMinutes, kind = 'fall') {
 }
 
 // ---------- The cable (Signals' defence): Snake ----------
-// Splice the buoy's cable: steer the splice head round the grid and collect the loose ends. It starts fourteen long and
-// grows with every end, to twenty-two. Through a wall it comes out the other side; touch the cable itself and the splice fails.
-export const SN = { W: 20, H: 13, start: 17, need: 8, step: 0.13 };
+// Splice the buoy's cable: steer the splice head round the grid and collect the loose ends. It starts twenty long and
+// grows with every end, to twenty-eight. Through a wall it comes out the other side; touch the cable itself, or one of
+// the stray sparks drifting through the water, and the splice fails. A loose end left too long sinks, and another floats up.
+export const SN = { W: 20, H: 13, start: 20, need: 8, step: 0.13, sparks: 3, sparkSpeed: 2.2, sink: 6 };
 export function snakeStart() {
-  const y = Math.floor(SN.H / 2);
-  return Array.from({ length: SN.start }, (_, i) => [SN.start + 1 - i, y]);   // head first, moving right, from the left edge
+  // head first, moving right along the middle row; the tail curls down the left side
+  const y = Math.floor(SN.H / 2), row = Math.min(SN.start, SN.W - 5), body = [];
+  for (let i = 0; i < row; i++) body.push([row + 1 - i, y]);
+  for (let k = 1; body.length < SN.start; k++) body.push([2, y + k]);
+  return body;
 }
+// The stray sparks: each drifts in a straight line (wrapping like the cable), starting well clear of the cable.
+export function sparksStart(rng, body) {
+  const out = [], near = (x, y) => body.some(c => Math.abs(c[0] - x) + Math.abs(c[1] - y) < 3) || out.some(s => Math.abs(s.x - x) + Math.abs(s.y - y) < 4);
+  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  for (let tries = 0; out.length < SN.sparks && tries < 500; tries++) {
+    const x = Math.floor(rng() * SN.W), y = Math.floor(rng() * SN.H);
+    if (near(x, y)) continue;
+    const [dx, dy] = DIRS[Math.floor(rng() * DIRS.length)];
+    out.push({ x, y, dx, dy });
+  }
+  return out;
+}
+export function sparksStep(sparks, dt) {
+  for (const s of sparks) { s.x = (s.x + s.dx * SN.sparkSpeed * dt + SN.W) % SN.W; s.y = (s.y + s.dy * SN.sparkSpeed * dt + SN.H) % SN.H; }
+}
+// The square a spark is in now.
+export const sparkCell = s => [Math.round(s.x) % SN.W, Math.round(s.y) % SN.H];
+export const sparkHits = (sparks, cell) => sparks.some(s => { const c = sparkCell(s); return c[0] === cell[0] && c[1] === cell[1]; });
 // A free square for the next loose end, away from the walls.
 export function snakeFood(rng, body) {
   const taken = new Set(body.map(c => c.join()));

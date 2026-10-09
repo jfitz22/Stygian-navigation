@@ -864,9 +864,13 @@ function sharkSetup(seed) {
   wr.furnace.chute = 1; stationAction(wr, 'engineer', { act: 'lightsout' }); const c1 = wr.furnace.chute; stationAction(wr, 'engineer', { act: 'lightsout' });
   check(c1 === 2 && wr.furnace.chute === 2, 'Clearing the breaker panel puts a free shovel in the chute, once a minute');
   // the defence games themselves
-  { let body = GA.snakeStart(); check(body.length === 17 && GA.SN.start + GA.SN.need === 25, 'The cable starts seventeen long and must reach twenty-five');
-    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 18 && !r.dead, 'Each loose end makes the cable longer');
+  { let body = GA.snakeStart(); check(body.length === 20 && GA.SN.start + GA.SN.need === 28 && body.every((c, i) => !i || Math.abs(c[0] - body[i - 1][0]) + Math.abs(c[1] - body[i - 1][1]) === 1), 'The cable starts twenty long, all in one piece, and must reach twenty-eight');
+    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 21 && !r.dead, 'Each loose end makes the cable longer');
     let b2 = GA.snakeStart(), dead = false; for (let i = 0; i < 40 && !dead; i++) { const m = GA.snakeMove(b2, [1, 0], null); b2 = m.body; dead = m.dead; } check(!dead, 'Through a wall the cable comes out the other side');
+    { let ok = true; for (let k = 0; k < 200; k++) { const r2 = mulberry32(k + 1), b0 = GA.snakeStart(), sp = GA.sparksStart(r2, b0); if (sp.length !== GA.SN.sparks || sp.some(s => b0.some(c => Math.abs(c[0] - s.x) + Math.abs(c[1] - s.y) < 3))) ok = false; }
+      check(ok, 'Three stray sparks, always starting well clear of the cable'); }
+    { const sp = [{ x: 19.9, y: 3, dx: 1, dy: 0 }]; GA.sparksStep(sp, 0.1); check(sp[0].x < 1 && GA.sparkHits(sp, [0, 3]) && !GA.sparkHits(sp, [5, 5]), 'A spark drifts through the wall like the cable, and touching it is a hit'); }
+    check(GA.SN.sink === 6, 'A loose end sinks after six seconds');
     let b3 = GA.snakeStart(); for (const d of [[0, 1], [-1, 0], [0, -1]]) { const m = GA.snakeMove(b3, d, null); b3 = m.body; if (d[1] === -1) check(m.dead, 'Turning back into the cable fails the splice'); }
     { // the stokehold: a dead fire and a burst one each cost a fail; a fire left alone dies; a steady stoker holds 45 s
       const s1 = GA.stokeStart(rng); s1.lanes[0].heat = 0.5; const e1 = GA.stokeStep(s1, 0.5, rng);

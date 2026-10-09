@@ -513,7 +513,7 @@ function drawLightsSteady(cd) {
 const DEF_TITLE = {
   missile: ['DEVIL FIRE INBOUND', 'Shoot it down before it reaches the towers. Click to burst flak in its path.'],
   missileArc: ['DEVIL SKIFFS ON THE HORIZON', 'Their shells arc in from the sides. Click to burst flak in their path.'],
-  snake: ['THE BUOY CABLE HAS SNAPPED', `Splice it: steer with the arrow keys (or WASD) and collect ${GA.SN.need} loose ends. Do not touch the walls or the cable.`],
+  snake: ['THE BUOY CABLE HAS SNAPPED', `Splice it: steer with the arrow keys (or WASD) and collect ${GA.SN.need} loose ends before they sink. Do not touch the cable or the stray sparks; the walls wrap round.`],
   stoke: ['THE STOKEHOLD FIRES ARE FAILING', 'Keep all four fires in the green. ↑ ↓ (or W S) changes deck, SPACE flings coal. A fire that dies or bursts is a fail; three and the stokehold is lost.'],
 };
 let current = null;
@@ -558,6 +558,9 @@ function startSnake(g) {
   $('dbody').innerHTML = `<canvas width="${W}" height="${H}"></canvas><p class="hint" style="text-align:center">Arrow keys or WASD. Click the board first if the keys do nothing.</p>`;
   const cv = $('dbody').querySelector('canvas'), ctx = cv.getContext('2d');
   let body = GA.snakeStart(), dir = [1, 0], queued = [], food = GA.snakeFood(g.rng, body), got = 0, acc = 0, last = null, seenAt = null, dead = false;
+  const sparks = GA.sparksStart(g.rng, body);
+  let foodAge = 0;
+  const fail = text => { dead = true; audio.sfx.spark(); finishDefence(false, {}, text); };
   const KEYS = { ArrowUp: [0, -1], w: [0, -1], W: [0, -1], ArrowDown: [0, 1], s: [0, 1], S: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], A: [-1, 0], ArrowRight: [1, 0], d: [1, 0], D: [1, 0] };
   const onKey = e => {
     const d = KEYS[e.key]; if (!d || g.done) return;
@@ -578,13 +581,18 @@ function startSnake(g) {
     const since = (nowT - seenAt) / 1000;
     if (since > READY && !dead) {
       acc += dt;
+      GA.sparksStep(sparks, dt);
+      foodAge += dt;
+      if (foodAge > GA.SN.sink) { food = GA.snakeFood(g.rng, body); foodAge = 0; audio.sfx.puff(); }   // the loose end sank; another floats up
+      if (GA.sparkHits(sparks, body[0]) && !g.done) fail('A STRAY SPARK HIT THE SPLICE · THE BUOY IS LOST');
       while (acc >= GA.SN.step && !dead && !g.done) {
         acc -= GA.SN.step;
         if (queued.length) dir = queued.shift();
         const r = GA.snakeMove(body, dir, food);
         body = r.body;
-        if (r.dead) { dead = true; finishDefence(false, {}, 'THE SPLICE FAILED · THE BUOY IS LOST'); break; }
-        if (r.ate) { got++; audio.sfx.click(); if (got >= GA.SN.need) { finishDefence(true, {}, 'THE CABLE IS SPLICED'); break; } food = GA.snakeFood(g.rng, body); }
+        if (r.dead) { fail('THE SPLICE FAILED · THE BUOY IS LOST'); break; }
+        if (GA.sparkHits(sparks, body[0])) { fail('A STRAY SPARK HIT THE SPLICE · THE BUOY IS LOST'); break; }
+        if (r.ate) { got++; audio.sfx.click(); if (got >= GA.SN.need) { finishDefence(true, {}, 'THE CABLE IS SPLICED'); break; } food = GA.snakeFood(g.rng, body); foodAge = 0; }
       }
     }
     // draw: the sea floor, the cable, the loose end
@@ -592,8 +600,20 @@ function startSnake(g) {
     ctx.strokeStyle = 'rgba(92,255,157,.06)';
     for (let x = 0; x <= GA.SN.W; x++) { ctx.beginPath(); ctx.moveTo(x * S, 0); ctx.lineTo(x * S, H); ctx.stroke(); }
     for (let y = 0; y <= GA.SN.H; y++) { ctx.beginPath(); ctx.moveTo(0, y * S); ctx.lineTo(W, y * S); ctx.stroke(); }
-    ctx.fillStyle = '#ffb347'; ctx.shadowColor = '#ffb347'; ctx.shadowBlur = 12;
-    ctx.beginPath(); ctx.arc(food[0] * S + S / 2, food[1] * S + S / 2, S * 0.3, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    // the loose end, shrinking and dimming as it sinks, with a ring that runs out
+    const left = Math.max(0, 1 - foodAge / GA.SN.sink), fx = food[0] * S + S / 2, fy = food[1] * S + S / 2;
+    ctx.fillStyle = `rgba(255,179,71,${0.35 + 0.65 * left})`; ctx.shadowColor = '#ffb347'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(fx, fy, S * (0.18 + 0.14 * left), 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.strokeStyle = left < 0.35 ? '#ff6a4a' : 'rgba(255,207,122,.8)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(fx, fy, S * 0.46, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1;
+    // the stray sparks: crackling blue-white, with the square they are in faintly marked
+    for (const sp of sparks) {
+      const [cx, cy] = GA.sparkCell(sp); ctx.fillStyle = 'rgba(120,200,255,.10)'; ctx.fillRect(cx * S, cy * S, S, S);
+      const px = sp.x * S + S / 2, py = sp.y * S + S / 2, t = nowT / 1000;
+      ctx.strokeStyle = '#bfe8ff'; ctx.shadowColor = '#6fc8ff'; ctx.shadowBlur = 14; ctx.lineWidth = 2; ctx.beginPath();
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + t * 7, r = S * (0.22 + 0.16 * Math.abs(Math.sin(t * 23 + k * 2.1))); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(a) * r, py + Math.sin(a) * r); }
+      ctx.stroke(); ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(px, py, S * 0.12, 0, 7); ctx.fill(); ctx.shadowBlur = 0; ctx.lineWidth = 1;
+    }
     ctx.fillStyle = dead ? '#a33' : '#c9a24b';
     body.forEach(([x, y], i) => { if (i) { ctx.beginPath(); ctx.roundRect(x * S + 3, y * S + 3, S - 6, S - 6, 6); ctx.fill(); } });
     ctx.fillStyle = dead ? '#ff4b3a' : '#5cff9d'; ctx.beginPath(); ctx.arc(body[0][0] * S + S / 2, body[0][1] * S + S / 2, S * 0.36, 0, 7); ctx.fill();
@@ -605,7 +625,6 @@ function startSnake(g) {
   cv.tabIndex = 0; cv.focus({ preventScroll: true });
 }
 
-// ---------- The wires (Engineering) ----------
 // ---------- The stokehold (Engineering): Tapper. Four decks, four fires, one stoker ----------
 function startStoke(g) {
   const W = 960, H = 540, FLOOR = [96, 202, 311, 419], STOKER_X = 30, BOX_R = 948, BOX_H = 80, DOOR = 0.12;
