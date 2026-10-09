@@ -953,26 +953,27 @@ function sharkSetup(seed) {
   check(wf.fleet.revealed.length === 1, '...once a minute');
 }
 
-// ---------- the fleet prototype (the Fleet Officer's shared sea) ----------
+// ---------- the fleet prototype: Salvo & Soundings ----------
 {
-  const SEA = await import('../src/seawar.js');
-  const sea = SEA.newSea(42);
-  const allCells = [...sea.ours, ...sea.theirs].flatMap(s => SEA.cellsOf(s).map(c => c.join()));
-  check(new Set(allCells).size === allCells.length && sea.ours.every(s => SEA.cellsOf(s).every(([x, y]) => y >= SEA.SW.N - SEA.SW.home)) && sea.theirs.every(s => SEA.cellsOf(s).every(([x, y]) => y < SEA.SW.home)), 'The prototype sea: both fleets in their own home waters, nothing overlapping');
-  check(!SEA.deploy(sea, sea.ours[1].id, 0, 2, 'h'), 'Our ships deploy only in our home waters');
-  const d = sea.dept.signals, wrong = SEA.flagCode(d.flags).map(r => (r + 1) % SEA.CODE_RUNES);
-  check(SEA.enterCode(sea, 'signals', wrong) === 'wrong' && SEA.enterCode(sea, 'signals', SEA.flagCode(d.flags)) === 'loaded' && sea.tokens.length === 1, 'A special loads only with the code the flags read to');
-  SEA.begin(sea); const t = sea.theirs[0], [tx, ty] = SEA.cellsOf(t)[0];
-  SEA.setOrder(sea, sea.ours[0].id, { type: 'fire', x: tx, y: ty }); SEA.resolveBeat(sea);
-  check(t.hits.size === 1 && sea.ourShots.get(tx + ',' + ty).r === 'hit' && sea.dept.signals.state === 'loaded', 'A shell on an enemy square is a hit, and it is marked');
-  for (let i = 0; i < SEA.SW.fade; i++) SEA.resolveBeat(sea);
-  check(!sea.ourShots.has(tx + ',' + ty), 'Old shot marks fade: the ships move');
-  const w = SEA.newSea(7); SEA.begin(w); for (const s of w.theirs) SEA.cellsOf(s).forEach((c, i) => s.hits.add(i)); w.ours[1].hits.add(0); const ev = SEA.resolveBeat(w);
-  check(ev.some(e => e.type === 'wave') && w.wave === 2 && w.ours.every(s => !s.hits.size) && w.theirs.every(s => !s.hits.size), 'Sink their fleet: ours is refitted and a new wave comes');
-  const { session } = await import('./sim-seawar.mjs');
-  const runs = Array.from({ length: 60 }, (_, i) => session(i + 1, 40, { codeDelay: 40, advance: 0.3, useSpecials: true }));
-  const waves = runs.reduce((a, r) => a + r.waves, 0), lost = runs.filter(r => r.lost).length;
-  check(waves / 60 > 2.5 && lost / (waves + lost) < 0.15, `A steady Fleet Officer usually wins: ${(waves / 60).toFixed(1)} waves a session, ${Math.round(lost / (waves + lost) * 100)}% of waves lost`);
+  const S = await import('../src/salvo.js');
+  const bt = S.newBattle(42), N = S.SV.N;
+  const touching = b => b.ships.some((s, i) => b.ships.some((o, j) => j > i && S.cellsOf(s).some(([x, y]) => S.cellsOf(o).some(([a, c]) => Math.abs(a - x) <= 1 && Math.abs(c - y) <= 1))));
+  check(!touching(bt.ours) && !touching(bt.theirs) && [bt.ours, bt.theirs].every(b => b.ships.every(s => S.cellsOf(s).every(([x, y]) => x >= 0 && y >= 0 && x < N && y < N && !S.iceAt(b, x, y)))), 'The salvo boards: every ship on the board, off the ice, none touching');
+  const d = bt.dept.signals, wrong = S.flagCode(d.flags).map(r => (r + 1) % S.CODE_RUNES);
+  check(S.enterCode(bt, 'signals', wrong) === 'wrong' && S.enterCode(bt, 'signals', S.flagCode(d.flags)) === 'loaded', 'A special loads only with the code the flags read to');
+  S.begin(bt);
+  check(S.shotsAllowed(bt) === 4 && [[0, 0], [1, 1], [2, 2], [3, 3]].every(([x, y]) => S.toggleAim(bt, x, y)) && !S.toggleAim(bt, 4, 4), 'Salvo: one shot for each of our ships afloat');
+  bt.aim = []; const t = bt.theirs.ships[3], [tx, ty] = S.cellsOf(t)[0]; S.toggleAim(bt, tx, ty); S.toggleAim(bt, ...S.cellsOf(t)[1]);
+  const tk = bt.tokens.find(k => k.kind === 'sounding'); S.useSpecial(bt, tk.id, { line: 'row', n: ty }); S.fire(bt);
+  const real = Array.from({ length: N }, (_, x) => S.shipAt(bt.theirs.ships, x, ty) ? 1 : 0).reduce((a, b) => a + b, 0);
+  check(S.sunk(t) && bt.marks.get(tx + ',' + ty) === 'hit' && bt.soundings[0].count === real, `Hits are marked, a sunk ship shows itself, and a sounding counts its line (${real})`);
+  check([...bt.marks.values()].includes('clear'), '...and the water round a sunk ship is marked clear (ships never touch)');
+  const w = S.newBattle(7); S.begin(w); for (const s of w.theirs.ships) S.cellsOf(s).forEach((c, i) => s.hits.add(i)); w.ours.ships[1].hits.add(0); const ev = S.fire(w);
+  check(ev.some(e => e.type === 'wave') && w.wave === 2 && w.ours.ships.every(s => !s.hits.size), 'Sink their fleet: ours is refitted and a new wave comes');
+  const { session } = await import('./sim-salvo.mjs');
+  const runs = Array.from({ length: 80 }, (_, i) => session(i + 1, 40, 35));
+  const waves = runs.reduce((a, r) => a + r.waves.length, 0), lost = runs.filter(r => r.lost).length;
+  check(waves / 80 > 2 && lost / (waves + lost) < 0.15, `A steady Fleet Officer usually wins: ${(waves / 80).toFixed(1)} waves a session, ${Math.round(lost / (waves + lost) * 100)}% of waves lost`);
 }
 
 // ---------- shots ----------

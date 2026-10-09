@@ -14,19 +14,20 @@
   h2 { font: 600 14px Cinzel, serif; letter-spacing: 3px; color: var(--brass); margin: 0 0 8px; }
   header { display: flex; align-items: center; gap: 18px; padding: 12px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   header .note { color: var(--dim); font-size: 12px; }
-  main { display: grid; grid-template-columns: minmax(0, 600px) minmax(320px, 1fr); gap: 16px; padding: 16px; max-width: 1400px; }
+  main { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 360px) minmax(280px, 1fr); gap: 16px; padding: 16px; max-width: 1500px; align-items: start; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; }
-  #board { width: 100%; height: auto; display: block; user-select: none; }
+  svg.board { width: 100%; height: auto; display: block; user-select: none; }
   button { font: 600 12px 'IBM Plex Mono', monospace; letter-spacing: 1px; background: #1e2a2c; color: var(--text); border: 1px solid #4a5a5c; border-radius: 4px; padding: 6px 10px; cursor: pointer; }
   button:hover:not(:disabled) { border-color: var(--brass); }
   button.on { background: var(--brass); color: #111; }
+  button.big { font-size: 15px; padding: 10px 18px; }
   button:disabled { opacity: .35; cursor: default; }
   .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
-  #beatbar { height: 8px; background: #0a0f10; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin: 6px 0 10px; }
-  #beatbar i { display: block; height: 100%; background: var(--brass); }
-  #orders div, #log div { font-size: 12px; padding: 2px 0; border-bottom: 1px solid #1f2a2c; }
-  #log { max-height: 220px; overflow: auto; }
-  .depts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 0 16px 16px; max-width: 1400px; }
+  #roundbar { height: 8px; background: #0a0f10; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin: 6px 0 10px; }
+  #roundbar i { display: block; height: 100%; background: var(--brass); }
+  #log div { font-size: 12px; padding: 2px 0; border-bottom: 1px solid #1f2a2c; }
+  #log { max-height: 260px; overflow: auto; }
+  .depts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 0 16px 16px; max-width: 1500px; }
   .dept .hoist { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; margin: 6px 0; }
   .dept .pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
   .dept .pad button { padding: 2px; display: flex; justify-content: center; }
@@ -37,48 +38,47 @@
   table.cb td, table.cb th { border: 1px solid var(--line); padding: 2px 4px; text-align: center; }
   table.cb th { color: var(--dim); font-weight: 400; }
   .hint { color: var(--dim); font-size: 12px; }
+  .big-n { font: 800 26px Cinzel, serif; color: var(--brass); }
   #over { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; }
   #over.hidden { display: none; }
   #over .card { background: var(--panel); border: 1px solid var(--brass); padding: 24px 30px; text-align: center; }
-  @media (max-width: 900px) { main, .depts { grid-template-columns: 1fr; } }
+  @media (max-width: 1100px) { main, .depts { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <header>
-  <h1>FLEET PROTOTYPE</h1>
-  <span class="note">The Fleet Officer's shared sea. A test of the rules: placeholder art, the three departments on this screen.</span>
+  <h1>FLEET PROTOTYPE · SALVO</h1>
+  <span class="note">Two boards. Their ships never move. Placeholder art; the three departments on this screen.</span>
   <span class="row" style="margin-left:auto">
-    <label class="hint">Beat <input id="beatlen" type="range" min="10" max="40" step="5" value="25"> <b id="beatval">25 s</b></label>
-    <label class="hint">Enemy guns <input id="enemy" type="range" min="0.5" max="1" step="0.05" value="0.8"> <b id="enemyval">80%</b></label>
+    <label class="hint">Round <input id="roundlen" type="range" min="20" max="90" step="5" value="60"> <b id="roundval">60 s</b></label>
+    <label class="hint">Enemy extra guns <input id="extra" type="range" min="0" max="2" step="1" value="1"> <b id="extraval">1</b></label>
     <button id="pause">PAUSE</button>
     <button id="newgame">NEW BATTLE</button>
   </span>
 </header>
 <main>
   <section class="panel">
-    <svg id="board" viewBox="0 0 570 570"></svg>
+    <h2>THEIR WATERS <span class="hint" id="theirnote"></span></h2>
+    <svg class="board" id="theirs" viewBox="0 0 520 520"></svg>
     <p class="hint" id="help"></p>
   </section>
-  <section style="display:grid;gap:12px;align-content:start">
+  <section style="display:grid;gap:12px">
     <div class="panel">
       <h2 id="phase">DEPLOY THE FLEET</h2>
-      <div id="beatline" class="hint"></div>
-      <div id="beatbar"><i></i></div>
+      <div id="roundline" class="hint"></div>
+      <div id="roundbar"><i></i></div>
       <div class="row" id="deploybtns"><button id="turnd">TURN (R)</button><button id="random">RANDOM</button><button id="begin" class="on">BEGIN</button></div>
-      <div class="row" id="battlebtns"><button id="ready" class="on">READY (ENTER)</button></div>
+      <div class="row" id="battlebtns"><button id="fire" class="on big">FIRE (ENTER)</button><span><span class="big-n" id="shots">0/4</span> <span class="hint">shots aimed</span></span></div>
+      <div id="tokens" class="row"></div>
+      <div id="specialhint" class="hint"></div>
     </div>
     <div class="panel">
-      <h2>ORDERS</h2>
-      <div class="hint" id="selname">Click one of our ships (or press 1–4).</div>
-      <div class="row" id="orderbtns">
-        <button data-mode="fire">FIRE (F)</button>
-        <button data-move="0,-1">↑</button><button data-move="0,1">↓</button><button data-move="-1,0">←</button><button data-move="1,0">→</button>
-        <button data-turn>TURN (T)</button>
-        <button data-clear>CLEAR</button>
-      </div>
-      <div class="row" id="tokens"></div>
-      <div id="orders"></div>
+      <h2>OUR WATERS</h2>
+      <svg class="board" id="ours" viewBox="0 0 350 350"></svg>
+      <div class="hint" id="ourhelp"></div>
     </div>
+  </section>
+  <section style="display:grid;gap:12px">
     <div class="panel">
       <h2>THE FLEET OFFICER'S CODEBOOK</h2>
       <div class="hint" style="margin-bottom:6px">Read each flag by its place in the hoist. The runes, in order, load the special.</div>
@@ -88,7 +88,7 @@
   </section>
 </main>
 <div class="depts" id="depts"></div>
-<div id="over" class="hidden"><div class="card"><h2 id="overtitle">THE FLEET IS LOST</h2><p id="overtext" class="hint"></p><button id="again" class="on">NEW BATTLE</button></div></div>
-<script type="module" src="src/seawar-ui.js"></script>
+<div id="over" class="hidden"><div class="card"><h2>THE FLEET IS LOST</h2><p id="overtext" class="hint"></p><button id="again" class="on">NEW BATTLE</button></div></div>
+<script type="module" src="src/salvo-ui.js"></script>
 </body>
 </html>
