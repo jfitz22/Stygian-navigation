@@ -1,6 +1,6 @@
 # The Last Watch
 
-**Revision 15 — review branch.** Based on Revision 14; not approved for live deployment. See [revision notes and checks](docs/revision-15.md).
+**Revision 15.** The approved art pass, the succubus posters and the alarm lights. See [revision notes and checks](docs/revision-15.md).
 
 ![The Last Watch, mid-game](docs/screenshot.png)
 

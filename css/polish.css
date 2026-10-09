@@ -1,6 +1,6 @@
 /* Revision 15 material treatment; Revision 14 layout and game geometry retained. */
 body{--brass:#8f9b87;--brass-hi:#e1dfc9;--brass-dk:#53604f;--engrave:#dadfcf;--dim:#b1bdae;--edge:#64725e;--ink:#e3e8d7;--phos:#a9d4ad;--amber:#e3bc78;--threat:#ef9985}
-body .panel{background-image:linear-gradient(120deg,#15211eee,#1b2623eb),url('../assets/metal.png');background-size:100% 100%,200% 100%;background-position:0 0,0 50%;border:2px solid #59665a;border-top-color:#7b8977;border-radius:10px;box-shadow:inset 0 0 0 2px #0b1712,inset 0 2px 7px #bac8a916,0 6px 9px #0009}
+body .panel{background-image:linear-gradient(120deg,#15211eee,#1b2623eb),url('../assets/metal.jpg');background-size:100% 100%,200% 100%;background-position:0 0,0 50%;border:2px solid #59665a;border-top-color:#7b8977;border-radius:10px;box-shadow:inset 0 0 0 2px #0b1712,inset 0 2px 7px #bac8a916,0 6px 9px #0009}
 .operator #stage,.operator #deck,.operator #side{background:radial-gradient(ellipse at 20% 70%,#3c493d44,transparent 60%),repeating-linear-gradient(90deg,#ffffff03 0 1px,transparent 2px 6px),linear-gradient(#18251f,#0d1914)}
 body .panel h2{font-family:Georgia,serif;font-size:15px;letter-spacing:1.2px;font-weight:bold;background:linear-gradient(115deg,#879785,#d2d9c4 32%,#a5b49a 70%,#798b75);color:#112218;text-shadow:0 1px #ffffff60;border:1px solid #70816a;border-top-color:#e3e7cf;border-bottom:2px solid #40513e;border-radius:3px;padding:2px 18px;box-shadow:0 2px 1px #09170c,0 4px 5px #0008;width:max-content;max-width:calc(100% - 35px);line-height:19px}
 body .panel h2 small{font:10px 'IBM Plex Mono',monospace;letter-spacing:0;color:#233829}body .panel h2:before,body .panel h2:after{content:'';position:absolute;top:8px;width:5px;height:5px;border-radius:50%;background:linear-gradient(135deg,#e3e8cd 35%,#31452e 40%,#31452e 55%,#b1bfa1 60%);box-shadow:0 1px 1px #000}body .panel h2:before{left:5px}body .panel h2:after{right:5px}
@@ -26,8 +26,8 @@ body input[type=range]{appearance:none;height:8px;background:#0a1d10;border:2px 
 body .no-motion{animation:none!important}.operator #p-cams .hint{font-size:11px;line-height:1.3}.operator #camopenhint{font-size:11px;line-height:1.3}
 
 /* Uploaded material pass: original PNGs rendered without destructive image edits. */
-body .panel{background:linear-gradient(#0002,#0005),url('../assets/materials.png') left center/200% 100%;border-color:#55594f;box-shadow:inset 0 0 0 2px #101714,inset 0 2px 6px #b7bba02b,0 5px 9px #000a}
-.operator #stage,.operator #deck,.operator #side,.officer{background:#1c201e url('../assets/materials.png') right center/200% 100%}
+body .panel{background:linear-gradient(#0002,#0005),url('../assets/materials.jpg') left center/200% 100%;border-color:#55594f;box-shadow:inset 0 0 0 2px #101714,inset 0 2px 6px #b7bba02b,0 5px 9px #000a}
+.operator #stage,.operator #deck,.operator #side,.officer{background:#1c201e url('../assets/materials.jpg') right center/200% 100%}
 body .panel h2,body .plate{background:transparent url('../assets/plate.png') center/108% 248% no-repeat;border:0;border-radius:0;box-shadow:none;color:#24251f;text-shadow:0 1px #fff7;padding:5px 28px;line-height:20px;min-height:30px}
 body .panel h2:before,body .panel h2:after{display:none}body .panel h2 small,body .plate span{color:#33372f}
 body .brune,body .rune,body #plates button,body .turnbtn{background:#111713 url('../assets/cap.png') center/150% 150% no-repeat;border:2px solid #111b16;border-radius:9px;box-shadow:0 0 0 2px #303b32,0 3px 5px #000a;color:#f1e6c8;text-shadow:0 1px 3px #000}
@@ -36,7 +36,7 @@ body #boardpad{background:#11191499;border-color:#4a5548}body #chute2 i{backgrou
 
 
 
-body .paper,body .jnote{background:#dfdacb url('../assets/paper.png') center/500px;color:#292f29}
+body .paper,body .jnote{background:#dfdacb url('../assets/paper.jpg') center/500px;color:#292f29}
 
 
 /* Grate sits in front of the live fire without blocking input. */

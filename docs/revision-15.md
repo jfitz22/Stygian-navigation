@@ -32,3 +32,12 @@ Run `python -m http.server 8772 --bind 127.0.0.1` from this checkout, then open 
 Banner images are original supplied PNGs, loaded on demand, approximately 3 MB each. A first roll on a slow connection may show the curtain backing before the image finishes loading. Save timers use wall-clock time: ordinary curtains expire while closed; sticky curtains remain until pulled. Defence timers continue during the distraction, as in the existing game.
 
 The regression and browser checks are evidence of compatibility, not a guarantee for every browser/device. No production deployment or merge is part of this revision.
+
+## Follow-up (review fixes)
+
+- Posters: cords appear and work after 3 s (the host refuses earlier pulls); the rest lift 5 s after the press; four stay down every time, up to two on connected officers' primary boards and the rest on the operator (all four on the operator when nobody is connected). The cabin's Fleet Command can be one of them.
+- ALARM blinks the cabin lights red for 7 s, then restores the lighting that was set.
+- The Iron rune square that read DEVIL now reads SUCCUBUS (same position, so saved boards still work); the manual's rune table is rewritten in the in-world voice.
+- The 15 covers and the opaque textures (fog, materials, metal, paper) are JPEGs: 51.6 MB down to 6.9 MB.
+- Jerry's notes and the deploy card hide while a poster covers the panel beneath them.
+- Removed the unused devil animation, `succubus.js` and their CSS.

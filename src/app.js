@@ -17,6 +17,7 @@ import { openLink, newRoomCode, cleanCode, NET_ENABLED } from './link.js';
 import { checkPassword, keyboardOnly, WRONG_TRIES, LAYERS, layerOf, maskPassword } from './password.js';
 import { sealInput, shuttered, artifactText } from './sim.js';
 import { createBannerUI } from './banner-ui.js';
+import { OPERATOR_PANELS } from './banners.js';
 
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -1126,6 +1127,7 @@ function drawShutters() {
 }
 
 // ---------- the two silly runes ----------
+const ALARM_BLINK_MS = 7000;
 const fxCv = $('fx'), fxCtx = fxCv.getContext('2d');
 let fx = null;
 function confetti() {
@@ -1151,60 +1153,6 @@ function drawFx(now) {
   fxCtx.globalAlpha = 1;
   requestAnimationFrame(drawFx);
 }
-const DEVIL_SVG = `<svg viewBox="0 0 150 210" xmlns="http://www.w3.org/2000/svg"><g transform="translate(0,20)">
-  <path d="M100 150 Q140 150 132 118 Q128 104 140 98 L136 112 L126 104" fill="none" stroke="#c4221a" stroke-width="5" stroke-linecap="round"/>
-  <path d="M126 98 L144 94 L136 110 Z" fill="#c4221a"/>
-  <line x1="30" y1="40" x2="22" y2="182" stroke="#3a2a1a" stroke-width="5"/>
-  <path d="M18 36 L18 18 M30 34 L30 10 M42 36 L42 18 M18 36 Q30 44 42 36" fill="none" stroke="#9a9a9a" stroke-width="4" stroke-linecap="round"/>
-  <ellipse cx="78" cy="122" rx="30" ry="36" fill="#d8291f"/>
-  <path d="M58 150 L52 178 L64 178 M98 150 L104 178 L92 178" fill="none" stroke="#d8291f" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M52 108 L32 86 M104 108 L126 82" stroke="#d8291f" stroke-width="8" stroke-linecap="round"/>
-  <circle cx="78" cy="66" r="30" fill="#e0342a"/>
-  <path d="M52 50 Q40 32 50 20 Q52 36 60 44 Z M104 50 Q116 32 106 20 Q104 36 96 44 Z" fill="#f0e6d0"/>
-  <g transform="rotate(-8 78 36)">
-    <rect x="58" y="34" width="40" height="6" rx="2" fill="#111"/>
-    <rect x="64" y="2" width="28" height="34" rx="2" fill="#151515"/>
-    <rect x="64" y="26" width="28" height="5" fill="#8a1a14"/>
-  </g>
-  <path d="M62 60 L72 64 M94 60 L84 64" stroke="#2a0a08" stroke-width="3" stroke-linecap="round"/>
-  <circle cx="68" cy="68" r="3.5" fill="#ffe14a"/><circle cx="88" cy="68" r="3.5" fill="#ffe14a"/>
-  <path d="M64 80 Q78 94 92 80 Q78 86 64 80 Z" fill="#2a0a08"/>
-  <path d="M74 92 Q78 104 82 92" fill="#3a0e0a"/>
-</g></svg>`;
-// He dances on the chart, the orb, the sonar, the radio and the scanner at once.
-const DEVIL_SPOTS = () => [
-  [document.querySelector('#p-map .screen.chart'), null],
-  [$('camscreen'), null],
-  [document.querySelector('#p-sonar .screen.round'), null],
-  [$('radiocanvas').parentElement, null],
-  [$('p-scan'), { left: 14, top: 46, width: 200, height: 130 }],
-];
-const DEVIL_TIME = 5000;
-let devilTimer = null;
-function devil() {
-  clearTimeout(devilTimer);
-  document.querySelectorAll('.devil').forEach(d => d.remove());
-  audio.sfx.jig(); setTimeout(() => audio.sfx.jig(), 2720);
-  for (const [el, box] of DEVIL_SPOTS()) {
-    if (!el) continue;
-    const bw = box ? box.width : el.clientWidth, bh = box ? box.height : el.clientHeight;
-    const h = Math.min(bh * 0.9, 220), w = h * 150 / 210;
-    const d = document.createElement('div'); d.className = 'devil';
-    Object.assign(d.style, { width: w + 'px', height: h + 'px', left: ((box ? box.left : 0) + bw / 2 - w / 2) + 'px', top: ((box ? box.top : 0) + bh / 2 - h / 2) + 'px' });
-    d.innerHTML = DEVIL_SVG; d.firstElementChild.style.animationDelay = (-Math.random() * 0.36).toFixed(2) + 's';
-    el.appendChild(d);
-  }
-  devilTimer = setTimeout(() => {
-    audio.sfx.puff();
-    document.querySelectorAll('.devil').forEach(d => {
-      d.classList.add('puff');
-      const W = parseFloat(d.style.width), H = parseFloat(d.style.height);
-      for (let i = 0; i < 6; i++) { const sm = document.createElement('div'); sm.className = 'smoke'; const r = W * (0.2 + Math.random() * 0.15); Object.assign(sm.style, { width: r + 'px', height: r + 'px', left: (W / 2 - r / 2 + (Math.random() - 0.5) * W * 0.5) + 'px', top: (H / 2 - r / 2 + (Math.random() - 0.5) * H * 0.4) + 'px' }); d.appendChild(sm); }
-    });
-    devilTimer = setTimeout(() => document.querySelectorAll('.devil').forEach(d => d.remove()), 750);
-  }, DEVIL_TIME - 100);
-}
-
 // ---------- ending cutscene ----------
 let cut = null;
 function startCutscene() { cut = { t0: performance.now() }; $('cutscene').classList.remove('hidden'); audio.sfx.sharkhunt(); }
@@ -1358,7 +1306,9 @@ function drawPower() {
   document.querySelectorAll('#main .screen canvas, #main canvas').forEach(c => { c.style.filter = fa > 0.3 ? `blur(${((fa - 0.3) * 1.6).toFixed(2)}px)` : ''; });
   $('main').style.transform = fa > 0.5 ? `translate(${Math.sin(world.t * 0.7) * (fa - 0.5) * 8}px, ${Math.sin(world.t * 0.53) * (fa - 0.5) * 5}px)` : '';
   if (fa > 0.65 && !$('blink').classList.contains('shut') && Math.random() < (fa - 0.6) * 0.012) { $('blink').classList.add('shut'); setTimeout(() => $('blink').classList.remove('shut'), 260 + fa * 300); }
-  $('stage').classList.toggle('redlamp', world.lamps === 1); $('stage').classList.toggle('greenlamp', world.lamps === 2);
+  // the ALARM rune blinks the cabin lights red for a few seconds, then they go back to how they were set
+  const alarm = performance.now() < (ui.alarmUntil || 0), blink = alarm && Math.floor(performance.now() / 350) % 2 === 0;
+  $('stage').classList.toggle('redlamp', alarm ? blink : world.lamps === 1); $('stage').classList.toggle('greenlamp', !blink && world.lamps === 2);
   $('clock').textContent = fmt(world.t);
   $('btn-buoy').classList.toggle('armed', ui.buoyMode);
 }
@@ -1443,7 +1393,7 @@ function handleEvents() {
       case 'sip': audio.sfx.click(); break;
       case 'cabinradio': audio.setMusic(e.on); toast(e.on ? 'THE CABIN RADIO IS PLAYING · ITS STATIONS ARE ON THE BAND' : 'THE CABIN RADIO IS OFF', 'info'); break;
       case 'lights': audio.sfx.lamps(); toast(['CABIN LIGHTS NORMAL', 'EMERGENCY LIGHTING · RED', 'NIGHT LIGHTING · GREEN'][e.mode], e.mode ? '' : 'info'); break;
-      case 'alarm': audio.sfx.alarm(); break;
+      case 'alarm': audio.sfx.alarm(); ui.alarmUntil = performance.now() + ALARM_BLINK_MS; break;
       case 'coolant': audio.sfx.coolant(); toast('COOLANT FLOODS THE ORB HOUSINGS · EVERY ORB IS COLD', 'info'); break;
       case 'purge': audio.sfx.purge(); toast(e.n ? `FUEL CHUTE PURGED · ${e.n} SHOVEL${e.n > 1 ? 'S' : ''} LOST` : 'FUEL CHUTE PURGED · IT WAS EMPTY ANYWAY'); break;
       case 'shutter': audio.sfx.shutter(); toast(`SHUTTERS DOWN OVER THE SONAR AND THE ORBS · ${T.shutterTime} S`); break;
@@ -1456,7 +1406,6 @@ function handleEvents() {
       case 'unsealed': if (ui.sealKey !== 'confirm') ui.sealKey = ''; break;
       case 'reboot': audio.sfx.reboot(); wire('FIVE WRONG PASSWORDS · THE SYSTEM HAS REBOOTED · THE PASSWORD IS BACK TO THE FACTORY DEFAULT'); break;
       case 'confetti': confetti(); break;
-      case 'devil': break;
       case 'telemetry': audio.sfx.lock(); toast(`BEACON TELEMETRY FROM #${e.num} · LIVE POSITION AND DRIFT`, 'info'); break;
       case 'spark': audio.sfx.spark(); break;
       case 'win': audio.sfx.win(); look(false); startCutscene(); break;
@@ -1601,9 +1550,19 @@ function simTick() {
 }
 setInterval(simTick, 100);
 const banners = createBannerUI('operator', (eventId, key) => stationAction(world, 'operator', { act: 'banner-dismiss', eventId, key }));
+// Jerry's notes and the deploy card sit above the panels: tuck away any that would show through a poster.
+function hideUnderPosters() {
+  const rects = OPERATOR_PANELS.filter(k => banners.covered(k)).map(k => $(k).getBoundingClientRect());
+  for (const el of [...document.querySelectorAll('.jnote'), $('deploybanner')]) {
+    let under = false;
+    if (rects.length) { const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; under = rects.some(p => x > p.left && x < p.right && y > p.top && y < p.bottom); }
+    if (el.classList.contains('underposter') !== under) el.classList.toggle('underposter', under);
+  }
+}
 function frame(now) {
   banners.update(world.bannerEvent, Date.now());
   if (banners.covered('p-cams')) setCamTurn(world, 0);
+  hideUnderPosters();
   simTick();
   handleEvents();
   drawMap(); drawCamera(); drawCurrents(); drawSonar(); drawEcho(); drawRadio(); drawScanner(); drawLock(); drawPower(); drawBoard(); drawRepairBay(); drawCamCtl(); drawCases(); drawCut(now); $('pausecard').classList.toggle('hidden', !world.paused); $('pausebtn').textContent = world.paused ? '▶ RESUME' : '❚❚ PAUSE'; drawTicker(Math.min(0.1, (now - (frame.prev || now)) / 1000)); frame.prev = now;

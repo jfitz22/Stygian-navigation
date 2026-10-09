@@ -7,3 +7,6 @@ body .curtain-pull{position:absolute;top:12px;right:14px;width:66px;height:130px
 .curtain-pull .rope{position:absolute;top:0;bottom:32px;left:31px;width:5px;background:repeating-linear-gradient(30deg,#e2c98d 0 3px,#8a704b 3px 5px);box-shadow:2px 1px 2px #000}
 .curtain-pull .pull-handle{position:absolute;bottom:0;left:0;right:0;padding:10px 3px;border:2px solid #483c28;border-radius:9px;background:linear-gradient(#f4e0a5,#ab8a48);font:bold 12px system-ui;box-shadow:0 3px 4px #000a}
 .waiting .pull-handle{outline:3px solid #edca80;outline-offset:3px}body .curtain-pull:focus-visible{outline:3px solid white;outline-offset:3px}body.asset-off .plate-art{display:none}
+
+.cordless .curtain-pull{visibility:hidden;pointer-events:none}
+.underposter{visibility:hidden}

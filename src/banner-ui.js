@@ -1,5 +1,5 @@
 import { BANNER_CATALOG } from './banner-catalog.js';
-import { OPERATOR_PANELS, DROP_MS, HOLD_MS, LIFT_MS, bannerEnd } from './banners.js';
+import { OPERATOR_PANELS, DROP_MS, HOLD_MS, LIFT_MS, CORD_MS, bannerEnd } from './banners.js';
 
 // Host timestamps drive all views. A snapshot refresh never restarts the animation.
 export function createBannerUI(role, dismiss) {
@@ -49,7 +49,7 @@ export function createBannerUI(role, dismiss) {
         if (getComputedStyle(target).position === 'static') target.style.position = 'relative';
         const lock = () => { for (const el of target.children) { if (el === cover || layer.inert.has(el)) continue; layer.inert.set(el, el.inert); el.inert = true; } };
         lock(); layer.observer = new MutationObserver(lock); layer.observer.observe(target, { childList: true }); target.append(cover); layers.set(key, layer);
-        cover.querySelector('button').onclick = e => { e.preventDefault(); e.stopPropagation(); layer.pending = true; layer.sentAt = now; dismiss(event.id, key); };
+        cover.querySelector('button').onclick = e => { e.preventDefault(); e.stopPropagation(); if (layer.cover.classList.contains('cordless')) return; layer.pending = true; layer.sentAt = now; dismiss(event.id, key); };
         for (const type of ['pointerdown', 'pointerup', 'click']) cover.addEventListener(type, e => e.stopPropagation());
       }
       // Retry a lost relay command until the host acknowledges it in a snapshot.
@@ -60,6 +60,7 @@ export function createBannerUI(role, dismiss) {
       if (reduced) drop = now >= end ? 0 : 1;
       layer.cover.style.setProperty('--drop', Math.max(0, drop));
       layer.cover.classList.toggle('waiting', panel.sticky && age > DROP_MS + HOLD_MS);
+      layer.cover.classList.toggle('cordless', age < CORD_MS);
     }
   } };
 }
