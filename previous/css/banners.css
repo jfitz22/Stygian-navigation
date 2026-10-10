@@ -1,0 +1,12 @@
+.study-curtain{position:absolute;inset:0;z-index:90;overflow:hidden;border-radius:inherit;pointer-events:auto;touch-action:none;isolation:isolate}.curtain-cloth{position:absolute;inset:0;background:linear-gradient(90deg,#312f24,#5b5340 50%,#272b21);clip-path:inset(0 0 calc((1 - var(--drop,0))*100%) 0);box-shadow:inset 0 0 25px #0008}.curtain-cloth img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}.curtain-cloth:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,#0003,transparent 9%,transparent 90%,#0004);pointer-events:none}.curtain-hem{position:absolute;left:0;right:0;top:calc(var(--drop,0)*100% - 9px);height:9px;background:linear-gradient(#d0bd8b,#72603a 40%,#b5a06b 65%,#574c30);box-shadow:0 4px 5px #0009;z-index:2}.curtain-roller{position:absolute;left:0;right:0;top:0;height:15px;background:linear-gradient(#364738,#a2ad88 30%,#53664a 55%,#172d1e);border:2px solid #263b27;border-radius:4px;box-shadow:0 4px 6px #0008;z-index:3}.curtain-cord{position:absolute;right:7px;top:12px;width:3px;height:calc(32px + var(--tug,0px));background:#cabc92;box-shadow:1px 1px 2px #000;z-index:4}.curtain-cord:after{content:'';position:absolute;bottom:-10px;left:-4px;width:11px;height:16px;background:linear-gradient(90deg,#7c683f,#cbb17a,#796641);border-radius:50%}
+
+body.asset-off .fleet-art{display:none}
+
+.curtain-greeting{position:absolute;left:15px;top:25px;padding:7px 12px;background:#e8debb;color:#28251f;font:italic bold 22px Georgia;box-shadow:0 2px 5px #0007;z-index:3}.curtain-greeting span{color:#b92035}
+body .curtain-pull{position:absolute;top:12px;right:14px;width:66px;height:130px;border:0;background:transparent;box-shadow:none;z-index:5;padding:0;cursor:pointer;touch-action:manipulation;color:#211c13}
+.curtain-pull .rope{position:absolute;top:0;bottom:32px;left:31px;width:5px;background:repeating-linear-gradient(30deg,#e2c98d 0 3px,#8a704b 3px 5px);box-shadow:2px 1px 2px #000}
+.curtain-pull .pull-handle{position:absolute;bottom:0;left:0;right:0;padding:10px 3px;border:2px solid #483c28;border-radius:9px;background:linear-gradient(#f4e0a5,#ab8a48);font:bold 12px system-ui;box-shadow:0 3px 4px #000a}
+.waiting .pull-handle{outline:3px solid #edca80;outline-offset:3px}body .curtain-pull:focus-visible{outline:3px solid white;outline-offset:3px}body.asset-off .plate-art{display:none}
+
+.cordless .curtain-pull{visibility:hidden;pointer-events:none}
+.underposter{visibility:hidden}

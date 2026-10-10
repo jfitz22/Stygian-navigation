@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Last Watch GM</title>
+<style>
+  :root { --bg: #101316; --fg: #e6dcc0; --dim: #8a8f86; --brass: #b08d57; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px 'IBM Plex Mono', ui-monospace, monospace; }
+  header { padding: 10px 16px; border-bottom: 1px solid #333; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 16px; margin: 0; letter-spacing: 2px; color: var(--brass); }
+  #status { color: var(--dim); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 12px; padding: 12px; }
+  canvas { width: 100%; height: auto; background: #0d1b22; border: 1px solid #333; }
+  aside { display: flex; flex-direction: column; gap: 10px; }
+  button { background: #1d2228; color: var(--fg); border: 1px solid var(--brass); padding: 8px; font: inherit; cursor: pointer; border-radius: 3px; }
+  input { background: #0a0c0e; color: var(--fg); border: 1px solid #444; font: inherit; padding: 7px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  textarea { width: 100%; height: 60px; background: #0a0c0e; color: var(--fg); border: 1px solid #444; font: inherit; box-sizing: border-box; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  td, th { padding: 3px 4px; border-bottom: 1px solid #222; text-align: left; }
+  .el { color: #5cff9d; font-weight: 600; }
+  .box { border: 1px solid #333; padding: 8px; font-size: 12px; line-height: 1.5; }
+  .box b { color: var(--brass); }
+  .tools { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  .tools button.on { background: var(--brass); color: #000; }
+  .lev { display: grid; grid-template-columns: 1fr 56px; gap: 2px 8px; align-items: center; font-size: 12px; margin-bottom: 6px; }
+  .lev > span:first-child { grid-column: 1 / 3; color: var(--dim); cursor: default; user-select: none; }
+  .lev input { width: 100%; height: 24px; padding: 0; accent-color: var(--brass); }
+  .lev .val { text-align: right; color: var(--brass); }
+  #map.dragging { cursor: grabbing; }
+  .row2 { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+  #gate { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; z-index: 9; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div id="gate">
+  <div>GM ONLY · open this on your own screen, not the stream</div>
+  <input id="pw" placeholder="passphrase">
+  <button id="enter">ENTER</button>
+  <div style="color:var(--dim);font-size:12px">Default passphrase: geryon (change it in gm.html)</div>
+</div>
+<header><h1>THE LAST WATCH · GM TRUTH VIEW</h1><span id="netbox" style="display:none">GAME CODE <input id="room" maxlength="4" size="5" style="text-transform:uppercase;letter-spacing:3px;width:70px"> <button id="joinroom">CONNECT</button> <span id="netstat"></span></span><a href="books.html" target="_blank" style="color:var(--brass)">the three books</a> <a href="books.html?book=all" target="_blank" style="color:var(--brass)">GM copy</a><span id="status">waiting for the game tab...</span></header>
+<main>
+  <div>
+    <div class="tools"><b style="align-self:center;color:var(--brass)">CLICK THE MAP TO:</b>
+      <button data-tool="">look only</button><button data-tool="place-elgarz">place / move Elgarz</button><button data-tool="storm">drop a storm</button><button data-tool="shark-to">send the Grindmaw</button><button data-tool="tom-to">send Old Tom</button><span style="color:var(--dim);font-size:12px;align-self:center">· or drag any ice to move it</span><span style="margin-left:12px">zoom</span><button id="zout">−</button><button id="zin">+</button>
+    </div>
+    <canvas id="map" width="900" height="900"></canvas>
+  </div>
+  <aside>
+    <div class="box" id="elgarz">Elgarz: waiting...</div>
+    <div class="grid">
+      <button data-cmd="pause">Pause / resume</button>
+      <button data-cmd="stoke">Refuel furnace</button>
+      <button data-cmd="repair">Repair everything</button>
+      <button data-cmd="restock">Refill all beacons</button>
+      <button data-cmd="shark-home">Send both hunters away</button>
+      <button data-cmd="wake-tom">Wake Old Tom now</button>
+      <button data-cmd="calibrate">Calibrate scanner</button>
+      <button data-cmd="spawn">Bring Elgarz in now</button>
+      <button data-cmd="win">Force win</button>
+      <button data-cmd="clear-storms">Clear storms</button>
+      <button data-cmd="flip">Flip the rune board</button>
+      <button data-cmd="coffee">Fresh coffee</button>
+      <button data-cmd="camunlock">Unlock the orb on screen</button>
+    </div>
+    <div class="box"><b>PASSWORD LOCK</b> <span id="pwtruth" style="color:var(--dim)"></span>
+      <div class="grid" style="margin-top:6px">
+        <button data-cmd="seal">Ask for the password</button>
+        <button data-cmd="lockdown">Lockdown (descend a layer)</button>
+        <button data-cmd="unseal">Unlock now</button>
+        <button data-cmd="lights-normal">Lights back to normal</button>
+        <button data-cmd="shutter-up">Raise the shutters</button>
+      </div>
+    </div>
+    <div class="box"><b>OFFICERS' STATIONS</b> <span id="stationinfo" style="color:var(--dim)"></span>
+      <div class="grid" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr 1fr">
+        <button data-defence="gunnery">Gunnery: devil fire</button>
+        <button data-defence="signals">Signals: the cable</button>
+        <button data-defence="engineer">Engineering: the stokehold</button>
+        <button data-defence="fleet">Fleet Officer: depth charges</button>
+        <button data-cmd="fleet-auto">Deploy the fleet for them</button>
+        <label style="grid-column:2 / -1;display:flex;gap:6px;align-items:center">Time between salvos <input id="salvosecs" type="number" min="20" max="300" step="5" value="70" style="width:70px"> s <button id="setsalvo">Set</button></label>
+        <button data-cmd="rehearse" style="grid-column:1 / -1">Rehearsal: every station's event, one after another (connected stations only)</button>
+      </div>
+    </div>
+    <div class="box"><b>THE FLEET</b> <span style="color:var(--dim)">(the naval battle; nobody else sees these buttons)</span>
+      <div class="grid" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr">
+        <button data-cmd="fleet-load">Load every special</button>
+        <button data-cmd="fleet-relaunch">Relaunch our sunk ships</button>
+        <button data-cmd="fleet-enemyscan">Enemy radar sweep (sounds our water)</button>
+        <label style="display:flex;gap:6px;align-items:center;grid-column:1 / 3">Land a hit on <select id="hitside"><option value="ours">OURS</option><option value="theirs">THEIRS</option></select><select id="hitship"></select><button id="landhit">Hit</button></label>
+        <button data-cmd="fleet-regroup">Enemy falls back · new fleet in 90 s</button>
+        <button data-cmd="clearance">Grant the green beacon's clearance</button>
+      </div>
+      <div id="fleetgm" style="margin-top:6px;color:var(--dim);font-size:12px"></div>
+    </div>
+    <div class="box"><b>INFERNAL ARTIFACTS</b> <span style="color:var(--dim)">(name them before the session; the first metal glacier scanned gets the first)</span>
+      <div id="arts" style="margin-top:6px"></div>
+      <button id="setarts" style="margin-top:6px">Use these names</button>
+    </div>
+    <div class="box"><b>BREAK SOMETHING</b> <span style="color:var(--dim)">(the owner's flowchart fixes it)</span>
+      <div class="grid" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr">
+        <button data-break="furnace">Furnace grate</button>
+        <button data-break="fuse">Radio receiver</button>
+        <button data-break="scanner">Metal scanner</button>
+        <button data-break="winch">Buoy winch</button>
+        <button data-break="sonarhead">Sonar head</button>
+        <button data-break="launcher">Launcher</button>
+        <button data-break="cam">Orb on screen</button>
+        <button data-damper="low">Damper LOW</button>
+        <button data-damper="normal">Damper NORMAL</button>
+      </div>
+    </div>
+    <div class="box"><b>RUNE EFFECTS</b> <span style="color:var(--dim)">(fire any of them now)</span>
+      <div class="grid" title="SUCCUBUS rolls two banner covers. Most lift automatically; pull the cord on those that stay." id="runebtns" style="margin-top:6px;grid-template-columns:1fr 1fr 1fr"></div>
+    </div>
+    <div class="box"><b>LEVERS</b> (1 = as designed)<div id="levers"></div></div>
+    <div class="grid">
+      <input id="seed" placeholder="seed (blank = new)">
+      <button id="reset">Reset game</button>
+    </div>
+    <div class="box" id="tools"></div>
+    <div>Send a note down the pneumatic tube:</div>
+    <div class="grid">
+      <button data-note="The old sentries swore Coldsteel's bones are iron and its halls ring even and true.">Hint: halls and iron</button>
+      <button data-note="The big ones ride the deep water, officer. Read the deep current near your target.">Hint: deep current</button>
+      <button data-note="Every ping calls the Grindmaw to the spot. Ping, then move the buoy.">Hint: shark</button>
+      <button data-note="Kill the cabin music before you trust anything you hear on the wireless.">Hint: music lies</button>
+      <button data-note="Elgarz will not go near the Tomb of Levistus. Watch what turns away from it.">Hint: the Tomb</button>
+      <button data-note="Feed the fire, officer, but not too much. Two shovels, never three.">Hint: furnace</button>
+    </div>
+    <textarea id="custom" placeholder="Write your own note..."></textarea>
+    <div class="row2"><label><input type="radio" name="dest" value="note" checked> pneumatic tube note (rotates round the chart corners)</label></div>
+    <div class="row2"><label><input type="radio" name="dest" value="ticker"> wire service (both strips: it rolls in next)</label> <label><input type="checkbox" id="wirered"> in red</label></div>
+    <div class="row2"><label><input type="radio" name="dest" value="handout"> handwritten note stuck on</label>
+      <select id="handoutAt"><option value="chart">the chart</option><option value="orbs">the scrying orbs</option><option value="orbctl">orb control</option><option value="sonar">the sonar</option><option value="currents">currents &amp; wind</option><option value="furnace">the furnace</option><option value="scanner">the scanner</option><option value="radio">the radio (deck)</option><option value="runes">the rune board (deck)</option><option value="launcher">the launcher (deck)</option><option value="case">the case board (deck)</option></select></div>
+    <button id="sendnote">Send</button>
+    <table id="roster"></table>
+  </aside>
+</main>
+<script type="module">
+import { RUNES } from './src/glyphs.js';
+import { LAYERS, layerOf } from './src/password.js';
+import { MAP, CENTER, REACH, GRID, CELL, TOMB_RADIUS, TUNING as T } from './src/scenario.js';
+const PASS = 'geryon';
+const gate = document.getElementById('gate');
+document.getElementById('enter').onclick = () => { if (document.getElementById('pw').value.trim().toLowerCase() === PASS) gate.remove(); };
+document.getElementById('pw').onkeydown = e => { if (e.key === 'Enter') document.getElementById('enter').click(); };
+
+// The link to the game: same computer, or another computer via the code on the game's top bar.
+const { openLink, cleanCode, NET_ENABLED } = await import('./src/link.js');
+let lastSnapAt = 0;
+const ch = openLink(m => { if (m.snap) { const was = Date.now() - lastSnapAt < 4000; lastSnapAt = Date.now(); onSnap(m.snap); if (!was) showNet(); } }, s => { netState = s; showNet(); });
+let netState = NET_ENABLED ? 'idle' : 'LOCAL';
+const showNet = () => {
+  const live = Date.now() - lastSnapAt < 4000;
+  const bad = /[0O1IL]/.test(ch.room || '');
+  document.getElementById('netstat').innerHTML = !ch.room ? 'enter the code from the game' : bad ? '<span style="color:#ff8a7a">● codes never use 0, O, 1, I or L: check the code</span>' : live ? '<b style="color:#5cff9d">● linked to the game</b>' : netState === 'SUBSCRIBED' ? '<span style="color:#ffb347">● waiting for the game: check the code, and that the game page is open</span>' : '<span style="color:#ff8a7a">● ' + netState.toLowerCase() + '</span>';
+};
+if (NET_ENABLED) {
+  document.getElementById('netbox').style.display = '';
+  const saved = (() => { try { return localStorage.getItem('lastwatch-gm-room'); } catch (e) { return ''; } })();
+  const join = () => { const c = cleanCode(document.getElementById('room').value); document.getElementById('room').value = c; try { localStorage.setItem('lastwatch-gm-room', c); } catch (e) { } ch.join(c); showNet(); };
+  document.getElementById('joinroom').onclick = join;
+  document.getElementById('room').onkeydown = e => { if (e.key === 'Enter') join(); };
+  if (saved) { document.getElementById('room').value = saved; join(); }
+  setInterval(() => { ch.send({ hello: true }); showNet(); }, 3000);
+}
+ch.postMessage = msg => ch.send(msg);
+const RUNES_GM = ['FUEL', 'COFFEE', 'COOLANT', 'DECOY', 'LAUNCH', 'PURGE', 'SHUTTER', 'LOCKDOWN', 'LIGHTS', 'RADIO', 'ALARM', 'CONFETTI', 'SUCCUBUS'];
+document.getElementById('runebtns').innerHTML = RUNES_GM.map(f => `<button data-rune="${f}">${f}</button>`).join('');
+document.querySelectorAll('[data-rune]').forEach(b => b.onclick = () => ch.postMessage({ cmd: 'rune', arg: { fn: b.dataset.rune } }));
+document.querySelectorAll('[data-cmd]').forEach(b => b.onclick = () => ch.postMessage({ cmd: b.dataset.cmd }));
+document.querySelectorAll('[data-break]').forEach(b => b.onclick = () => { const id = b.dataset.break === 'cam' ? lastSnap && lastSnap.activeCam : b.dataset.break; if (id) ch.postMessage({ cmd: 'break', arg: { id } }); });
+// the artifacts: where each one is, whether it is found, and the names (editable)
+let artsKey = '';
+function drawArts(s) {
+  if (!s.artifacts) return;
+  const k = JSON.stringify(s.artifacts.map(a => [a.num, a.found, a.recovered]));
+  if (k === artsKey && document.querySelector('#arts input')) { s.artifacts.forEach((a, i) => { const st = document.getElementById('artst' + i); if (st) st.textContent = artStatus(a); }); return; }
+  artsKey = k;
+  document.getElementById('arts').innerHTML = s.artifacts.map((a, i) => `<div style="display:flex;gap:6px;align-items:center;margin:2px 0"><input data-art="${i}" value="${a.name.replace(/"/g, '&quot;')}" style="flex:1"><span id="artst${i}" style="color:var(--dim);font-size:12px;min-width:190px">${artStatus(a)}</span></div>`).join('');
+}
+const artStatus = a => (a.num != null ? 'in #' + a.num : a.bergId === null ? 'the first metal glacier scanned' : 'unplaced') + (a.recovered ? ' · RECOVERED' : a.found ? ' · found' : '');
+document.getElementById('setarts').onclick = () => ch.postMessage({ cmd: 'artifacts', arg: { names: [...document.querySelectorAll('[data-art]')].map(i => i.value) } });
+document.getElementById('setsalvo').onclick = () => ch.postMessage({ cmd: 'salvo', arg: { secs: Number(document.getElementById('salvosecs').value) } });
+document.querySelectorAll('[data-defence]').forEach(b => b.onclick = () => ch.postMessage({ cmd: 'defence', arg: { role: b.dataset.defence } }));
+// the fleet: which ship to hit
+const OUR_SHIPS = ['THE WARDEN (Fleet Officer, 4)', 'THE LANTERN (Fleet Officer, 2)', 'THE CINDERWAKE (Gunnery, 3)', 'THE GALLOWS (Signals, 3)', 'THE BRIMSTONE (Engineering, 3)'];
+const THEIR_SHIPS = ['THE IRON TITHE (5)', 'THE WAILING SAINT (4)', 'THE BRASS PENITENT (3)', 'THE CINDER WIDOW (3)', 'THE HOLLOW CENSER (2)'];
+const fillShips = () => { const side = document.getElementById('hitside').value; document.getElementById('hitship').innerHTML = '<option value="">any afloat</option>' + (side === 'ours' ? OUR_SHIPS : THEIR_SHIPS).map((n, i) => '<option value="' + i + '">' + n + '</option>').join(''); };
+document.getElementById('hitside').onchange = fillShips; fillShips();
+document.getElementById('landhit').onclick = () => { const v = document.getElementById('hitship').value; ch.postMessage({ cmd: 'fleet-hit', arg: { side: document.getElementById('hitside').value, i: v === '' ? null : Number(v) } }); };
+document.querySelectorAll('[data-damper]').forEach(b => b.onclick = () => ch.postMessage({ cmd: 'damper', arg: { mode: b.dataset.damper } }));
+let tool = '';
+const toolBtns = document.querySelectorAll('[data-tool]');
+toolBtns.forEach(b => b.onclick = () => { tool = b.dataset.tool; toolBtns.forEach(x => x.classList.toggle('on', x === b)); });
+toolBtns[0].classList.add('on');
+// Map: press on any ice and drag it to move it (it moves when you let go). Otherwise a click uses the tool.
+let drag = null, swallowClick = false;
+const mapPoint = e => { const r = cv.getBoundingClientRect(), cx = (e.clientX - r.left) / r.width * cv.width, cy = (e.clientY - r.top) / r.height * cv.height; return { cx, cy, x: (cx - off) / z, y: (cy - off) / z }; };
+document.getElementById('map').addEventListener('mousedown', e => {
+  if (!lastSnap) return; const p = mapPoint(e);
+  let best = null, bd = 10;
+  for (const b of lastSnap.bergs) { const d = Math.hypot(b.x * z + off - p.cx, b.y * z + off - p.cy); if (d < bd) { bd = d; best = b; } }
+  if (best) { e.preventDefault(); drag = { id: best.id, num: best.num, x0: best.x, y0: best.y, x: best.x, y: best.y, moved: false }; cv.classList.add('dragging'); }
+});
+addEventListener('mousemove', e => {
+  if (!drag) return; const p = mapPoint(e);
+  if (Math.hypot(p.x - drag.x0, p.y - drag.y0) * z > 3) drag.moved = true;
+  drag.x = Math.max(0, Math.min(MAP, p.x)); drag.y = Math.max(0, Math.min(MAP, p.y)); draw(lastSnap);
+});
+addEventListener('mouseup', () => {
+  if (!drag) return;
+  if (drag.moved) { ch.postMessage({ cmd: 'move-berg', arg: { id: drag.id, x: drag.x, y: drag.y } }); swallowClick = true; }
+  drag = null; cv.classList.remove('dragging'); if (lastSnap) draw(lastSnap);
+});
+document.getElementById('map').addEventListener('click', e => {
+  if (swallowClick) { swallowClick = false; return; }
+  if (!tool) return;
+  const p = mapPoint(e);
+  ch.postMessage({ cmd: tool, arg: { x: p.x, y: p.y } });
+});
+// Ranges kept narrow and steps fine, so a small nudge is a small change. Double-click a name to put it back to 1×.
+const LEVERS = [['drift', 'World drift speed', 0.25, 2.5], ['tomb', 'Tomb speed', 0.25, 2.5], ['elgarz', 'Elgarz speed', 0.25, 2.5], ['shark', 'Grindmaw speed (and monsters)', 0.5, 3],
+  ['burn', 'Furnace burn rate', 0.25, 2.5], ['remorhaz', 'Remorhaz aggression', 0, 2.5], ['aim', 'Beacon forgiveness', 0.5, 3], ['fatigue', 'Operator fatigue rate', 0, 2.5]];
+document.getElementById('levers').innerHTML = LEVERS.map(([k, label, lo, hi]) => `<div class="lev"><span data-reset="${k}" title="double-click to reset">${label}</span><input type="range" min="${lo}" max="${hi}" step="0.05" value="1" data-lever="${k}"><span class="val" id="lv-${k}">1.00×</span></div>`).join('');
+const sendLever = (k, v) => { document.getElementById('lv-' + k).textContent = Number(v).toFixed(2) + '×'; ch.postMessage({ cmd: 'lever', arg: { name: k, value: Number(v) } }); };
+document.querySelectorAll('[data-lever]').forEach(inp => inp.oninput = () => sendLever(inp.dataset.lever, inp.value));
+document.querySelectorAll('[data-reset]').forEach(el => el.ondblclick = () => { const inp = document.querySelector(`[data-lever=${el.dataset.reset}]`); inp.value = 1; sendLever(el.dataset.reset, 1); });
+document.getElementById('reset').onclick = () => {
+  const seed = Number(document.getElementById('seed').value) || null;
+  if (confirm(seed ? `Reset the game with seed ${seed}?` : 'Reset the game with a new random seed?')) ch.postMessage({ cmd: 'reset', seed });
+};
+document.querySelectorAll('[data-note]').forEach(b => b.onclick = () => { const dest = document.querySelector('[name=dest]:checked').value; ch.postMessage(dest === 'ticker' ? { ticker: b.dataset.note, red: document.getElementById('wirered').checked } : dest === 'handout' ? { handout: { text: b.dataset.note, at: document.getElementById('handoutAt').value } } : { note: b.dataset.note }); });
+document.getElementById('sendnote').onclick = () => {
+  const v = document.getElementById('custom').value.trim(); if (!v) return;
+  const dest = document.querySelector('[name=dest]:checked').value;
+  ch.postMessage(dest === 'ticker' ? { ticker: v, red: document.getElementById('wirered').checked } : dest === 'handout' ? { handout: { text: v, at: document.getElementById('handoutAt').value } } : { note: v });
+};
+
+const cv = document.getElementById('map'), ctx = cv.getContext('2d');
+// zoom out a little to see past the rim; text stays full size
+let zoom = 1, z = cv.width / MAP, off = 0, lastSnap = null;
+function setZoom(k) { zoom = Math.max(0.6, Math.min(1, Math.round(k * 100) / 100)); z = cv.width * zoom / MAP; off = cv.width * (1 - zoom) / 2; if (lastSnap) draw(lastSnap); }
+document.getElementById('zout').onclick = () => setZoom(zoom - 0.1);
+document.getElementById('zin').onclick = () => setZoom(zoom + 0.1);
+cv.addEventListener('wheel', e => { e.preventDefault(); setZoom(zoom + (e.deltaY < 0 ? 0.05 : -0.05)); }, { passive: false });
+const fmt = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+const COLORS = { red: '#ff4b3a', orange: '#ffb347', green: '#5cff9d' };
+const COLS = 'ABCDEFGHIJKL';
+const ref = (x, y) => COLS[Math.max(0, Math.min(11, Math.floor(x / CELL)))] + (Math.max(0, Math.min(11, Math.floor(y / CELL))) + 1);
+const lampName = s => s ? [...s].map(c => ({ R: 'red', W: 'white', B: 'blue' })[c]).join('-') : '';
+function onSnap(s) { lastSnap = s; draw(s); }
+// how many ships of a fleet are still afloat
+const fleetLeft = (ships, shots) => ships.filter(sh => { const cells = []; for (let i = 0; i < sh.len; i++) cells.push(sh.dir === 'h' ? (sh.x + i) + ',' + sh.y : sh.x + ',' + (sh.y + i)); return !cells.every(k => shots[k] === 'hit'); }).length;
+function draw(s) {
+  drawArts(s);
+  document.getElementById('status').textContent = `seed ${s.seed} · watch ${fmt(s.t)}${s.paused ? ' · PAUSED' : ''}${s.won ? ' · ELGARZ MARKED' : ''} · furnace ${s.furnace.lit ? Math.round(s.furnace.heat) + '°' : 'OUT'}, chute ${s.furnace.chute} · fatigue ${Math.round(s.fatigue * 100)}% · beacons red ${s.beacons} orange ${s.orange} green ${s.green} · scanner ${s.calibrated ? 'calibrated' : 'not calibrated'} · music ${s.music ? 'ON' : 'off'}`;
+  document.getElementById('seed').placeholder = `seed (now ${s.seed})`;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#081217'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(1, 0, 0, 1, off, off); ctx.fillStyle = '#0d1b22'; ctx.fillRect(0, 0, MAP * z, MAP * z);
+  ctx.strokeStyle = 'rgba(160,200,200,.08)';
+  for (let i = 0; i <= GRID; i++) { ctx.beginPath(); ctx.moveTo(i * CELL * z, 0); ctx.lineTo(i * CELL * z, MAP * z); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, i * CELL * z); ctx.lineTo(MAP * z, i * CELL * z); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(232,207,152,.6)'; ctx.font = '11px monospace';
+  for (let i = 0; i < GRID; i++) { ctx.fillText(COLS[i], (i + 0.45) * CELL * z, 12); ctx.fillText(String(i + 1), 3, (i + 0.55) * CELL * z); }
+  ctx.strokeStyle = 'rgba(232,207,152,.25)'; ctx.setLineDash([2, 5]); ctx.beginPath(); ctx.arc(CENTER.x * z, CENTER.y * z, REACH * z, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+  for (const sh of s.shoals || []) { ctx.fillStyle = 'rgba(140,110,70,.25)'; ctx.beginPath(); ctx.arc(sh.x * z, sh.y * z, sh.r * z, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(220,195,150,.7)'; ctx.font = '10px monospace'; ctx.fillText(sh.name, sh.x * z - 30, sh.y * z); }
+  for (const st of s.storms) { ctx.fillStyle = `rgba(220,230,240,${0.15 * st.strength})`; ctx.beginPath(); ctx.arc(st.x * z, st.y * z, st.r * z, 0, 7); ctx.fill(); }
+  ctx.strokeStyle = 'rgba(154,208,255,.6)'; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(s.tomb.x * z, s.tomb.y * z, TOMB_RADIUS * z, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#cfefff'; ctx.beginPath(); ctx.arc(s.tomb.x * z, s.tomb.y * z, 5, 0, 7); ctx.fill();
+  ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.arc(CENTER.x * z, CENTER.y * z, 5, 0, 7); ctx.fill();
+  for (const c of s.cams) {
+    const f = c.facing * Math.PI / 180, hf = T.camFov / 2;
+    ctx.fillStyle = c.broken ? 'rgba(255,75,58,.1)' : 'rgba(255,179,71,.07)'; ctx.beginPath(); ctx.moveTo(c.x * z, c.y * z);
+    for (let a = -hf; a <= hf + 0.01; a += hf / 6) ctx.lineTo(c.x * z + Math.sin(f + a) * T.camRange * z, c.y * z - Math.cos(f + a) * T.camRange * z);
+    ctx.fill();
+    ctx.fillStyle = c.broken ? '#ff4b3a' : '#e8cf98'; ctx.fillRect(c.x * z - 4, c.y * z - 4, 8, 8); ctx.font = '10px monospace'; ctx.fillText(`${c.name} ${Math.round(c.heat)}°`, c.x * z + 6, c.y * z + 4);
+  }
+  for (const r of s.remorhazes) { ctx.fillStyle = '#ff7a2a'; ctx.beginPath(); ctx.arc(r.x * z, r.y * z, 4, 0, 7); ctx.fill(); }
+  if (s.buoy) { ctx.strokeStyle = 'rgba(92,255,157,.35)'; ctx.beginPath(); ctx.arc(s.buoy.x * z, s.buoy.y * z, T.buoyRadius * z, 0, 7); ctx.stroke(); }
+  if (s.lastPing && s.shark.mode === 'hunt') { ctx.strokeStyle = 'rgba(255,75,58,.5)'; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(s.shark.x * z, s.shark.y * z); ctx.lineTo(s.lastPing.x * z, s.lastPing.y * z); ctx.stroke(); ctx.setLineDash([]); }
+  ctx.fillStyle = '#ff4b3a'; ctx.beginPath(); ctx.arc(s.shark.x * z, s.shark.y * z, 5, 0, 7); ctx.fill(); ctx.fillText('Grindmaw ' + s.shark.mode, s.shark.x * z + 7, s.shark.y * z);
+  if (s.tom.mode !== 'asleep') { ctx.fillStyle = '#ff7a2a'; ctx.beginPath(); ctx.arc(s.tom.x * z, s.tom.y * z, 5, 0, 7); ctx.fill(); ctx.fillText('Old Tom ' + s.tom.mode, s.tom.x * z + 7, s.tom.y * z); }
+  for (const b of s.bergs) {
+    ctx.fillStyle = b.elgarz ? '#5cff9d' : b.warship ? '#c07a5a' : b.notable ? '#ffd27a' : 'rgba(220,235,240,.45)';
+    ctx.beginPath(); ctx.arc(b.x * z, b.y * z, b.elgarz ? 7 : b.large ? 3.5 : 2.2, 0, 7); ctx.fill();
+    if (b.tag) { ctx.strokeStyle = COLORS[b.tag]; ctx.lineWidth = 2; ctx.strokeRect(b.x * z - 7, b.y * z - 7, 14, 14); ctx.lineWidth = 1; }
+    if (b.warship) { ctx.font = '11px monospace'; ctx.fillText(`#${b.num} warship`, b.x * z + 8, b.y * z + 4); }
+    if (b.notable) { ctx.font = (b.elgarz ? '600 ' : '') + '11px monospace'; ctx.fillText(`#${b.num} ${b.name}`, b.x * z + 8, b.y * z + 4); }
+  }
+  if (s.ghost) { ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.arc(s.ghost.x * z, s.ghost.y * z, 8, 0, 7); ctx.stroke(); }
+  for (const m of s.monsters || []) { ctx.globalAlpha = m.fading ? 0.4 : 1; ctx.fillStyle = '#ff4b3a'; ctx.beginPath(); ctx.arc(m.x * z, m.y * z, 6, 0, 7); ctx.fill(); ctx.font = '10px monospace'; ctx.fillText('monster from #' + m.num, m.x * z + 8, m.y * z + 4); ctx.globalAlpha = 1; }
+  if (drag && drag.moved) {
+    ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(drag.x0 * z, drag.y0 * z); ctx.lineTo(drag.x * z, drag.y * z); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(drag.x * z, drag.y * z, 9, 0, 7); ctx.stroke(); ctx.lineWidth = 1;
+    ctx.fillStyle = '#fff'; ctx.font = '11px monospace'; ctx.fillText('#' + drag.num + ' → ' + ref(drag.x, drag.y), drag.x * z + 12, drag.y * z - 8);
+  }
+
+  const e = s.bergs.find(b => b.elgarz);
+  const p = s.elgarzPlan;
+  document.getElementById('elgarz').innerHTML = e
+    ? `<b>Elgarz #${e.num}</b> is in <b>${ref(e.x, e.y)}</b>. Radio <b>${e.radio.freq}</b> (${e.radio.band}), ${e.radio.carrier}, lamps show ${lampName(e.radio.shown)}.` +
+      (p ? `<br>Entered at the rim in ${ref(p.x, p.y)}; planned camera sightings: ${p.sightings}, first at ${fmt(p.firstSighting)}.` : '')
+    : `<b>Elgarz</b> is not in the sea yet. It slips in at ${fmt(s.elgarzAt || 0)}.`;
+  const d = s.defence || { live: {}, next: {}, active: {} };
+  document.getElementById('stationinfo').innerHTML = ['gunnery', 'signals', 'engineer', 'fleet'].map(r => `${r}: ${d.live[r] ? '<b style="color:#5cff9d">linked</b>' : 'not linked'}${d.active[r] ? ' · <b style="color:#ffb347">PLAYING</b>' : d.next[r] != null ? ' · next ' + fmt(d.next[r]) : ''}`).join(' &nbsp;|&nbsp; ');
+  document.getElementById('pwtruth').innerHTML = (s.password ? `password <b style="color:#5cff9d">${s.password.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</b>` : 'no password set yet') +
+    ` · ${layerOf(s.pwCap) ? "layer " + LAYERS[layerOf(s.pwCap) - 1].join(" ") : "the gate (base rules)"} · next update ${s.pwNext != null ? fmt(s.pwNext) : "?"}` + (s.seal ? ` · <b style="color:#ffb347">LOCKED (${s.seal.reason}, ${s.seal.mode === 'set' ? 'setting a new password' : s.seal.tries + ' wrong'})</b>` : '') +
+    (s.lamps ? ` · lights ${['', 'red', 'green'][s.lamps]}` : '') + (s.shuttered ? ' · shutters down' : '');
+  document.getElementById('tools').innerHTML =
+    `<b>Scanner code now</b> (from the latest buoy reading): ${s.code ? s.code.map(i => RUNES[i].name).join(' → ') : 'no reading yet'}<br>` +
+    `<b>Cabin wireless</b> (music on only): ${s.stations.map(st => `${st.freq} ${st.band}`).join(', ')}<br>` +
+    `<b>Rune board</b> page ${s.board.page}: ${s.board.fns.join(' · ')}<br>` +
+    `<b>Orb unlock code</b> (the orb on screen): housing rune ${RUNES[s.camCode.rune].name} (${s.camCode.house}); levers WIND ${s.camCode.wind}, TEMP ${s.camCode.temp}; plates ${s.camCode.order.join(' → ')}${s.camUnlocked.length ? ' · unlocked: ' + s.camUnlocked.join(', ') : ''}<br>` +
+    `<b>Furnace</b>: ${s.furnaceState.lit ? `heat ${s.furnaceState.heat.toFixed(1)}, burning ${s.furnaceState.burn.toFixed(2)}/s, ${s.furnaceState.n} on` : 'out'} · damper ${s.furnaceState.damper.toUpperCase()} · shed order ${s.furnaceState.priority.join(' > ')}<br>` +
+    `<b>Beacons</b>: red ${s.beacons} · orange ${s.orange} · green ${s.green}${s.workshop.curing.length ? ' · in the rack: ' + s.workshop.curing.map(q => q.color + ' ' + Math.ceil(q.left) + 's').join(', ') : ''} · built ${s.workshop.made}<br>` +
+    `<b>Fleet</b>: ${!s.fleet || s.fleet.phase === 'off' ? 'none' : s.fleet.phase === 'deploy' ? 'being deployed (the watch is holding)' : 'wave ' + s.fleet.wave + ' · our ships afloat ' + s.fleet.mine.filter(m => m.hits.length < m.len).length + ', theirs ' + s.fleet.enemy.filter(m => m.hits.length < m.len).length + ' · next salvo in ' + Math.max(0, Math.ceil((s.fleet.nextSalvo || 0) - s.t)) + ' s (every ' + s.fleet.salvoEvery + ' s) · ' + (s.commander === 'fleet' ? 'the Fleet Officer commands' : 'the operator commands') + ' · victories ' + s.fleet.wins + ', fleets lost ' + s.fleet.losses + (Object.keys(s.fleet.salvage || {}).length ? ' · <b style="color:#ffb347">' + Object.keys(s.fleet.salvage).length + ' under salvage</b>' : '') + (s.fleet.phase === 'regroup' ? ' · <b style="color:#ffb347">enemy regrouping: new fleet in ' + Math.max(0, Math.ceil(s.fleet.regroupUntil - s.t)) + ' s</b>' : '') + (s.clearance ? ' · <b style="color:#5cff9d">green clearance in progress (question ' + (s.clearance.step + 1) + ' of 2)</b>' : '') + ' · shell checks since the last update ' + (s.shellAsks || 0) + '/3'}<br>` +    `<b>Sonar head</b>: ${s.sonarStrain.length} recent ping${s.sonarStrain.length === 1 ? '' : 's'} (three in 20 s cracks it)<br>` +
+    `<b>Broken</b>: ${s.broken.length ? s.broken.join(', ') : 'nothing'}<br>` +
+    `<b>Case board</b>: ${s.cases.length ? s.cases.map(c => `#${c.num}${c.permanent ? '' : ' (temp)'} ${c.verdict}`).join(' · ') : 'empty'}`;
+  for (const [k, v] of Object.entries(s.levers)) { const inp = document.querySelector(`[data-lever=${k}]`); if (inp && document.activeElement !== inp) { inp.value = v; document.getElementById('lv-' + k).textContent = Number(v).toFixed(2) + '×'; } }
+  const notable = s.bergs.filter(b => b.notable || b.warship).sort((a, b) => b.elgarz - a.elgarz);
+  const fg = document.getElementById('fleetgm');
+  if (fg && s.fleet && s.fleet.phase !== 'off') fg.innerHTML = 'Specials loaded: ' + ['heavy', 'sounding', 'boost', 'scan'].map(k => k + (s.fleet.loaded[k] ? ' ✓' : ' ✗')).join(' · ') + ' · departments: ' + Object.entries(s.fleet.dept || {}).map(([d, v]) => d + ' ' + v.state + (v.locked ? ' (LOCKED)' : '')).join(', ') + ' · disguised warships: ' + s.bergs.filter(b => b.warship).map(b => '#' + b.num + (b.unmasked ? ' (unmasked)' : '')).join(', ');
+  document.getElementById('roster').innerHTML = '<tr><th>#</th><th>Name</th><th>Echo</th><th>Met</th><th>Radio</th><th>Tag</th></tr>' +
+    notable.map(b => `<tr class="${b.elgarz ? 'el' : ''}"><td>${b.num}</td><td>${b.name}</td><td>${b.released ? 'emptied' : b.sig}</td><td>${b.metal ? 'yes' : '-'}</td><td>${b.radio ? b.radio.freq + ' ' + b.radio.carrier[0] + ' ' + b.radio.shown + (b.radio.decoded === 'BRW' && b.radio.band === 'MID' ? ' ★TRIAD' : '') : '-'}${b.tombDrawn ? ' (drawn to Tomb)' : ''}</td><td>${b.tag || ''}</td></tr>`).join('') +
+    (s.pending.length ? `<tr><td colspan="6" style="color:var(--dim)">Still to arrive: ${s.pending.map(b => b.name).join(', ')}</td></tr>` : '');
+}
+</script>
+</body>
+</html>
