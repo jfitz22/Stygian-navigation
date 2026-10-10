@@ -649,3 +649,12 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 20px; border-radius: 
 .crewcard { padding: 6px 8px; font-size: 11px; }
 .crewcard .nm { font-size: 12px; letter-spacing: 1px; }
 #deploybanner #randdeploy { margin-left: 8px; }
+
+/* revision 21: LOOK RIGHT, the Engineering station */
+#stage.right #rig { transform: translate(-1920px, -750px); }
+#stage.right #lookright { opacity: .35; }
+#engroom { position: absolute; left: 1920px; top: 750px; width: 1920px; height: 1080px; display: flex; flex-direction: column; }
+#engbar { display: flex; align-items: center; gap: 16px; padding: 10px 16px; height: 58px; }
+#engbar .plate { font-size: 18px; padding: 5px 14px; }
+#engbar #engbook { margin-left: auto; text-decoration: none; font-size: 13px; }
+#engframe { flex: 1; border: 0; border-top: 2px solid var(--brass); background: #0c0e10; width: 100%; }

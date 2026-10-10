@@ -93,7 +93,13 @@ function note(text) {
 // Look up (the overhead deck), down (the main board) or left (the cabin).
 function look(where) {
   if (where === true) where = 'up'; if (where === false) where = 'main';
-  $('stage').classList.toggle('up', where === 'up'); $('stage').classList.toggle('left', where === 'left'); audio.sfx.clunk();
+  $('stage').classList.toggle('up', where === 'up'); $('stage').classList.toggle('left', where === 'left'); $('stage').classList.toggle('right', where === 'right'); audio.sfx.clunk();
+  if (where === 'right') openEngineRoom();
+}
+// LOOK RIGHT: the Engineering station itself, for when no officer holds it (or to work alongside them)
+function openEngineRoom() {
+  const f = $('engframe');
+  if (!f.src) f.src = 'station.html?role=engineer&embed=1&code=' + encodeURIComponent(roomCode);
 }
 const lookingLeft = () => $('stage').classList.contains('left');
 $('lookup').onclick = () => look('up');
@@ -101,6 +107,8 @@ $('gofire').onclick = () => look('up');
 $('lookdown').onclick = () => look('main');
 $('lookleft').onclick = () => look('left');
 $('lookback').onclick = () => look('main');
+$('lookright').onclick = () => look('right');
+$('engback').onclick = () => look('main');
 $('godeploy').onclick = () => look('left');
 const togglePause = () => gm(world, 'pause');
 $('pausebtn').onclick = togglePause;
@@ -1542,6 +1550,8 @@ const stationSeen = {};
 function onStation(m) {
   if (!OFFICERS.includes(m.role)) return;
   if (m.iid && m.iid !== GAME_ID) return;   // that station follows another game on this code
+  // the operator's own LOOK RIGHT (Engineering) acts for the department but is not an officer on station
+  if (m.embed) { if (!m.hello) { stationAction(world, m.role, m); snapSoon = true; } return; }
   stationSeen[m.role] = performance.now();
   if (m.doing != null) stationDoing[m.role] = m.doing;
   if (!m.hello) { stationAction(world, m.role, m); snapSoon = true; }

@@ -193,3 +193,7 @@ body.redlight #redlight { opacity: 1; animation: redpulse 2.6s ease-in-out infin
 .mmpegs i.full { background: #f4f1e6; box-shadow: 0 0 5px #fff; } .mmpegs i.half { background: #7a6a4a; }
 .mmpick { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
 .mmpick button[data-c] { background: none; border: 1px solid #3a2d1c; border-radius: 50%; padding: 2px; }
+
+/* revision 21: the station embedded in the operator's screen (LOOK RIGHT) */
+body.embed #bar, body.embed #lost, body.embed #firstcard, body.embed #defence, body.embed #join { display: none !important; }
+body.embed #desk { padding: 10px; }
