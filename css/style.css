@@ -632,3 +632,20 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 20px; border-radius: 
 .artcard h3 { font-family: 'Cinzel', serif; font-size: 26px; margin: 6px 0 10px; color: #3a2a10; }
 .artcard p { font-size: 18px; line-height: 1.45; margin: 0 0 12px; }
 .artcard button { font: 600 13px 'IBM Plex Mono', monospace; letter-spacing: 2px; background: #3a2a10; color: #efe3c2; border: 0; padding: 7px 16px; cursor: pointer; }
+
+/* revision 19: the clearance terminal, the shell's shake, four crew cards */
+#clearterm { position: absolute; inset: 0; z-index: 8; background: radial-gradient(ellipse at 50% 40%, #0d1f16, #040806 75%); color: #9dffc4; font-family: 'Share Tech Mono', 'IBM Plex Mono', monospace; padding: 34px 40px; display: flex; flex-direction: column; gap: 12px; }
+#clearterm .t { font-family: 'Cinzel', serif; font-weight: 800; font-size: 28px; letter-spacing: 4px; color: #5cff9d; animation: blink 1.2s steps(2) infinite; }
+#clearterm .sub { font-size: 15px; letter-spacing: 2px; color: #7fd8a8; }
+#clearterm .morseq { font-size: 34px; letter-spacing: 5px; color: #ffd36a; background: #020503; border: 2px solid #2f7a52; padding: 12px 16px; word-break: break-word; }
+#clearterm .morseopts { display: grid; gap: 8px; }
+#clearterm .morseopts button { text-align: left; font: 28px 'Share Tech Mono', monospace; letter-spacing: 5px; padding: 8px 16px; background: #10301f; color: #ffd36a; border: 2px solid #2f7a52; border-radius: 3px; cursor: pointer; }
+#clearterm .morseopts button:hover { border-color: #5cff9d; }
+#clearterm .morseopts b { font: 16px 'IBM Plex Mono', monospace; color: #7fd8a8; margin-right: 16px; letter-spacing: 1px; }
+#clearterm #clcancel { font: 13px 'Share Tech Mono', monospace; padding: 4px 12px; margin-left: 12px; background: #301010; color: #ffb3a6; border: 1px solid #a3291c; cursor: pointer; }
+#stage.shaken { animation: shellshake 1s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes shellshake { 10%, 90% { translate: -3px 1px; } 20%, 80% { translate: 6px -2px; } 30%, 50%, 70% { translate: -10px 3px; } 40%, 60% { translate: 10px -3px; } 100% { translate: 0 0; } }
+#crew { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.crewcard { padding: 6px 8px; font-size: 11px; }
+.crewcard .nm { font-size: 12px; letter-spacing: 1px; }
+#deploybanner #randdeploy { margin-left: 8px; }

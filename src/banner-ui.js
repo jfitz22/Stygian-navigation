@@ -1,5 +1,5 @@
 import { BANNER_CATALOG } from './banner-catalog.js';
-import { OPERATOR_PANELS, DROP_MS, HOLD_MS, LIFT_MS, CORD_MS, bannerEnd } from './banners.js';
+import { OPERATOR_PANELS, DROP_MS, HOLD_MS, LIFT_MS, CORD_MS, bannerEnd, officerPanels } from './banners.js';
 
 // Host timestamps drive all views. A snapshot refresh never restarts the animation.
 export function createBannerUI(role, dismiss) {
@@ -33,7 +33,7 @@ export function createBannerUI(role, dismiss) {
     if (event.id !== lastEvent) { clear(); lastEvent = event.id; }
     if (hostNow !== hostAt) { hostAt = hostNow; receivedAt = performance.now(); }
     const now = hostAt + performance.now() - receivedAt;
-    const keys = role === 'operator' ? OPERATOR_PANELS : [role + ':job', role + ':fleetpanel'];
+    const keys = role === 'operator' ? OPERATOR_PANELS : officerPanels(role);
     for (const key of keys) {
       const panel = event.panels.find(p => p.key === key), target = targetFor(key);
       const end = panel ? bannerEnd(event, panel) : 0;

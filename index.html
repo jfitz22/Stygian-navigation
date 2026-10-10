@@ -23,7 +23,7 @@
       <button id="lookback" class="lookbtn">LOOK RIGHT ▶</button>
     </header>
     <section class="panel" id="p-fleet" style="left:16px;top:68px;width:1080px;height:996px">
-      <h2>FLEET COMMAND <small>the Watch's naval defences · every officer's station can fire too</small></h2>
+      <h2>FLEET COMMAND <small>the Watch's naval battle · commanded here when nobody holds the Fleet Officer's station</small></h2>
       <div id="fleetwall"></div>
       <div class="lbl" id="wire2lbl">WIRE SERVICE</div>
       <div class="wirestrip" id="wire2"></div>
@@ -233,6 +233,7 @@
       </div>
       <div id="logdrawer" class="hidden"></div>
       <div id="sealterm" class="hidden"></div>
+      <div id="clearterm" class="hidden"></div>
       <div id="toast"></div>
       <div id="notes"></div>
     </div>
@@ -289,8 +290,7 @@
 </div>
 
   <div id="twogames" class="hidden">ANOTHER WATCH IS OPEN WITH THIS CODE · close the other game tab, or the stations may follow it</div>
-  <div id="deploybanner" class="hidden"><b>DEPLOY THE FLEET</b><span>The watch begins once every ship is placed.</span><button id="godeploy" class="lookbtn">◀ LOOK LEFT</button></div>
-  <div id="reinforce" class="hidden"><div class="wincard"><div class="small">THE FLEET IS LOST</div><h1>DEVIL REINFORCEMENTS</h1><p>The enemy is landing. The watch is paused until the officer of the watch gives the word.</p></div></div>
+  <div id="deploybanner" class="hidden"><b>DEPLOY THE FLEET</b><span>The watch begins once every ship is placed.</span><button id="godeploy" class="lookbtn">◀ LOOK LEFT</button><button id="randdeploy" class="lookbtn">DEPLOY AT RANDOM</button></div>
   <div id="fatigue"></div>
   <div id="blink"></div>
   <div id="pausecard" class="hidden">

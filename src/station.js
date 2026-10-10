@@ -5,7 +5,8 @@ import { stokeArt } from './stokeart.js';
 // back; the game decides what they do. Each station has a steady job, the shared fleet, and a defence game that
 // the game triggers every few minutes.
 import { openLink, cleanCode } from './link.js';
-import { mountFleet } from './fleetui.js';
+import { mountFleet, mountFleetDept, morseText } from './fleetui.js';
+import { MAIN } from './fleet.js';
 import * as WS from './workshop.js';
 import * as GA from './games.js';
 import { glyphSVG, echoAt, ECHO_W } from './glyphs.js';
@@ -15,10 +16,11 @@ import { mulberry32, artifactText } from './sim.js';
 import * as audio from './audio.js';
 
 const $ = id => document.getElementById(id);
-const ROLE_NAME = { gunnery: 'GUNNERY & TARGETING', signals: 'SIGNALS & SONAR', engineer: 'ENGINEERING & POWER' };
-const JOB = { gunnery: 'THE BEACON WORKSHOP', signals: 'THE CASE BOARD', engineer: 'THE FURNACE' };
+const ROLE_NAME = { gunnery: 'GUNNERY & TARGETING', signals: 'SIGNALS & SONAR', engineer: 'ENGINEERING & POWER', fleet: 'FLEET COMMAND' };
+const JOB = { gunnery: 'THE BEACON WORKSHOP', signals: 'THE CASE BOARD', engineer: 'THE FURNACE', fleet: 'FLEET COMMAND' };
 const FIRST = {
-  gunnery: ['<b>Build beacons</b> at the workshop: your book has the shell; Engineering has the core; Signals has the crystal.', '<b>When devil fire comes</b>, click to burst flak in its path: every tower it reaches is an orb lost.', '<b>The fleet</b> is everyone\'s: pick a rune and a number, then FIRE.'],
+  fleet: ['<b>You command the fleet.</b> Click their table to aim one shot for each of our ships afloat; both fleets fire together when the salvo clock runs out, or when you press FIRE. Your own ship is the four-long.', '<b>The specials</b> start loaded. The departments reload theirs with four flags: your codebook turns each into a rune, and every second reload a Morse question too (your book has the table). Your own crosshair scan reloads when you decode a dispatch (below).', '<b>A sunk ship</b> is salvaged: read its board to Engineering, wait for their power, then place her back at sea. <b>When the depth-charge alarm sounds</b>, steer with ← → and drop charges with SPACE.'],
+  gunnery: ['<b>Build beacons</b> at the workshop: your book has the shell; Engineering has the core; Signals has the crystal.', '<b>When devil fire comes</b>, click to burst flak in its path: every tower it reaches is an orb lost.', '<b>Your special</b> (the heavy shell) reloads by flag code: describe your four flags to the Fleet Officer, press the runes they read back. Every second reload asks a Morse question.'],
   signals: ['<b>Keep the case board</b>: decode each radio pattern and type in its call sign. The sonar here is a copy of the operator\'s.', '<b>Minesweeping</b> is optional: complete a sweep and the guns beacon a glacier for free.', '<b>When the buoy cable snaps</b>, steer with the arrow keys and collect the ends; the walls wrap round, your own cable does not.'],
   engineer: ['<b>Keep the furnace alive</b>: the log shows where the heat is heading. Set the shed order and the damper.', '<b>The breaker panel</b> is optional: clear it for a free shovel of fuel.', '<b>When the stokehold fires fail</b>, run the decks with ↑ ↓ and fling coal with SPACE: keep all four fires in the green.'],
 };
@@ -43,7 +45,7 @@ const link = openLink(m => {
 }, s => { netState = s; });
 const send = act => link.send({ station: { role, iid: snap ? snap.iid : null, ...act } });
 // the game's clock, run on between updates
-const ticking = () => snap && !snap.paused && !snap.hold && snap.started && !snap.reinforce;
+const ticking = () => snap && !snap.paused && !snap.hold && snap.started;
 const nowT = () => !snap ? 0 : snap.t + (ticking() ? Math.min(2, (performance.now() - snapAt) / 1000) : 0);
 
 document.querySelectorAll('#roles button').forEach(b => b.onclick = () => { role = b.dataset.role; document.querySelectorAll('#roles button').forEach(x => x.classList.toggle('sel', x === b)); });
@@ -85,6 +87,11 @@ function takeStation() {
   if (role === 'gunnery') buildWorkshop();
   if (role === 'engineer') buildFurnace();
   if (role === 'signals') buildSonar();
+  // the Fleet Officer's job is the fleet itself; the other officers watch it, and load their own special
+  $('fleetpanel').classList.toggle('hidden', role === 'fleet');
+  $('job').classList.toggle('fleetjob', role === 'fleet');
+  $('fleetdept').classList.toggle('hidden', role === 'fleet');
+  $('leftcol').classList.toggle('wide', role === 'fleet'); $('rightcol').classList.toggle('hidden', role === 'fleet');
   buildSteady();
   firstCard();
 }
@@ -95,11 +102,55 @@ function doing() {
   if (role === 'gunnery') return ws.casing ? 'building a ' + ws.color + ' beacon' : 'at the bench';
   if (role === 'signals') return steady.state && steady.state.choosing ? 'choosing a reward' : steady.state && !steady.state.over ? 'minesweeping' : 'keeping the case board';
   if (role === 'engineer') return steady.state && !steady.state.over ? 'on the breaker panel' : 'watching the furnace';
+  if (role === 'fleet') return snap && snap.clearance ? 'clearing a green beacon' : snap && snap.fleet && Object.keys(snap.fleet.salvage || {}).length ? 'salvaging a ship' : steady.state && !steady.state.over ? 'decoding a dispatch' : 'commanding the fleet';
   return '';
 }
 
 // ---------- the fleet ----------
-const fleetUI = mountFleet($('fleet'), () => ({ fleet: snap && snap.fleet, t: nowT() }), a => { send(a); audio.sfx.click(); }, { cell: 30, onShot: l => (l.hit ? audio.sfx.hit : audio.sfx.miss)() });
+const shotSound = l => (l.ours.some(o => o[2] === 'hit') ? audio.sfx.hit : audio.sfx.miss)();
+const engineerLive = () => !!(snap && snap.defence && snap.defence.live && snap.defence.live.engineer);
+const fleetUI = mountFleet($('fleet'), () => ({ fleet: snap && snap.fleet, t: nowT(), mode: 'view', engineerLive: engineerLive() }), a => send(a), { cell: 15, compact: true, onShot: shotSound });
+// the Fleet Officer commands from their own station (its job panel)
+let commandUI = null;
+const fleetCommandUI = () => commandUI || (commandUI = mountFleet($('jobbody'), () => ({ fleet: snap && snap.fleet, t: nowT(), mode: snap && snap.commander === 'fleet' ? 'command' : 'view', beacons: snap ? snap.beacons + snap.orange : null, engineerLive: engineerLive() }), a => { send(a); audio.sfx.click(); }, { cell: 31, onShot: shotSound }));
+const deptUI = mountFleetDept($('fleetdeptbody'), () => ({ fleet: snap && snap.fleet, t: nowT() }), a => { send(a); audio.sfx.click(); }, () => role);
+// a hit on your ship cracks your screen; the worse the ship, the worse the glass
+// One hit: the glass cracks. Two: the station lists ten degrees. Sunk: the lights go red. All of it until she is
+// redeployed (or the fleet refitted). The Fleet Officer's own ship is the four-long.
+function drawCracks() {
+  const f = snap && snap.fleet, el = $('cracks');
+  const ship = f && f.mine && f.mine[MAIN[role]];
+  const hits = !ship || f.phase === 'off' || ship.x == null ? 0 : ship.hits.length, gone = hits > 0 && hits >= ship.len;
+  const k = gone ? 'sunk' : String(hits);
+  if (el.dataset.k === k) return; el.dataset.k = k;
+  el.className = gone ? 'sev10' : hits ? 'sev' + Math.min(9, hits * 3) : '';
+  el.innerHTML = hits ? crackSVG(gone ? 1 : Math.min(0.8, 0.3 + hits * 0.2)) : '';
+  document.body.classList.toggle('tilt', hits >= 2);
+  document.body.classList.toggle('redlight', gone);
+  if (hits && !gone) audio.sfx.blowout();
+}
+function crackSVG(sev) {
+  const lines = [['M0 120 L180 230 L260 200 L420 330', 'M180 230 L150 380', 'M260 200 L300 90'], ['M1920 60 L1700 220 L1620 200 L1480 360', 'M1700 220 L1760 420'], ['M960 1080 L1010 860 L940 760 L1060 600', 'M1010 860 L1180 900', 'M940 760 L820 700'], ['M0 900 L240 820 L300 880 L520 760'], ['M1920 820 L1700 760 L1600 820']];
+  const n = Math.max(1, Math.round(sev * lines.length));
+  return `<svg viewBox="0 0 1920 1080" preserveAspectRatio="none">${lines.slice(0, n).flat().map(d => `<path d="${d}" fill="none" stroke="rgba(220,235,245,.55)" stroke-width="${sev >= 1 ? 3 : 2}"/><path d="${d}" fill="none" stroke="rgba(0,0,0,.45)" stroke-width="1" transform="translate(2,2)"/>`).join('')}</svg>`;
+}
+
+// The green beacon needs the Fleet Officer's clearance: the operator sees two questions in Morse and three answers.
+// The Fleet Officer sees the same here, reads them with the book's table, and tells the operator which to choose.
+let clearKey = '';
+function drawClearance() {
+  const c = snap && snap.clearance, el = $('clearpanel');
+  const k = c ? JSON.stringify(c) : '';
+  if (k === clearKey) return; clearKey = k;
+  el.classList.toggle('hidden', !c);
+  if (!c) { el.innerHTML = ''; return; }
+  const q = c.qs[c.step];
+  el.innerHTML = `<h2>CLEARANCE REQUESTED <small>the operator is firing a GREEN beacon · question ${c.step + 1} of ${c.qs.length}</small></h2>
+    <div class="howto">The operator's console asks this in Morse. Decode it with the table in your book and tell them which answer (A, B or C). One wrong answer and the green beacon stays in the rack.</div>
+    <div class="morsebig">${morseText(q.q)}</div>
+    <div class="morseopts">${q.opts.map((o, i) => `<div><b>${'ABC'[i]}</b> ${morseText(o)}</div>`).join('')}</div>`;
+  audio.sfx.alarm();
+}
 
 // ---------- the main loop ----------
 let jobKey = '';
@@ -115,14 +166,14 @@ function frame() {
   $('lost').classList.toggle('hidden', !(linkedOnce && !live && !$('desk').classList.contains('hidden')));
   if (snap) {
     $('clock').textContent = snap.hold === 'deploy' ? 'DEPLOY' : fmt(nowT());
-    safely('fleet', () => fleetUI.render());
+    if (role === 'fleet') safely('fleet command', () => fleetCommandUI().render()); else { safely('fleet', () => fleetUI.render()); safely('fleet dept', () => deptUI.render()); }
+    safely('cracks', drawCracks);
+    if (role === 'fleet') safely('clearance', drawClearance);
     if (role === 'gunnery') safely('workshop', drawWorkshop);
     if (role === 'signals') { safely('sonar', drawSonar); safely('case board', drawCaseBoard); }
     if (role === 'engineer') safely('furnace', drawFurnace);
     safely('steady', () => drawSteady());
     safely('defence', checkDefence);
-    $('alert').classList.toggle('hidden', !snap.reinforce);
-    if (snap.reinforce) { $('alerttitle').textContent = 'DEVIL REINFORCEMENTS'; $('alerttext').textContent = 'The fleet is lost and the enemy is landing. The watch is paused until the officer of the watch gives the word.'; }
   }
   if (bannerUI) bannerUI.update($('desk').classList.contains('hidden') ? null : snap?.bannerEvent, snap?.bannerNow);
   requestAnimationFrame(frame);
@@ -275,6 +326,8 @@ function seal() {
     audio.sfx.spark(); drawBench(); return;
   }
   if (ws.placed.length !== ws.pieces.length || !WS.packed(W, H, ws.placed)) { ws.msg = 'The charge is not packed: fill the chamber.'; audio.sfx.deny(); drawBench(); return; }
+  { const cap = { red: T.beaconStock, orange: T.orangeStock, green: T.greenStock }[ws.color], have = { red: snap.beacons, orange: snap.orange, green: snap.green }[ws.color] + snap.workshop.curing.filter(q => q.color === ws.color).length;
+    if (have >= cap) { ws.msg = `The rack is full: it holds ${cap} ${ws.color} beacon${cap > 1 ? 's' : ''}. Fire one first.`; audio.sfx.deny(); drawBench(); return; } }
   send({ act: 'seal', color: ws.color }); audio.sfx.calibrated();
   ws.casing = null; ws.msg = ''; drawBench();
   $('benchwrap').insertAdjacentHTML('afterbegin', `<p class="ws-msg" style="margin-top:12px">SEALED. The ${ws.color} beacon is in the rack: it cures while the WORKSHOP switch is on.</p>`);
@@ -431,16 +484,17 @@ function drawFurnace() {
 // Engineering: Lights Out, 6 x 6. Clear a panel and a free shovel goes in the furnace chute (once a minute).
 const steady = { kind: null, state: null, msg: '' };
 function buildSteady() {
-  steady.kind = role === 'signals' ? 'mines' : role === 'engineer' ? 'lights' : null;
+  steady.kind = role === 'signals' ? 'mines' : role === 'engineer' ? 'lights' : role === 'fleet' ? 'dispatch' : null;
   $('steady').classList.toggle('hidden', !steady.kind);
   if (!steady.kind) return;
-  $('steadytitle').innerHTML = steady.kind === 'mines' ? 'MINESWEEPING <small>complete a sweep for a free beacon on a random iceberg</small>' : 'THE BREAKER PANEL <small>clear it for a free shovel of fuel</small>';
+  $('steadytitle').innerHTML = { mines: 'MINESWEEPING <small>complete a sweep for a free beacon on a random iceberg</small>', lights: 'THE BREAKER PANEL <small>clear it for a free shovel of fuel</small>', dispatch: 'AN ENEMY DISPATCH <small>decode its signal lights to reload your crosshair scan</small>' }[steady.kind];
   newSteadyBoard();
 }
-const cooldownLeft = () => !snap || !snap.rewards ? 0 : Math.max(0, (snap.rewards[steady.kind === 'mines' ? 'mines' : 'lights'] || 0) - snap.t);
+const cooldownLeft = () => !snap || !snap.rewards ? 0 : Math.max(0, (snap.rewards[steady.kind] || 0) - snap.t);
 function newSteadyBoard() {
   const rng = mulberry32(Math.floor(Math.random() * 1e9));
   if (steady.kind === 'mines') { const { mines, start } = GA.msBoard(rng), M = new Set(mines), open = new Set(); GA.msOpen(M, open, start); steady.state = { M, open, flags: new Set(), boom: -1, over: false }; }
+  else if (steady.kind === 'dispatch') steady.state = { secret: GA.mmSecret(rng), guesses: [], cur: [], over: false };
   else steady.state = { board: GA.loBoard(rng).board, over: false };
   steady.msg = ''; drawSteady(true);
 }
@@ -448,12 +502,45 @@ let steadyKey = '';
 function drawSteady(force) {
   if (!steady.kind || !steady.state) return;
   const cd = Math.ceil(cooldownLeft()), waiting = steady.state.over && cd > 0;
-  const k = JSON.stringify([waiting ? cd : -1, steady.msg, snap && snap.canReveal]) + (force ? Math.random() : '');
+  const k = JSON.stringify([waiting ? cd : -1, steady.msg, snap && snap.canReveal, snap && snap.needsPower, snap && snap.canUnmask]) + (force ? Math.random() : '');
   if (k === steadyKey && !force) return;
   steadyKey = k;
   // after a win, wait for the game's cooldown to arrive and run out before the next board
   if (steady.state.over && steady.state.won && cd <= 0 && performance.now() - steady.state.wonAt > 4000) { newSteadyBoard(); return; }
-  if (steady.kind === 'mines') drawMinesSteady(cd); else drawLightsSteady(cd);
+  if (steady.kind === 'mines') drawMinesSteady(cd); else if (steady.kind === 'dispatch') drawDispatchSteady(cd); else drawLightsSteady(cd);
+}
+// The Fleet Officer's dispatch: four signal lights from six colours, eight tries (Mastermind).
+function drawDispatchSteady(cd) {
+  const st = steady.state, N = GA.MM.len, lamp = (c, size = 26) => `<i class="mmlamp" style="width:${size}px;height:${size}px;background:${c == null ? '#1a1612' : GA.MM_HEX[c]};${c == null ? '' : 'box-shadow:0 0 8px ' + GA.MM_HEX[c]}"></i>`;
+  const pegs = sc => `<span class="mmpegs">${Array.from({ length: N }, (_, i) => `<i class="${i < sc.full ? 'full' : i < sc.full + sc.half ? 'half' : ''}"></i>`).join('')}</span>`;
+  const rows = st.guesses.map(g => `<div class="mmrow">${g.guess.map(c => lamp(c)).join('')}${pegs(g.score)}</div>`).join('');
+  const cur = !st.over ? `<div class="mmrow cur">${Array.from({ length: N }, (_, i) => lamp(st.cur[i])).join('')}<span class="hint">try ${st.guesses.length + 1} of ${GA.MM.tries}</span></div>` : '';
+  const reveal = st.over && !st.won ? `<div class="mmrow">${st.secret.map(c => lamp(c)).join('')}<span class="hint">the dispatch was</span></div>` : '';
+  $('steadybody').innerHTML = `<div class="steadygrid">
+    <div class="mmboard">${rows}${cur}${reveal}
+      ${!st.over ? `<div class="mmpick">${GA.MM.colors.map((n, i) => `<button data-c="${i}" title="${n}">${lamp(i, 30)}</button>`).join('')}<button class="btn" data-mmback>⌫</button><button class="btn" data-mmgo ${st.cur.length === N ? '' : 'disabled'}>SEND</button></div>` : ''}</div>
+    <div class="howto" style="max-width:330px">
+      An enemy dispatch, flashed as <b>four signal lights</b> from six colours (a colour may repeat). Guess it in <b>eight tries</b>.<br><br>
+      After each try: a <b>bright peg</b> for every light right in colour and place; a <b>dim peg</b> for every other light right in colour only.<br><br>
+      Decode it and choose: <b>reload your crosshair scan</b>, or <b>unmask a disguised warship</b> on the operator's chart.
+    </div></div>
+    <div class="reward">${steady.msg}${st.over && !st.won ? ' <button class="btn" id="mmnew">NEW DISPATCH</button>' : ''}${st.choosing ? ` <button class="btn" id="mmscan">RELOAD THE CROSSHAIR SCAN</button> <button class="btn" id="mmunmask" ${snap && snap.canUnmask ? '' : 'disabled title="No disguised warship left to unmask"'}>UNMASK A WARSHIP</button>` : ''}${st.over && st.won && !st.choosing && cd > 0 ? ` The next dispatch comes in ${cd} s.` : ''}</div>`;
+  const nb = $('mmnew'); if (nb) nb.onclick = newSteadyBoard;
+  const choose = c => { st.choosing = false; st.wonAt = performance.now(); steady.msg = c === 'unmask' ? 'DECODED. A disguised warship is marked on the operator\'s chart.' : 'DECODED. The crosshair scan is loaded.'; send({ act: 'dispatch', choice: c }); audio.sfx.calibrated(); drawSteady(true); };
+  if ($('mmscan')) $('mmscan').onclick = () => choose('scan');
+  if ($('mmunmask')) $('mmunmask').onclick = () => choose('unmask');
+  if (st.over) return;
+  $('steadybody').querySelectorAll('[data-c]').forEach(b => b.onclick = () => { if (st.cur.length < N) { st.cur.push(Number(b.dataset.c)); audio.sfx.click(); drawSteady(true); } });
+  const back = $('steadybody').querySelector('[data-mmback]'); if (back) back.onclick = () => { st.cur.pop(); drawSteady(true); };
+  const go = $('steadybody').querySelector('[data-mmgo]');
+  if (go) go.onclick = () => {
+    if (st.cur.length !== N) return;
+    const score = GA.mmScore(st.secret, st.cur); st.guesses.push({ guess: st.cur, score }); st.cur = [];
+    if (score.full === N) { st.over = true; st.won = true; st.choosing = true; steady.msg = 'THE DISPATCH IS DECODED. Choose:'; audio.sfx.calibrated(); }
+    else if (st.guesses.length >= GA.MM.tries) { st.over = true; st.won = false; steady.msg = 'The dispatch is lost in the static.'; audio.sfx.deny(); }
+    else audio.sfx.click();
+    drawSteady(true);
+  };
 }
 function drawMinesSteady(cd) {
   const st = steady.state, { M, open, flags } = st;
@@ -467,14 +554,14 @@ function drawMinesSteady(cd) {
   $('steadybody').innerHTML = `<div class="steadygrid">
     <div class="ms small">${h}</div>
     <div class="howto" style="max-width:330px">
-      Mines have drifted into the approaches. <b>Complete a sweep</b> and choose your reward: <b>a beacon strikes a random iceberg</b>, or <b>an enemy ship is plotted</b> on the fleet tables.<br><br>
+      Mines have drifted into the approaches. <b>Complete a sweep</b> and choose your reward: <b>a beacon strikes a random iceberg</b>, or <b>a square of an enemy hull is sighted</b> on the fleet tables.<br><br>
       <b>The numbers:</b> each one says how many of the eight squares touching it hold a mine. A <b>1</b> with only one hidden square beside it: that square is a mine.<br><br>
       <b>Left click</b> opens a square. <b>Right click</b> flags a mine. Start from the open patch; every field can be solved without guessing.<br><br>
       ${M.size - flags.size} mines unflagged. Nothing is lost if you hit one: start a new field.
     </div></div>
-    <div class="reward">${steady.msg}${st.over && !st.won ? ' <button class="btn" id="msnew">NEW FIELD</button>' : ''}${st.choosing ? ` <button class="btn" id="rwbeacon">BEACON AN ICEBERG</button> <button class="btn" id="rwreveal" ${snap && snap.canReveal ? '' : 'disabled title="No enemy ship left to plot (or the fleet is not in action)"'}>PLOT AN ENEMY SHIP</button>` : ''}${st.over && st.won && !st.choosing && cd > 0 ? ` The next sweep opens in ${cd} s.` : ''}</div>`;
+    <div class="reward">${steady.msg}${st.over && !st.won ? ' <button class="btn" id="msnew">NEW FIELD</button>' : ''}${st.choosing ? ` <button class="btn" id="rwbeacon">BEACON AN ICEBERG</button> <button class="btn" id="rwreveal" ${snap && snap.canReveal ? '' : 'disabled title="No enemy ship left to plot (or the fleet is not in action)"'}>SIGHT AN ENEMY HULL</button>` : ''}${st.over && st.won && !st.choosing && cd > 0 ? ` The next sweep opens in ${cd} s.` : ''}</div>`;
   const nb = $('msnew'); if (nb) nb.onclick = newSteadyBoard;
-  const choose = c => { st.choosing = false; st.wonAt = performance.now(); steady.msg = c === 'reveal' ? 'SWEEP COMPLETE. An enemy ship is plotted on the fleet tables.' : 'SWEEP COMPLETE. The guns are firing.'; send({ act: 'minesweeper', choice: c }); audio.sfx.calibrated(); drawSteady(true); };
+  const choose = c => { st.choosing = false; st.wonAt = performance.now(); steady.msg = c === 'reveal' ? 'SWEEP COMPLETE. An enemy hull is sighted on the fleet tables.' : 'SWEEP COMPLETE. The guns are firing.'; send({ act: 'minesweeper', choice: c }); audio.sfx.calibrated(); drawSteady(true); };
   if ($('rwbeacon')) $('rwbeacon').onclick = () => choose('beacon');
   if ($('rwreveal')) $('rwreveal').onclick = () => choose('reveal');
   if (st.over) return;
@@ -494,15 +581,20 @@ function drawLightsSteady(cd) {
   $('steadybody').innerHTML = `<div class="steadygrid">
     <div class="lo6${st.over ? ' rest' : ''}">${st.board.map((v, i) => `<button class="${v ? 'on' : ''}" data-i="${i}"></button>`).join('')}</div>
     <div class="howto" style="max-width:330px">
-      The breakers on the boiler line. <b>Get every breaker dark</b> and the boiler hands the furnace <b>a free shovel of fuel</b>.<br><br>
+      The breakers on the boiler line. <b>Get every breaker dark</b> and choose: <b>a free shovel of fuel</b>, or, while one of our ships is being salvaged, <b>power for that ship</b>.<br><br>
       <b>Pressing a breaker flips it and its four neighbours</b> (up, down, left, right).<br><br>
       One free shovel a minute. Take your time: nothing goes wrong here.
     </div></div>
-    <div class="reward">${steady.msg}${st.over && cd > 0 ? ` The next panel lights up in ${cd} s.` : ''}</div>`;
+    <div class="reward">${steady.msg}${st.choosing ? ` <button class="btn" id="lofuel">A SHOVEL OF FUEL</button> <button class="btn" id="lopower" ${snap && snap.needsPower ? '' : 'disabled title="No ship is waiting for power"'}>POWER THE SUNK SHIP</button>` : ''}${st.over && !st.choosing && cd > 0 ? ` The next panel lights up in ${cd} s.` : ''}</div>`;
+  const pick = c => { st.choosing = false; st.wonAt = performance.now(); steady.msg = c === 'power' ? 'PANEL CLEAR. Power goes to the ship under salvage.' : 'PANEL CLEAR. A shovel of fuel drops into the chute.'; send({ act: 'lightsout', choice: c }); audio.sfx.calibrated(); drawSteady(true); };
+  if ($('lofuel')) $('lofuel').onclick = () => pick('fuel');
+  if ($('lopower')) $('lopower').onclick = () => pick('power');
   if (st.over) return;
   $('steadybody').querySelectorAll('.lo6 button').forEach(b => b.onclick = () => {
     st.board = GA.loPress(st.board, Number(b.dataset.i)); audio.sfx.click();
-    if (GA.loSolved(st.board)) { st.over = true; st.won = true; st.wonAt = performance.now(); steady.msg = 'PANEL CLEAR. A shovel of fuel drops into the chute.'; send({ act: 'lightsout' }); audio.sfx.calibrated(); }
+    if (GA.loSolved(st.board)) { st.over = true; st.won = true; st.wonAt = performance.now(); audio.sfx.calibrated();
+      if (snap && snap.needsPower) { st.choosing = true; steady.msg = 'PANEL CLEAR. Choose:'; }
+      else { steady.msg = 'PANEL CLEAR. A shovel of fuel drops into the chute.'; send({ act: 'lightsout', choice: 'fuel' }); } }
     drawSteady(true);
   });
 }
@@ -513,8 +605,9 @@ function drawLightsSteady(cd) {
 const DEF_TITLE = {
   missile: ['DEVIL FIRE INBOUND', 'Shoot it down before it reaches the towers. Click to burst flak in its path.'],
   missileArc: ['DEVIL SKIFFS ON THE HORIZON', 'Their shells arc in from the sides. Click to burst flak in their path.'],
-  snake: ['THE BUOY CABLE HAS SNAPPED', `Splice it: steer with the arrow keys (or WASD) and collect ${GA.SN.need} loose ends. Do not touch the walls or the cable.`],
+  snake: ['THE BUOY CABLE HAS SNAPPED', `Splice it: steer with the arrow keys (or WASD) and collect ${GA.SN.need} loose ends before they sink. Do not touch the cable or the stray sparks; the walls wrap round.`],
   stoke: ['THE STOKEHOLD FIRES ARE FAILING', 'Keep all four fires in the green. ↑ ↓ (or W S) changes deck, SPACE flings coal. A fire that dies or bursts is a fail; three and the stokehold is lost.'],
+  depth: ['ENEMY SUBMARINES BELOW', 'Your destroyer runs the surface. ← → (or A D) steers, SPACE drops a depth charge. Dodge their torpedoes and do not let them surface. Lose, and your own ship takes a hit.'],
 };
 let current = null;
 const finished = new Set();
@@ -531,7 +624,7 @@ function startDefence(a) {
   $('dresult').classList.add('hidden'); $('defence').classList.remove('hidden');
   $('defence').scrollIntoView({ behavior: 'smooth', block: 'start' });
   audio.sfx.alarm();
-  ({ missile: startMissile, snake: startSnake, stoke: startStoke })[a.kind](current);
+  ({ missile: startMissile, snake: startSnake, stoke: startStoke, depth: startDepth })[a.kind](current);
   tickDefence();
 }
 function tickDefence() {
@@ -558,6 +651,9 @@ function startSnake(g) {
   $('dbody').innerHTML = `<canvas width="${W}" height="${H}"></canvas><p class="hint" style="text-align:center">Arrow keys or WASD. Click the board first if the keys do nothing.</p>`;
   const cv = $('dbody').querySelector('canvas'), ctx = cv.getContext('2d');
   let body = GA.snakeStart(), dir = [1, 0], queued = [], food = GA.snakeFood(g.rng, body), got = 0, acc = 0, last = null, seenAt = null, dead = false;
+  const sparks = GA.sparksStart(g.rng, body);
+  let foodAge = 0;
+  const fail = text => { dead = true; audio.sfx.spark(); finishDefence(false, {}, text); };
   const KEYS = { ArrowUp: [0, -1], w: [0, -1], W: [0, -1], ArrowDown: [0, 1], s: [0, 1], S: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], A: [-1, 0], ArrowRight: [1, 0], d: [1, 0], D: [1, 0] };
   const onKey = e => {
     const d = KEYS[e.key]; if (!d || g.done) return;
@@ -578,13 +674,18 @@ function startSnake(g) {
     const since = (nowT - seenAt) / 1000;
     if (since > READY && !dead) {
       acc += dt;
+      GA.sparksStep(sparks, dt);
+      foodAge += dt;
+      if (foodAge > GA.SN.sink) { food = GA.snakeFood(g.rng, body); foodAge = 0; audio.sfx.puff(); }   // the loose end sank; another floats up
+      if (GA.sparkHits(sparks, body[0]) && !g.done) fail('A STRAY SPARK HIT THE SPLICE · THE BUOY IS LOST');
       while (acc >= GA.SN.step && !dead && !g.done) {
         acc -= GA.SN.step;
         if (queued.length) dir = queued.shift();
         const r = GA.snakeMove(body, dir, food);
         body = r.body;
-        if (r.dead) { dead = true; finishDefence(false, {}, 'THE SPLICE FAILED · THE BUOY IS LOST'); break; }
-        if (r.ate) { got++; audio.sfx.click(); if (got >= GA.SN.need) { finishDefence(true, {}, 'THE CABLE IS SPLICED'); break; } food = GA.snakeFood(g.rng, body); }
+        if (r.dead) { fail('THE SPLICE FAILED · THE BUOY IS LOST'); break; }
+        if (GA.sparkHits(sparks, body[0])) { fail('A STRAY SPARK HIT THE SPLICE · THE BUOY IS LOST'); break; }
+        if (r.ate) { got++; audio.sfx.click(); if (got >= GA.SN.need) { finishDefence(true, {}, 'THE CABLE IS SPLICED'); break; } food = GA.snakeFood(g.rng, body); foodAge = 0; }
       }
     }
     // draw: the sea floor, the cable, the loose end
@@ -592,8 +693,20 @@ function startSnake(g) {
     ctx.strokeStyle = 'rgba(92,255,157,.06)';
     for (let x = 0; x <= GA.SN.W; x++) { ctx.beginPath(); ctx.moveTo(x * S, 0); ctx.lineTo(x * S, H); ctx.stroke(); }
     for (let y = 0; y <= GA.SN.H; y++) { ctx.beginPath(); ctx.moveTo(0, y * S); ctx.lineTo(W, y * S); ctx.stroke(); }
-    ctx.fillStyle = '#ffb347'; ctx.shadowColor = '#ffb347'; ctx.shadowBlur = 12;
-    ctx.beginPath(); ctx.arc(food[0] * S + S / 2, food[1] * S + S / 2, S * 0.3, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    // the loose end, shrinking and dimming as it sinks, with a ring that runs out
+    const left = Math.max(0, 1 - foodAge / GA.SN.sink), fx = food[0] * S + S / 2, fy = food[1] * S + S / 2;
+    ctx.fillStyle = `rgba(255,179,71,${0.35 + 0.65 * left})`; ctx.shadowColor = '#ffb347'; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(fx, fy, S * (0.18 + 0.14 * left), 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    ctx.strokeStyle = left < 0.35 ? '#ff6a4a' : 'rgba(255,207,122,.8)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(fx, fy, S * 0.46, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1;
+    // the stray sparks: crackling blue-white, with the square they are in faintly marked
+    for (const sp of sparks) {
+      const [cx, cy] = GA.sparkCell(sp); ctx.fillStyle = 'rgba(120,200,255,.10)'; ctx.fillRect(cx * S, cy * S, S, S);
+      const px = sp.x * S + S / 2, py = sp.y * S + S / 2, t = nowT / 1000;
+      ctx.strokeStyle = '#bfe8ff'; ctx.shadowColor = '#6fc8ff'; ctx.shadowBlur = 14; ctx.lineWidth = 2; ctx.beginPath();
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + t * 7, r = S * (0.22 + 0.16 * Math.abs(Math.sin(t * 23 + k * 2.1))); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(a) * r, py + Math.sin(a) * r); }
+      ctx.stroke(); ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(px, py, S * 0.12, 0, 7); ctx.fill(); ctx.shadowBlur = 0; ctx.lineWidth = 1;
+    }
     ctx.fillStyle = dead ? '#a33' : '#c9a24b';
     body.forEach(([x, y], i) => { if (i) { ctx.beginPath(); ctx.roundRect(x * S + 3, y * S + 3, S - 6, S - 6, 6); ctx.fill(); } });
     ctx.fillStyle = dead ? '#ff4b3a' : '#5cff9d'; ctx.beginPath(); ctx.arc(body[0][0] * S + S / 2, body[0][1] * S + S / 2, S * 0.36, 0, 7); ctx.fill();
@@ -605,7 +718,6 @@ function startSnake(g) {
   cv.tabIndex = 0; cv.focus({ preventScroll: true });
 }
 
-// ---------- The wires (Engineering) ----------
 // ---------- The stokehold (Engineering): Tapper. Four decks, four fires, one stoker ----------
 function startStoke(g) {
   const W = 960, H = 540, FLOOR = [96, 202, 311, 419], STOKER_X = 30, BOX_R = 948, BOX_H = 80, DOOR = 0.12;
@@ -671,7 +783,7 @@ function startStoke(g) {
     }
     // the stoker, mid-throw for a moment after each shovel
     const throwing = st.t - thrownAt < 0.18;
-    if (!put(throwing ? 'stoker-throw' : 'stoker-ready', STOKER_X, FLOOR[pos], 88)) { ctx.fillStyle = '#2f5e33'; ctx.fillRect(STOKER_X, FLOOR[pos] - 88, 40, 88); }
+    if (!put(throwing ? 'stoker-throw' : 'stoker-ready', STOKER_X, FLOOR[pos], 88) && !put('stoker-throw', STOKER_X, FLOOR[pos], 88)) { ctx.fillStyle = '#2f5e33'; ctx.fillRect(STOKER_X, FLOOR[pos] - 88, 40, 88); }
     // smoke from a dead fire, steam from a burst one
     for (const f of fx) {
       const age = t - f.at; if (age > 1.4) continue;
@@ -752,6 +864,63 @@ function startMissile(g) {
     for (const b of booms) { const a = t - b.t0; if (a < 0.6) { ctx.fillStyle = `rgba(255,120,60,${0.8 - a})`; ctx.beginPath(); ctx.arc(b.x, b.y, (b.small ? 14 : 34) * (0.4 + a), 0, 7); ctx.fill(); } }
     ctx.lineWidth = 1;
     if (waves.every(w => !w.alive) && !g.done) finish();
+  };
+}
+
+// ---------- Depth charges (the Fleet Officer): Space Invaders, upside down ----------
+// Placeholder art (shapes); sprites named depth-destroyer, depth-sub, depth-whale are used if they ever load.
+function startDepth(g) {
+  const W = GA.DC.W, H = GA.DC.H, S = 2;
+  $('dbody').innerHTML = `<canvas width="${W * S}" height="${H * S}" tabindex="0"></canvas><p class="hint" style="text-align:center">← → or A D to steer · SPACE drops a charge (three in the water at most). Click the board first if the keys do nothing.</p>`;
+  const cv = $('dbody').querySelector('canvas'), ctx = cv.getContext('2d'); cv.focus();
+  const st = GA.depthStart(g.rng), keys = {}, booms = [];
+  const onKey = e => {
+    const k = e.key; if (g.done) return;
+    if (['ArrowLeft', 'ArrowRight', 'a', 'A', 'd', 'D', ' '].includes(k)) e.preventDefault();
+    if (e.type === 'keydown' && k === ' ') { if (GA.depthDrop(st)) audio.sfx.click(); return; }
+    keys[k.toLowerCase()] = e.type === 'keydown';
+  };
+  addEventListener('keydown', onKey); addEventListener('keyup', onKey);
+  g.cleanup = () => { removeEventListener('keydown', onKey); removeEventListener('keyup', onKey); };
+  let last = performance.now();
+  const finish = (ok, why) => finishDefence(ok, {}, ok ? 'THE SUBMARINES ARE BEATEN OFF' : why === 'surfaced' ? 'THEY SURFACED · YOUR SHIP IS HIT' : 'THE DESTROYER IS CRIPPLED · YOUR SHIP IS HIT');
+  g.timeout = () => { if (!g.done) finish(!st.over || st.won); };
+  g.tick = () => {
+    const now = performance.now(); let dt = Math.min(0.1, (now - last) / 1000); last = now;
+    const move = (keys.arrowright || keys.d ? 1 : 0) - (keys.arrowleft || keys.a ? 1 : 0);
+    while (dt > 0 && !st.over) { const h = Math.min(0.05, dt); dt -= h;
+      for (const e of GA.depthStep(st, h, move, g.rng)) {
+        if (e.type === 'kill') { booms.push({ x: e.x, y: e.y, t: st.t }); audio.sfx.blowout(); }
+        if (e.type === 'hit') audio.sfx.spark();
+        if (e.type === 'won') finish(true); if (e.type === 'surfaced') st.why = 'surfaced'; if (e.type === 'lost') finish(false, st.why);
+      } }
+    ctx.save(); ctx.scale(S, S);
+    // the sea: lighter at the surface, black in the deep
+    const sea = ctx.createLinearGradient(0, 0, 0, H); sea.addColorStop(0, '#2a4a5a'); sea.addColorStop(0.16, '#123040'); sea.addColorStop(1, '#02080c');
+    ctx.fillStyle = '#0a0f14'; ctx.fillRect(0, 0, W, GA.DC.surface - 8); ctx.fillStyle = sea; ctx.fillRect(0, GA.DC.surface - 8, W, H);
+    ctx.strokeStyle = 'rgba(160,220,255,.5)'; ctx.beginPath(); for (let x = 0; x <= W; x += 8) ctx.lineTo(x, GA.DC.surface - 8 + Math.sin(x / 14 + st.t * 3) * 2); ctx.stroke();
+    // the destroyer
+    const hx = st.x, hy = GA.DC.shipY, flash = st.hitFlash > 0 && Math.floor(st.t * 20) % 2;
+    if (!sprite(ctx, 'depth-destroyer', hx - 30, hy - 16, 60, 26)) {
+      ctx.fillStyle = flash ? '#ff8a7a' : '#7d8a96'; ctx.beginPath(); ctx.moveTo(hx - 28, hy); ctx.lineTo(hx + 28, hy); ctx.lineTo(hx + 22, hy + 9); ctx.lineTo(hx - 24, hy + 9); ctx.fill();
+      ctx.fillStyle = flash ? '#ffb3a8' : '#a5b2bd'; ctx.fillRect(hx - 10, hy - 9, 18, 9); ctx.fillRect(hx - 2, hy - 16, 4, 8);
+    }
+    // charges, foes, their fire
+    for (const c of st.charges) { ctx.fillStyle = '#e8cf98'; ctx.fillRect(c.x - 4, c.y - 5, 8, 10); ctx.fillStyle = '#5a4630'; ctx.fillRect(c.x - 4, c.y - 1, 8, 2); }
+    for (const f of st.foes) {
+      if (!f.alive) continue; const [w, h] = GA.depthSize(f);
+      if (sprite(ctx, f.kind === 'whale' ? 'depth-whale' : 'depth-sub', f.x - w / 2, f.y - h / 2, w, h)) continue;
+      if (f.kind === 'whale') { const glow = 0.5 + 0.5 * Math.sin(st.t * 4 + f.x); ctx.fillStyle = '#4a3a6a'; ctx.beginPath(); ctx.ellipse(f.x, f.y, w / 2, h / 2, 0, 0, 7); ctx.fill(); ctx.beginPath(); ctx.moveTo(f.x + w / 2 - 4, f.y); ctx.lineTo(f.x + w / 2 + 8, f.y - 7); ctx.lineTo(f.x + w / 2 + 8, f.y + 7); ctx.fill(); ctx.fillStyle = `rgba(200,140,255,${glow})`; ctx.beginPath(); ctx.arc(f.x - w / 4, f.y - 2, 3, 0, 7); ctx.fill(); }
+      else { ctx.fillStyle = '#5a1e18'; ctx.beginPath(); ctx.ellipse(f.x, f.y, w / 2, h / 2, 0, 0, 7); ctx.fill(); ctx.fillRect(f.x - 4, f.y - h / 2 - 6, 8, 6); ctx.fillStyle = '#ff8a5a'; ctx.fillRect(f.x - 1, f.y - h / 2 - 9, 2, 3); }
+    }
+    for (const s of st.shots) {
+      if (s.kind === 'pulse') { ctx.strokeStyle = 'rgba(200,140,255,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x, s.y, 7 + Math.sin(st.t * 12) * 2, 0, 7); ctx.stroke(); ctx.lineWidth = 1; }
+      else { ctx.fillStyle = '#ffd36a'; ctx.fillRect(s.x - 1.5, s.y - 7, 3, 12); ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(s.x - 1, s.y + 5, 2, 10); }
+    }
+    for (const b of booms) { const a = st.t - b.t; if (a < 0.6) { ctx.fillStyle = `rgba(200,240,255,${0.7 - a})`; ctx.beginPath(); ctx.arc(b.x, b.y, 8 + a * 50, 0, 7); ctx.fill(); } }
+    ctx.fillStyle = 'rgba(10,8,6,.75)'; ctx.fillRect(6, H - 24, 200, 18); ctx.fillStyle = '#ffd36a'; ctx.font = '600 11px IBM Plex Mono'; ctx.textAlign = 'left';
+    ctx.fillText(`HULL ${'■'.repeat(Math.max(0, st.lives))}${'□'.repeat(GA.DC.lives - Math.max(0, st.lives))}  ·  ${st.foes.filter(f => f.alive).length} BELOW`, 12, H - 11);
+    ctx.restore();
   };
 }
 

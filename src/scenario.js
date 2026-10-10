@@ -54,12 +54,12 @@ export const TUNING = {
   sipRelief: 0.45,
   // beacons
   beaconSpeed: 200,        // miles per second
-  beaconStock: 6,          // plain red beacons at the start of the watch; more come only from the workshop
-  orangeStock: 3,          // sounding charges: an echo on impact, no ping
-  greenStock: 3,           // transmitter beacons: the Navy's call
+  beaconStock: 5,          // plain red beacons at the start of the watch (and the most the rack holds); more come from the workshop
+  orangeStock: 2,          // sounding charges: an echo on impact, no ping
+  greenStock: 1,           // transmitter beacons: the Navy's call (fire it, and build another to fire again)
   cureTime: 15,            // seconds a sealed beacon cures in the rack while the WORKSHOP is powered
   // the officers' stations: a defence event for each, every few minutes
-  defenceEvery: { gunnery: [180, 300], signals: [180, 420], engineer: [180, 420] },   // seconds between one station's events
+  defenceEvery: { gunnery: [180, 300], signals: [180, 420], engineer: [180, 420], fleet: [240, 420] },   // seconds between one station's events
   rewardCooldown: 60,      // seconds before a station's steady puzzle can pay out again (Minesweeper, Lights Out)
   defenceGap: 45,          // seconds kept between any two stations' events
   overheatHeat: 90,        // furnace heat in the red: Engineering's breakers trip too
@@ -318,7 +318,7 @@ export const RADIO_TABLE = {
   BRW: { LOW: 'The Bull alone. A fragment of Geryon.', MID: 'THE TRIAD: Glass, Ember and the Bull.', HIGH: 'A fallen choir: Glass and Ember. No Bull.' },
   WRB: { LOW: 'Ice settling. No meaning.', MID: "Geryon's name spoken backwards. A mockery, not the Triad.", HIGH: 'Frost singing in a crevasse. No meaning.' },
   RBW: { LOW: 'Pack ice grinding. No meaning.', MID: 'A herald calling for a lord who never answers.', HIGH: 'Gulls of the Styx. No meaning.' },
-  RRW: { LOW: 'Echo of an old storm. No meaning.', MID: 'War drums of a devil legion.', HIGH: 'An infernal armoury humming in its sleep.' },
+  RRW: { LOW: 'Echo of an old storm. No meaning.', MID: 'War drums of a devil legion, or the crew of a devil warship.', HIGH: 'An infernal armoury humming in its sleep.' },
   WWB: { LOW: 'Whale-song of the Styx.', MID: 'A celestial lament. Something holy is buried here.', HIGH: 'Wind across a chimney of ice. No meaning.' },
   BBR: { LOW: 'Floes knocking together. No meaning.', MID: 'A drowned bell, ringing in a hollow.', HIGH: 'Static from the Tomb. No meaning.' },
 };

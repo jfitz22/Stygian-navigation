@@ -4,13 +4,14 @@ import {
   ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
   saveWorld, loadWorld, pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, inShoal, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
-  setDamper, setPriority, furnaceState, sonarStrain, repairWorking, stationAction, ROLES, stationSnapshot,
+  setDamper, setPriority, furnaceState, sonarStrain, repairWorking, stationAction, ROLES, OFFICERS, fleetCommander, stationSnapshot, clearanceAnswer, clearanceCancel, fleetReady,
 } from './sim.js';
 import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES, SHOALS, SIZE_CUT } from './scenario.js';
 import { glyphSVG, echoAt, ECHO_W } from './glyphs.js';
 import { makeRepairBoard, repairAction, ownerOf, DEPTS } from './repair.js';
 import { drawFurnaceLog, furnaceNumbers, N_COLOR } from './furnacelog.js';
-import { mountFleet } from './fleetui.js';
+import { mountFleet, morseText } from './fleetui.js';
+import * as FL from './fleet.js';
 import * as audio from './audio.js';
 import { GAME_TIME } from './games.js';
 import { openLink, newRoomCode, cleanCode, NET_ENABLED } from './link.js';
@@ -45,7 +46,7 @@ const ui = {
 };
 const fmt = s => { s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
 const ago = s => fmt(s) + ' ago';
-const COLORS = { red: '#ff4b3a', orange: '#ffb347', green: '#5cff9d' };
+const COLORS = { red: '#ff4b3a', orange: '#ffb347', green: '#5cff9d', iron: '#9aa4ad' };   // iron: a warship the Fleet Officer unmasked
 const COLOR_LABEL = { red: 'RED<br><small>PLAIN</small>', orange: 'ORANGE<br><small>SOUNDING</small>', blue: 'BLUE<br><small>DRIFT LOG</small>', green: 'THIS IS<br>ELGARZ' };
 const STOCK = { red: 'stock', orange: 'orange', green: 'green' };
 const REVEAL = '#7fd8ff';
@@ -628,6 +629,12 @@ function drawFeature(ctx, b, x0, base, w, h, fog, t) {
   } else if (b.look === 'sepulcher') {
     const g = ctx.createRadialGradient(x0 + w / 2, base - h * 0.4, 0, x0 + w / 2, base - h * 0.4, w * 0.3);
     g.addColorStop(0, `rgba(255,230,160,${0.5 * a * (0.7 + 0.3 * Math.sin(t))})`); g.addColorStop(1, 'rgba(255,230,160,0)'); ctx.fillStyle = g; ctx.fillRect(x0, base - h, w, h);
+  } else if (b.look === 'warship') {
+    // an iron hull under the ice: a dark keel line, riveted plates and gun ports showing through
+    ctx.fillStyle = `rgba(38,42,48,${0.75 * a})`; ctx.beginPath(); ctx.moveTo(x0 + w * 0.1, base - h * 0.12); ctx.lineTo(x0 + w * 0.92, base - h * 0.12); ctx.lineTo(x0 + w * 0.82, base - h * 0.5); ctx.lineTo(x0 + w * 0.16, base - h * 0.5); ctx.fill();
+    ctx.strokeStyle = `rgba(120,70,50,${0.6 * a})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0 + w * 0.16, base - h * 0.32); ctx.lineTo(x0 + w * 0.86, base - h * 0.32); ctx.stroke();
+    ctx.fillStyle = `rgba(150,150,140,${0.55 * a})`; for (let i = 0; i < 8; i++) ctx.fillRect(x0 + w * (0.2 + i * 0.08), base - h * 0.44, Math.max(1.5, w * 0.02), Math.max(1.5, h * 0.05));
+    ctx.fillStyle = `rgba(255,120,60,${0.25 * a * (0.6 + 0.4 * Math.sin(t * 2))})`; for (let i = 0; i < 3; i++) ctx.fillRect(x0 + w * (0.3 + i * 0.18), base - h * 0.26, Math.max(2, w * 0.04), Math.max(2, h * 0.06));
   } else if (b.look === 'arsenal') {
     ctx.strokeStyle = `rgba(30,25,20,${0.9 * a})`;
     for (let i = 0; i < 5; i++) { const u = 0.15 + i * 0.17; ctx.beginPath(); ctx.moveTo(x0 + w * u, base - h * 0.6); ctx.lineTo(x0 + w * u + (i % 2 ? 6 : -5), base - h * 1.4); ctx.stroke(); }
@@ -1056,8 +1063,26 @@ function jnote(at, text, gmNote = false) {
 }
 JERRY.forEach(([at, text]) => jnote(at, text));
 
+// ---------- the green beacon's clearance: two questions in Morse; the Fleet Officer has the table ----------
+ui.clearKey = '';
+function drawClearance() {
+  const c = world.clearance, term = $('clearterm');
+  const key = c ? c.step + '|' + c.qs.map(q => q.q).join() : '';
+  if (key === ui.clearKey) return; ui.clearKey = key;
+  term.classList.toggle('hidden', !c);
+  if (!c) { term.innerHTML = ''; return; }
+  const q = c.qs[c.step];
+  term.innerHTML = `<div class="t">FLEET OFFICER CLEARANCE REQUIRED</div>
+    <div class="sub">THE GREEN BEACON NEEDS THE FLEET'S CLEARANCE · QUESTION ${c.step + 1} OF ${c.qs.length} · ASK THE FLEET OFFICER TO READ THE MORSE</div>
+    <div class="morseq">${morseText(q.q)}</div>
+    <div class="morseopts">${q.opts.map((o, i) => `<button data-cl="${i}"><b>${'ABC'[i]}</b>${morseText(o)}</button>`).join('')}</div>
+    <div class="sub">ONE WRONG ANSWER AND THE GREEN BEACON STAYS IN THE RACK. <button id="clcancel">STAND DOWN</button></div>`;
+  term.querySelectorAll('[data-cl]').forEach(b => b.onclick = () => clearanceAnswer(world, Number(b.dataset.cl)));
+  $('clcancel').onclick = () => clearanceCancel(world);
+}
+
 // ---------- the password lock ----------
-const SEAL_TITLE = { lockdown: 'PASSWORD SECURITY UPDATE REQUIRED', green: 'AUTHORISE THE GREEN BEACON', relight: 'FURNACE INTERLOCK', fatigue: 'OPERATOR LOGGED OUT', gm: 'LOCKED BY THE WATCH OFFICER', reboot: 'SYSTEM REBOOTED', station: 'STATION LOCKOUT' };
+const SEAL_TITLE = { shell: 'ENEMY SHELLS ON THE WATCH · CONSOLE CHECK', lockdown: 'PASSWORD SECURITY UPDATE REQUIRED', green: 'AUTHORISE THE GREEN BEACON', relight: 'FURNACE INTERLOCK', fatigue: 'OPERATOR LOGGED OUT', gm: 'LOCKED BY THE WATCH OFFICER', reboot: 'SYSTEM REBOOTED', station: 'STATION LOCKOUT' };
 ui.sealKey = ''; ui.pwShown = null;
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const layerName = cap => { const n = layerOf(cap); return n ? `LAYER ${LAYERS[n - 1][1]} · ${LAYERS[n - 1][0]}` : 'THE GATE'; };
@@ -1079,10 +1104,10 @@ function drawSeal() {
     if (!term.classList.contains('hidden')) term.classList.add('hidden');
     ui.sealKey = ''; return;
   }
-  const key = [s.reason, s.mode, world.pwCap].join('|');
+  const key = [s.reason, s.mode, world.pwCap, s.change].join('|');
   if (ui.sealKey !== key) {
     ui.sealKey = key; term.classList.remove('hidden');
-    const set = s.mode === 'set', update = s.reason === 'lockdown';
+    const set = s.mode === 'set', update = s.reason === 'lockdown' || !!s.change;
     const sub = set ? `DESCENDING TO ${layerName(world.pwCap)}. SET A NEW PASSWORD: EVERY RULE BELOW MUST PASS.`
       : update ? `SECURITY UPDATE: DESCENDING TO ${layerName(world.pwCap)}. FIRST, ENTER THE <u>CURRENT</u> PASSWORD.`
       : 'ENTER THE <u>CURRENT</u> PASSWORD.';
@@ -1340,7 +1365,7 @@ function handleEvents() {
       case 'scandone': audio.sfx.scandone(); break;
       case 'artifact': audio.sfx.reveal(); wire(`THE SCANNER NAMES AN INFERNAL ARTIFACT IN #${e.num}: ${e.name.toUpperCase()} · A GREEN BEACON WILL RECOVER IT`, 'info'); break;
       case 'artifactrecovered': audio.sfx.reveal(); confetti(); wire(`ARTIFACT RECOVERED FROM #${e.num}: ${e.name.toUpperCase()}`, 'info'); artCard(e); break;
-      case 'enemyrevealed': audio.sfx.lamps(); wire(`SIGNALS COMPLETED A SWEEP · ${e.name} IS PLOTTED ON THE FLEET TABLES`, 'info'); break;
+      case 'enemyrevealed': audio.sfx.lamps(); wire(`SIGNALS COMPLETED A SWEEP · AN ENEMY HULL IS SIGHTED AT ${e.square}`, 'info'); break;
       case 'launch': audio.sfx.launch(); if (e.wild) toast('LAUNCH WITH NOTHING LOCKED · THE BEACON FLIES WILD'); break;
       case 'hit': audio.sfx.hit(); if (e.color !== 'green') toast(`BEACON STRUCK ICEBERG #${e.num}`, 'info'); break;
       case 'greenwrong': toast(`GREEN BEACON STRUCK #${e.num} · NOTHING ANSWERS`); break;
@@ -1357,22 +1382,43 @@ function handleEvents() {
       case 'broke': audio.sfx.camdead(); if (e.sys !== 'winch' || ui.buoyDeadAt !== world.t) toast(BROKE_MSG[e.sys] + ' · REPAIR BAY ▲'); break;
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
-      case 'defence': audio.sfx.alarm(); toast({ gunnery: 'GUNNERY STATION: DEVIL FIRE INBOUND ON THE TOWERS', signals: 'SIGNALS STATION: THE BUOY CABLE HAS SNAPPED', engineer: e.reason === 'overheat' ? 'THE FURNACE IS IN THE RED · ENGINEERING: THE STOKEHOLD FIRES ARE FAILING' : 'ENGINEERING STATION: THE STOKEHOLD FIRES ARE FAILING' }[e.role]); break;
+      case 'defence': audio.sfx.alarm(); toast({ fleet: 'FLEET OFFICER: ENEMY SUBMARINES BELOW · DEPTH CHARGES', gunnery: 'GUNNERY STATION: DEVIL FIRE INBOUND ON THE TOWERS', signals: 'SIGNALS STATION: THE BUOY CABLE HAS SNAPPED', engineer: e.reason === 'overheat' ? 'THE FURNACE IS IN THE RED · ENGINEERING: THE STOKEHOLD FIRES ARE FAILING' : 'ENGINEERING STATION: THE STOKEHOLD FIRES ARE FAILING' }[e.role]); break;
       case 'freebeacon': audio.sfx.launch(); wire(`SIGNALS COMPLETED A MINESWEEP · THE GUNS FIRED · A BEACON STRUCK #${e.num}`, 'info'); break;
       case 'freefuel': audio.sfx.fuel(); wire(e.full ? 'ENGINEERING CLEARED THE BREAKER PANEL · THE CHUTE WAS ALREADY FULL' : 'ENGINEERING CLEARED THE BREAKER PANEL · A FREE SHOVEL IN THE CHUTE', 'info'); break;
-      case 'defencedone': (stationHist[e.role] = stationHist[e.role] || []).push({ t: world.t, ok: e.ok, what: DEF_WHAT[e.role] || 'defence' }); if (e.ok) wire({ gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING HELD THE STOKEHOLD' }[e.role], 'info');
-        else { audio.sfx.camdead(); wire({ gunnery: `DEVIL FIRE STRUCK ${e.n} TOWER${e.n > 1 ? 'S' : ''} · THOSE ORBS ARE DOWN`, signals: 'THE SPLICE FAILED · THE BUOY IS LOST · REPAIR THE WINCH ▲', engineer: `THE STOKEHOLD FIRES FAILED · ${e.sys ? SYS_LABEL[e.sys] + ' IS OFF, ' : ''}THE CHUTE IS EMPTY, LIGHTS RED` }[e.role]); } break;
-      case 'fleetwin': audio.sfx.reveal(); wire('THE ENEMY FLEET IS SUNK · REDEPLOY THE FLEET · A NEW ENEMY IS ON THE HORIZON', 'info'); break;
+      case 'defencedone': (stationHist[e.role] = stationHist[e.role] || []).push({ t: world.t, ok: e.ok, what: DEF_WHAT[e.role] || 'defence' }); if (e.ok) wire({ fleet: 'THE FLEET OFFICER BEAT OFF THE SUBMARINES', gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING HELD THE STOKEHOLD' }[e.role], 'info');
+        else { audio.sfx.camdead(); wire({ fleet: `THE DEPTH CHARGES FAILED${e.ship != null ? ' · ' + FL.SHIP_NAMES[e.ship] + ' IS HIT, AND THE ENEMY KNOWS WHERE SHE IS' : ''}`, gunnery: `DEVIL FIRE STRUCK ${e.n} TOWER${e.n > 1 ? 'S' : ''} · THOSE ORBS ARE DOWN`, signals: 'THE SPLICE FAILED · THE BUOY IS LOST · REPAIR THE WINCH ▲', engineer: `THE STOKEHOLD FIRES FAILED · ${e.sys ? SYS_LABEL[e.sys] + ' IS OFF, ' : ''}THE CHUTE IS EMPTY, LIGHTS RED` }[e.role]); } break;
+      case 'fleetwin': audio.sfx.reveal(); wire('THE ENEMY FLEET IS SUNK · OUR FLEET IS REFITTED · A NEW ENEMY IS ON THE HORIZON', 'info'); break;
       case 'defencelost': break;
       case 'beaconsealed': audio.sfx.clunk(); toast(`GUNNERY SEALED A ${e.color.toUpperCase()} BEACON · IT CURES WHILE THE WORKSHOP IS ON`, 'info'); break;
       case 'beaconready': audio.sfx.calibrated(); toast(`A ${e.color.toUpperCase()} BEACON IS READY IN THE LAUNCHER`, 'info'); break;
       case 'callsign': audio.sfx.flip(); break;
       case 'fleetplace': audio.sfx.click(); break;
       case 'fleetready': audio.sfx.calibrated(); look('main'); toast('THE FLEET IS DEPLOYED · THE WATCH BEGINS', 'info'); break;
-      case 'fleetshot': if (e.by === 'them') { if (e.hit) audio.sfx.camdead(); toast(`THE ENEMY FLEET FIRED${e.free ? ' (NOBODY WAS SHOOTING)' : ''} · ${e.sunk >= 0 ? 'THEY SANK ONE OF OURS' : e.hit ? 'A HIT ON OUR FLEET' : 'A MISS'} · LOOK LEFT ◀`, e.hit ? '' : 'info'); }
-        else { audio.sfx[e.hit ? 'hit' : 'miss'](); if (e.sunk >= 0) toast('WE SANK AN ENEMY SHIP', 'info'); } break;
-      case 'reinforcements': audio.sfx.alarm(); break;
-      case 'reinforced': toast('THE REINFORCEMENTS ARE BEATEN OFF · THE FLEET IS REFITTED', 'info'); break;
+      case 'fleetsalvo': audio.sfx[e.ours.some(o => o[2] === 'hit') ? 'hit' : 'miss'](); if (e.theirs.some(o => o[2] === 'hit')) setTimeout(() => audio.sfx.camdead(), 700); break;
+      case 'fleetsunk': if (e.side === 'theirs') toast('WE SANK AN ENEMY SHIP', 'info'); else wire(`${FL.SHIP_NAMES[e.ship]} IS SUNK · SALVAGE HER: FLEET OFFICER AND ENGINEERING`); break;
+      case 'fleetrelaunch': audio.sfx.calibrated(); wire(`${FL.SHIP_NAMES[e.ship]} IS RELAUNCHED`, 'info'); break;
+      case 'fleetshell': audio.sfx.blowout(); shake(); wire(`ENEMY SHELLS HIT THE WATCH: ONE OF OUR SHIPS IS DOWN, SO THEIR GUNS CAN REACH US${e.sys ? ' · ' + (BROKE_MSG[e.sys] || (world.cams.find(c => c.id === e.sys) ? camName(e.sys) + ' ORB IS DOWN' : 'A MACHINE IS DOWN')) + ' · REPAIR BAY ▲' : ''}${e.pw === 'ask' ? ' · THE CONSOLE WANTS THE CURRENT PASSWORD' : e.pw === 'lockdown' ? ' · THIRD CHECK WITHOUT A SECURITY UPDATE: LOCKDOWN, ONE LAYER DEEPER' : ''} · SALVAGE OUR SHIP TO STOP THE SHELLING`); break;
+      case 'clearance': audio.sfx.seal(); toast('FLEET OFFICER CLEARANCE REQUIRED · TWO QUESTIONS IN MORSE'); break;
+      case 'clearancenext': audio.sfx.calibrated(); break;
+      case 'clearanceok': audio.sfx.calibrated(); if (e.skipped) toast('THE FLEET OFFICER LEFT THEIR STATION · CLEARANCE WAIVED', 'info'); else toast('CLEARANCE GRANTED · THE GREEN BEACON FLIES', 'info'); break;
+      case 'clearancefail': audio.sfx.deny(); wire(e.timeout ? 'NO CLEARANCE CAME · THE GREEN BEACON STAYS IN THE RACK' : e.cancelled ? 'THE GREEN LAUNCH IS STOOD DOWN' : 'CLEARANCE REFUSED: A WRONG ANSWER · THE GREEN BEACON STAYS IN THE RACK'); break;
+      case 'warshiphit': audio.sfx.reveal(); wire(`BEACON #${e.num} STRUCK IRON UNDER THE ICE · A DISGUISED WARSHIP · HER SISTER SHIP IS PLOTTED ON THE FLEET TABLES`, 'info'); break;
+      case 'unmasked': audio.sfx.stamp(); wire(`THE FLEET OFFICER DECODED A DISPATCH · ICEBERG #${e.num} IS A DISGUISED WARSHIP · EXCLUDED`, 'info'); break;
+      case 'scanloaded': audio.sfx.lamps(); wire('THE FLEET OFFICER DECODED A DISPATCH · THE CROSSHAIR SCAN IS LOADED', 'info'); break;
+      case 'fleetregroup': audio.sfx.alarm(); wire('THE ENEMY FLEET FALLS BACK TO AWAIT REINFORCEMENTS · A NEW FLEET IN 90 SECONDS'); break;
+      case 'fleetregrouped': audio.sfx.alarm(); wire('ENEMY SHIPS REDEPLOYED · A NEW FLEET IS ON THE HORIZON'); break;
+      case 'fleetenemysonar': if (e.count) toast('THE ENEMY SOUNDED OUR WATERS · THEY KNOW WHERE TO LOOK'); break;
+      case 'fleetmorsewrong': audio.sfx.deny(); wire(`${STATION_NAME[e.dept].toUpperCase()} ANSWERED THE MORSE WRONG · THEIR RELOAD IS LOCKED FOR A MINUTE`); break;
+      case 'fleetcodewrong': break;
+      case 'fleetquestion': break;
+      case 'fleethit': if (e.ship === 0) toast('THE FLEET OFFICER\'S SHIP IS HIT'); break;
+      case 'rackfull': audio.sfx.deny(); toast(`THE RACK HOLDS NO MORE ${e.color.toUpperCase()} BEACONS`); break;
+      case 'fleetscan': if (e.found) toast(`CROSSHAIR SCAN · ${e.found} ENEMY SQUARE${e.found === 1 ? '' : 'S'} SIGHTED`, 'info'); break;
+      case 'fleetlost': audio.sfx.alarm(); wire('THE FLEET IS LOST · THE ENEMY SHELLS THE FURNACE · THE FLEET IS REFITTED IN A MINUTE'); break;
+      case 'fleetrefit': audio.sfx.calibrated(); wire('THE FLEET IS REFITTED AND BACK ON STATION', 'info'); break;
+      case 'fleetloaded': audio.sfx.lamps(); if (e.dept && e.dept !== 'gm') wire(`${STATION_NAME[e.dept].toUpperCase()} RELOADED THE ${FL.SPECIAL_NAME[FL.SPECIAL[e.dept]]}`, 'info'); break;
+      case 'fleetsalvaged': audio.sfx.calibrated(); break;
+      case 'fleetpowered': audio.sfx.fuel(); wire(`ENGINEERING POWERED ${FL.SHIP_NAMES[e.ship]} FROM THE BREAKER PANEL`, 'info'); break;
       case 'casepinned': audio.sfx.flip(); toast(`#${e.num} IS PINNED TO THE CASE BOARD`, 'info'); break;
       case 'observed': audio.sfx.flip(); break;
       case 'verdict': if (e.v === 'EXCLUDED') audio.sfx.stamp(); else audio.sfx.click(); break;
@@ -1449,15 +1495,16 @@ function drawCabin() {
 }
 // The crew board: one card per officer's station.
 const stationDoing = {}, stationHist = {};
-const DEF_WHAT = { gunnery: 'devil fire', signals: 'cable splice', engineer: 'stokehold' };
-const DEF_NAME = { missile: 'DEVIL FIRE ON THE TOWERS', snake: 'THE BUOY CABLE SNAPPED', stoke: 'THE STOKEHOLD FIRES ARE FAILING' };
+const DEF_WHAT = { gunnery: 'devil fire', signals: 'cable splice', engineer: 'stokehold', fleet: 'depth charges' };
+const DEF_NAME = { missile: 'DEVIL FIRE ON THE TOWERS', snake: 'THE BUOY CABLE SNAPPED', stoke: 'THE STOKEHOLD FIRES ARE FAILING', depth: 'SUBMARINES BELOW' };
 function drawCrew() {
-  const now = performance.now(), cards = ROLES.map(r => {
+  const now = performance.now(), cards = OFFICERS.map(r => {
     const live = world.defence.live[r], ev = world.defence.active[r];
     let stat = '';
     if (r === 'gunnery') { const q = world.workshop.curing; stat = `Beacons: red ${world.beacons.stock} · orange ${world.beacons.orange} · green ${world.beacons.green}${q.length ? ` · ${q.length} in the rack${isUp(world, 'workshop') ? '' : ' (WORKSHOP off)'}` : ''}`; }
     if (r === 'signals') { const cd = Math.max(0, Math.ceil(world.rewards.mines - world.t)); stat = cd ? `Next sweep reward in ${cd} s` : 'A sweep reward is ready'; }
     if (r === 'engineer') { const cd = Math.max(0, Math.ceil(world.rewards.lights - world.t)); stat = cd ? `Next free shovel in ${cd} s` : 'A free shovel is ready'; }
+    if (r === 'fleet') { const f = world.fleet; stat = f.phase === 'off' ? '' : `Wave ${f.wave} · ${FL.afloat(f.mine).length} of ours, ${FL.afloat(f.enemy).length} of theirs afloat${Object.keys(f.salvage).length ? ' · ' + Object.keys(f.salvage).length + ' under salvage' : ''}`; }
     return `<div class="crewcard${live ? '' : ' off'}${ev ? ' alarm' : ''}"><div class="nm"><i class="${live ? 'on' : ''}"></i>${STATION_NAME[r].toUpperCase()}</div>
       <div class="doing">${live ? (stationDoing[r] || 'at their station') : 'not connected'}</div>
       ${ev ? `<div class="ev">${DEF_NAME[ev.kind] || 'UNDER ATTACK'} · ${Math.max(0, Math.ceil((GAME_TIME[ev.kind] || 30) - (world.t - ev.at)))} s</div>` : ''}
@@ -1474,14 +1521,19 @@ function artCard(e) {
   $('stage').appendChild(n);
 }
 // The fleet: the Watch's naval defences, on the cabin wall (and on every officer's station).
-const fleetUI = mountFleet($('fleetwall'), () => ({ fleet: world.fleet, t: world.t }), a => { stationAction(world, 'operator', a); audio.sfx.click(); }, { cell: 58 });
+// The cabin wall commands the fleet only while nobody holds the Fleet Officer's station.
+const fleetUI = mountFleet($('fleetwall'), () => ({ fleet: world.fleet, t: world.t, mode: fleetCommander(world) === 'operator' ? 'command' : 'view', beacons: world.beacons.stock + world.beacons.orange, engineerLive: !!world.defence.live.engineer }), a => { stationAction(world, 'operator', a); audio.sfx.click(); }, { cell: 28 });
+// the deploy card on the main screen: deploy the fleet at random and begin, without looking left
+$('randdeploy').onclick = () => { if (world.fleet.phase !== 'deploy') return; FL.randomDeploy(world.fleet, world.fleetRng); fleetReady(world); audio.sfx.click(); };
+// the Watch shakes when enemy shells land
+function shake() { const st = $('stage'); st.classList.remove('shaken'); void st.offsetWidth; st.classList.add('shaken'); setTimeout(() => st.classList.remove('shaken'), 1100); }
 
 // ---------- the officers' stations ----------
 // Each station says hello every few seconds; a station not heard from for a while counts as gone, and its defence
 // events are skipped. Their actions go straight into the world.
 const stationSeen = {};
 function onStation(m) {
-  if (!ROLES.includes(m.role)) return;
+  if (!OFFICERS.includes(m.role)) return;
   if (m.iid && m.iid !== GAME_ID) return;   // that station follows another game on this code
   stationSeen[m.role] = performance.now();
   if (m.doing != null) stationDoing[m.role] = m.doing;
@@ -1489,15 +1541,14 @@ function onStation(m) {
 }
 let snapSoon = false;
 function drawStations() {
-  const html = ROLES.map(r => `<i class="${world.defence.live[r] ? 'on' : ''}${world.defence.active[r] ? ' busy' : ''}" title="${STATION_NAME[r]}${world.defence.live[r] ? ' station connected' : ' station not connected'}">${r[0].toUpperCase()}</i>`).join('');
+  const html = OFFICERS.map(r => `<i class="${world.defence.live[r] ? 'on' : ''}${world.defence.active[r] ? ' busy' : ''}" title="${STATION_NAME[r]}${world.defence.live[r] ? ' station connected' : ' station not connected'}">${r[0].toUpperCase()}</i>`).join('');
   if ($('stationlamps').innerHTML !== html) $('stationlamps').innerHTML = html;
   // the fleet must be deployed before the watch begins
   const deploying = world.hold === 'deploy' && ui.started;
   $('deploybanner').classList.toggle('hidden', !deploying || lookingLeft());
-  $('reinforce').classList.toggle('hidden', !world.reinforce);
   $('twogames').classList.toggle('hidden', performance.now() - otherGameAt > 5000);
 }
-const STATION_NAME = { gunnery: 'Gunnery', signals: 'Signals', engineer: 'Engineering' };
+const STATION_NAME = { gunnery: 'Gunnery', signals: 'Signals', engineer: 'Engineering', fleet: 'Fleet Officer' };
 
 // ---------- GM link ----------
 // Same computer: a browser channel. Another computer: the GM types the code shown on the top bar.
@@ -1546,7 +1597,7 @@ function simTick() {
   while (acc >= DT) { step(world, DT); acc -= DT; }
   if (snapSoon) { snapSoon = false; sendStations(); }
   const t = performance.now();
-  for (const r of ROLES) world.defence.live[r] = t - (stationSeen[r] || -1e9) < 7000;
+  for (const r of OFFICERS) world.defence.live[r] = t - (stationSeen[r] || -1e9) < 7000;
 }
 setInterval(simTick, 100);
 const banners = createBannerUI('operator', (eventId, key) => stationAction(world, 'operator', { act: 'banner-dismiss', eventId, key }));
@@ -1570,7 +1621,7 @@ function frame(now) {
     lastSnap = now;
     gmLink.send({ snap: snapshot(world) }, false);   // twice a second on this computer while the game is in view
   }
-  drawGmLink(); drawSeal(); drawShutters(); drawCabin(); drawStations();
+  drawGmLink(); drawSeal(); drawClearance(); drawShutters(); drawCabin(); drawStations();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

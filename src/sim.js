@@ -10,6 +10,7 @@ import { RUNES, makePlate, keypadCode, shuffle, octantName } from './glyphs.js';
 import { checkPassword, passwordMatches, BASE_RULES, RULES_PER_LOCKDOWN, RULES as PW_RULES, WRONG_TRIES, DEFAULT_PASSWORD, revealPair } from './password.js';
 import * as FL from './fleet.js';
 import { GAME_TIME } from './games.js';
+import { pickQuestion } from './morse.js';
 export const PAYLOAD = { red: 'stock', orange: 'orange', green: 'green' };
 
 export const SYSTEMS = ['cameras', 'sonar', 'radio', 'scanner', 'currents', 'repair', 'workshop'];
@@ -18,7 +19,9 @@ export const SPINUP = { cameras: 1, sonar: 1.5, radio: 2, scanner: 4, currents: 
 export const DEFAULT_PRIORITY = ['sonar', 'cameras', 'currents', 'radio', 'scanner', 'repair', 'workshop'];
 // The officers' stations and the defence each one plays.
 export const ROLES = ['gunnery', 'signals', 'engineer'];
-export const DEFENCE = { gunnery: 'missile', signals: 'snake', engineer: 'stoke' };
+export const OFFICERS = [...ROLES, 'fleet'];   // the officers' stations (ROLES are the three departments)
+export const DEFENCE = { gunnery: 'missile', signals: 'snake', engineer: 'stoke', fleet: 'depth' };
+export const DEFENDERS = OFFICERS;   // every station has a defence of its own
 export const DT = 0.1;
 export const BREAKABLE = { furnace: 'FURNACE GRATE', launcher: 'BEACON LAUNCHER', winch: 'BUOY WINCH', fuse: 'RADIO RECEIVER', scanner: 'METAL SCANNER', sonarhead: 'SONAR HEAD' };
 // GM levers (multipliers). 1 is the designed game.
@@ -63,6 +66,15 @@ export function loadWorld(json) {
   };
   const w = dec(JSON.parse(json));
   for (const [parent, key, path] of refs) parent[key] = path.reduce((o, k) => o[k], w);
+  // a save from before the salvo battle: the old fleet is replaced with a fresh one (already on station if the watch was under way)
+  if (w.fleet && w.fleet.phase && w.fleet.phase !== 'off' && (!w.fleet.salvage || !w.fleet.dept || !w.fleet.dept.gunnery || w.fleet.dept.gunnery.reloads == null || w.fleet.mine.length !== FL.SHIPS.length)) {
+    const rng = w.fleetRng || mulberry32((w.seed || 1) + 0xF1EE8), f = FL.newFleet(rng);
+    if (w.fleet.phase !== 'deploy') { FL.randomDeploy(f, rng); FL.begin(f, w.t || 0); }
+    w.fleet = f; w.fleetRng = rng;
+  }
+  delete w.reinforce; if (w.shelled === undefined) w.shelled = null;
+  if (w.shellAsks == null) w.shellAsks = 0; if (w.clearance === undefined) w.clearance = null;
+  if (w.rewards && w.rewards.dispatch == null) w.rewards.dispatch = 0;
   return w;
 }
 const hyp = Math.hypot;
@@ -347,11 +359,10 @@ export function createWorld(seed = newSeed(), opts = {}) {
     beacons: { stock: T.beaconStock, orange: T.orangeStock, green: T.greenStock, flying: [], splashes: [], shots: 0, jamAt: 0, last: null },
     workshop: { curing: [], made: 0 },   // sealed beacons waiting to cure: [{ color, left }]
     callsigns: {},      // iceberg id -> the call sign Signals decoded
-    fleet: opts.deploy ? FL.newFleet(mulberry32(seed + 0xF1EE7), true) : { phase: 'off' }, fleetRng: mulberry32(seed + 0xF1EE8),
+    fleet: opts.deploy ? FL.newFleet(mulberry32(seed + 0xF1EE7)) : { phase: 'off' }, fleetRng: mulberry32(seed + 0xF1EE8), shelled: null, shellAsks: 0, clearance: null,
     hold: opts.deploy ? 'deploy' : null,   // the watch does not run while this is set
-    reinforce: false,   // devil reinforcements: paused until the GM resumes
     defence: { next: {}, active: {}, live: {}, overheatAt: -999, seq: 0 }, defRng: mulberry32(seed + 0xDEF0),
-    rewards: { mines: 0, lights: 0 },   // when each steady puzzle can pay out again
+    rewards: { mines: 0, lights: 0, dispatch: 0 },   // when each steady puzzle can pay out again
     artifacts: null,    // set below: [{ name, bergId, found, recovered }]
     monsters: [],       // released from frozen ice by a beacon hit
     tags: [], events: [],
@@ -365,7 +376,24 @@ export function createWorld(seed = newSeed(), opts = {}) {
   const pick = metal.map(b => b.id); for (let i = pick.length - 1; i > 0; i--) { const j = Math.floor(artRng() * (i + 1)); [pick[i], pick[j]] = [pick[j], pick[i]]; }
   w.artifacts = ARTIFACTS.map((name, i) => ({ name, bergId: i === 0 ? null : pick[i - 1] || null, found: false, recovered: false }));
   w.artRng = artRng;
+  if (opts.deploy) addWarships(w, mulberry32(seed + 0x3A25));
   return w;
+}
+// Four devil battleships lie disguised in the ice: large, hollow and full of metal, so the sonar and the scanner take
+// them for ice halls with wreckage; their radio plays the war drums. The orbs show an iron hull under the ice.
+// They have their own random numbers, so the rest of the sea is the same with or without them.
+export const WARSHIPS = 4;
+function addWarships(w, r) {
+  let top = Math.max(...[...w.bergs, ...w.reserve].map(b => b.num));
+  for (let k = 0; k < WARSHIPS; k++) {
+    const p = randomInReach(r, 350, T.rimHold * REACH), length = Math.round(22 + r() * 8);
+    const b = { id: 'ws' + k, name: 'A disguised warship', num: ++top, x: p.x, y: p.y, large: true, length, hollow: true, metal: true,
+      echo: makeEcho(r, 'halls'), radio: makeRadio(r, { decoded: 'RRW', band: 'MID' }), look: 'warship', elgarz: false, tombDrawn: false,
+      notable: false, shape: makeShape(r, 'warship', true), tag: null, scan: 0, scanned: false, warship: true };
+    // swap numbers with a random iceberg, so the warships are not the highest numbers
+    const o = w.bergs[Math.floor(r() * w.bergs.length)]; [b.num, o.num] = [o.num, b.num];
+    w.bergs.push(b);
+  }
 }
 export const ARTIFACT_INFO = [
   ['Dagger of Ra-than', 'A plain dagger of darkened steel, still impossibly sharp after centuries. Whether a paladin or a lowly abishai drove it into Cantrum, it is forbidden throughout the Hells as proof that any tyrant can fall to a servant.'],
@@ -386,7 +414,7 @@ function scanArtifact(w, b) {
   if (first.bergId == null) {
     if (!artifactIn(w, b.id)) first.bergId = b.id;
     else {   // this one already holds one: the sixth goes to another metal glacier
-      const free = [...w.bergs, ...w.reserve].filter(x => x.metal && !x.elgarz && !artifactIn(w, x.id));
+      const free = [...w.bergs, ...w.reserve].filter(x => x.metal && !x.elgarz && !x.warship && !artifactIn(w, x.id));
       first.bergId = free.length ? free[Math.floor(w.artRng() * free.length)].id : 'none';
     }
   }
@@ -535,7 +563,7 @@ export function flipBoard(w) {
 export function openSeal(w, reason, { change = false, pending = null } = {}) {
   if (w.seal) return false;
   if (!w.password) w.password = DEFAULT_PASSWORD;
-  if (change) { w.pwCap = Math.min(PW_RULES.length, w.pwCap + RULES_PER_LOCKDOWN); w.pwNext = w.t + T.pwUpdateEvery; }
+  if (change) { w.pwCap = Math.min(PW_RULES.length, w.pwCap + RULES_PER_LOCKDOWN); w.pwNext = w.t + T.pwUpdateEvery; w.shellAsks = 0; }
   w.seal = { reason, mode: 'enter', change, pending, tries: 0, shown: [], opened: w.t };
   emit(w, 'sealed', { reason, mode: w.seal.mode });
   return true;
@@ -566,7 +594,7 @@ function finishSeal(w) {
   const p = w.seal && w.seal.pending;
   w.seal = null; emit(w, 'unsealed');
   if (p === 'light') light(w, { auth: true });
-  if (p === 'green') fireBeacon(w, 'green', { auth: true });
+  if (p === 'green') { if (w.defence.live.fleet && w.fleet.phase !== 'off') startClearance(w); else fireBeacon(w, 'green', { auth: true }); }
   if (p === 'fatigue') w.fatigue = Math.min(w.fatigue, T.fatigueBack);
 }
 // Too many wrong tries: the ship reboots. Fire out, chute empty, everything off, one or two things break.
@@ -812,6 +840,7 @@ export function fireBeacon(w, color, opts = {}) {
   const target = lockedBerg(w);
   if (!target && !opts.rune) { emit(w, 'deny', { msg: 'NO TARGET LOCKED' }); return false; }
   // the accusation needs the password
+  if (color === 'green' && w.clearance && !opts.auth) { emit(w, 'deny', { msg: 'WAITING ON FLEET OFFICER CLEARANCE' }); return false; }
   if (color === 'green' && !opts.auth) { openSeal(w, 'green', { pending: 'green' }); return false; }
   let fl;
   if (target) {
@@ -847,13 +876,18 @@ function futureOf(w, b0, seconds) {
   for (let i = 0; i < n; i++) { advanceTomb(w, tomb, t, DT); t += DT; advanceBerg(w, b, tomb, t, DT); }
   return { x: b.x, y: b.y };
 }
-function beaconHits(w, b, color, t) {
+export function beaconHits(w, b, color, t) {
   const bc = w.beacons;
   b.tag = color; if (!w.tags.includes(b.id)) w.tags.push(b.id);
   if (!w.cases.find(c => c.bergId === b.id && c.permanent)) { caseRow(w, b.id, true); emit(w, 'casepinned', { num: b.num }); }
   emit(w, 'hit', { berg: b.id, num: b.num, color });
   if (color === 'orange') record(w, b.id, 'echo', echoSeen(b, tempAt(b.x, b.y, t, w.field, w.tomb)), { length: Math.round(b.length) });
   if (b.echo.sig === 'monster' && !b.released) releaseMonster(w, b);
+  // a beacon in a disguised warship: its sister ship at sea is plotted on the fleet tables (once per warship)
+  if (b.warship && !b.revealedShip && w.fleet.phase === 'play') {
+    const i = FL.revealShip(w.fleet, w.fleetRng, t);
+    if (i >= 0) { b.revealedShip = true; emit(w, 'warshiphit', { num: b.num, ship: i }); }
+  }
   const art = color === 'green' && artifactIn(w, b.id);
   if (art && !art.recovered) { art.recovered = true; art.found = true; record(w, b.id, 'artifact', art.name); emit(w, 'artifactrecovered', { num: b.num, name: art.name, text: artifactText(art.name) }); }
   if (color === 'green') {
@@ -977,7 +1011,7 @@ export function spawnDue(w) {
 
 // ---------- GM commands ----------
 export function gm(w, cmd, arg = {}) {
-  if (cmd === 'pause' && !w.reinforce) { w.paused = !w.paused; emit(w, w.paused ? 'paused' : 'resumed'); }
+  if (cmd === 'pause') { w.paused = !w.paused; emit(w, w.paused ? 'paused' : 'resumed'); }
   if (cmd === 'camunlock') { w.camUnlocked[w.activeCam] = true; }
   if (cmd === 'confetti') emit(w, cmd);
   if (cmd === 'devil' || cmd === 'succubus') runeEffect(w, 'SUCCUBUS');
@@ -987,11 +1021,13 @@ export function gm(w, cmd, arg = {}) {
     w.repairs = {}; w.buoyRebuildAt = 0; w.radio.clipTime = 0;
   }
   if (cmd === 'restock') { w.beacons.stock = T.beaconStock; w.beacons.orange = T.orangeStock; w.beacons.green = T.greenStock; }
-  if (cmd === 'defence' && ROLES.includes(arg.role)) startDefence(w, arg.role, 'gm');
+  if (cmd === 'defence' && DEFENDERS.includes(arg.role)) startDefence(w, arg.role, 'gm');
+  if (cmd === 'clearance' && w.clearance) { w.clearance = null; emit(w, 'clearanceok', {}); fireBeacon(w, 'green', { auth: true }); }
+  if (cmd.startsWith('fleet-') && w.fleet.phase !== 'off') gmFleet(w, cmd, arg);
   if (cmd === 'artifacts') nameArtifacts(w, arg.names);
-  if (cmd === 'rehearse') ROLES.forEach((r, i) => { w.defence.next[r] = w.t + 1 + i * 50; });
-  if (cmd === 'reinforced') endReinforcements(w);
-  if (cmd === 'fleet-auto' && w.fleet.phase === 'deploy') { w.fleet.mine = FL.randomFleet(w.fleetRng); fleetReady(w); }
+  if (cmd === 'rehearse') DEFENDERS.forEach((r, i) => { w.defence.next[r] = w.t + 1 + i * 50; });
+  if (cmd === 'fleet-auto' && w.fleet.phase === 'deploy') { FL.randomDeploy(w.fleet, w.fleetRng); fleetReady(w); }
+  if (cmd === 'salvo' && w.fleet.phase !== 'off') { const f = w.fleet, secs = Math.max(20, Math.min(300, Number(arg.secs) || FL.SALVO)); f.salvoEvery = secs; if (f.nextSalvo != null) f.nextSalvo = Math.min(f.nextSalvo, w.t + secs); }
   if (cmd === 'shark-home' && w.tom.mode !== 'asleep') { const a = Math.atan2(w.tom.y - CENTER.y, w.tom.x - CENTER.x) + Math.PI; w.tom.x = CENTER.x + Math.cos(a) * 1500; w.tom.y = CENTER.y + Math.sin(a) * 1500; w.tom.target = null; w.tom.patrolR = 1500; }
   if (cmd === 'shark-home') { const a = Math.atan2(w.shark.y - CENTER.y, w.shark.x - CENTER.x) + Math.PI; w.shark.x = CENTER.x + Math.cos(a) * 1500; w.shark.y = CENTER.y + Math.sin(a) * 1500; w.lastPing = null; w.shark.mode = 'roam'; }
   if (cmd === 'shark-to') { w.lastPing = { x: arg.x, y: arg.y, t: w.t }; w.shark.mode = 'hunt'; }
@@ -1223,8 +1259,12 @@ export function step(w, dt = DT) {
 }
 
 // ---------- the beacon workshop: sealed beacons cure one at a time while the WORKSHOP is powered ----------
+// The rack holds no more than the Watch starts with (5 red, 2 orange, 1 green), counting those still curing.
+export const BEACON_CAP = { red: T.beaconStock, orange: T.orangeStock, green: T.greenStock };
+export const rackRoom = (w, color) => BEACON_CAP[color] - w.beacons[PAYLOAD[color]] - w.workshop.curing.filter(q => q.color === color).length;
 export function sealBeacon(w, color) {
   if (!PAYLOAD[color]) return false;
+  if (rackRoom(w, color) <= 0) { emit(w, 'rackfull', { color }); return false; }
   w.workshop.curing.push({ color, left: T.cureTime }); emit(w, 'beaconsealed', { color });
   return true;
 }
@@ -1232,56 +1272,108 @@ function workshopStep(w, dt) {
   const q = w.workshop.curing[0];
   if (!q || !isUp(w, 'workshop')) return;
   q.left -= dt / slowK(w);
-  if (q.left <= 0) { w.workshop.curing.shift(); w.beacons[PAYLOAD[q.color]]++; w.workshop.made++; emit(w, 'beaconready', { color: q.color }); }
+  if (q.left <= 0) { const k = PAYLOAD[q.color]; w.workshop.curing.shift(); w.beacons[k] = Math.min(BEACON_CAP[q.color], w.beacons[k] + 1); w.workshop.made++; emit(w, 'beaconready', { color: q.color }); }
 }
 
 // ---------- the fleet ----------
+// The Fleet Officer commands the fleet from their station; with no Fleet Officer on station, the operator does, from
+// the cabin wall. The departments load the specials from their own stations.
+export const fleetCommander = w => w.defence.live.fleet ? 'fleet' : 'operator';
 export function fleetPlace(w, i, x, y, dir) { const ok = FL.placeShip(w.fleet, i, x, y, dir); if (ok) emit(w, 'fleetplace'); return ok; }
 // All ships placed: the watch can begin.
 export function fleetReady(w) {
-  const f = w.fleet;
-  if (f.phase === 'redeploy') { f.phase = 'play'; f.idleFrom = w.t; f.prevMine = null; emit(w, 'fleetready', { redeploy: true }); return true; }
-  if (f.phase !== 'deploy' || !FL.allPlaced(f)) return false;
-  f.phase = 'play'; f.idleFrom = w.t; w.hold = null; emit(w, 'fleetready');
+  if (!FL.begin(w.fleet, w.t)) return false;
+  w.hold = null; emit(w, 'fleetready');
   return true;
 }
-// Our shot. Only on our turn (the enemy answers each shot before the next).
-export function fleetFire(w, x, y) {
-  const f = w.fleet;
-  if (f.phase !== 'play' || w.reinforce || f.enemyAt != null) return null;
-  const r = FL.fireAtEnemy(f, x, y);
-  if (!r) return null;
-  f.last = { by: 'us', ...r, t: w.t }; FL.logShot(f, 'us', r, w.t); emit(w, 'fleetshot', { by: 'us', ...r });
-  if (r.all) { f.wins++; emit(w, 'fleetwin'); resetFleets(w); f.prevMine = f.prevMineShift; f.phase = 'redeploy'; f.redeployUntil = w.t + FL.REDEPLOY_TIME; return r; }
-  f.enemyFrom = w.t; f.enemyAt = w.t + FL.ENEMY_DELAY[0] + w.fleetRng() * (FL.ENEMY_DELAY[1] - FL.ENEMY_DELAY[0]); f.idleFrom = w.t;
-  return r;
+// Fire the salvo now, rather than waiting for the round to run out.
+export function fleetFire(w) { if (w.fleet.phase !== 'play') return false; fleetEvents(w, FL.salvo(w.fleet, fleetCtx(w))); return true; }
+function fleetCtx(w) {
+  return {
+    t: w.t, rng: w.fleetRng, engineerLive: !!w.defence.live.engineer,
+    // the heavy shell takes one of the Watch's red beacons, or an orange; never a green
+    spendBeacon: () => { if (w.beacons.stock > 0) { w.beacons.stock--; return true; } if (w.beacons.orange > 0) { w.beacons.orange--; return true; } return false; },
+    shellReady: () => !w.shelled || !isBroken(w, w.shelled),
+  };
 }
-function enemyShot(w, free) {
-  const f = w.fleet, [x, y] = FL.enemyAim(f, w.fleetRng), r = FL.fireAtUs(f, x, y);
-  f.enemyAt = null; f.idleFrom = w.t;
-  if (!r) return;
-  f.last = { by: 'them', ...r, t: w.t, free }; FL.logShot(f, 'them', r, w.t); if (free) f.log[f.log.length - 1].text = 'Nobody was firing. ' + f.log[f.log.length - 1].text; emit(w, 'fleetshot', { by: 'them', free, ...r });
-  if (r.all) { f.losses++; w.reinforce = true; w.paused = true; emit(w, 'reinforcements'); }
-}
+const isBroken = (w, id) => { const cam = w.cams.find(c => c.id === id); return cam ? cam.broken : !!w.broken[id]; };
 function fleetStep(w) {
-  const f = w.fleet;
-  if (f.phase === 'redeploy' && w.t >= f.redeployUntil) fleetReady(w);
-  if (f.phase !== 'play' || w.reinforce) return;
-  if (f.enemyAt != null && w.t >= f.enemyAt) enemyShot(w, false);
-  else if (f.enemyAt == null && w.t - f.idleFrom >= FL.IDLE_SHOT) enemyShot(w, true);
+  if (w.fleet.phase !== 'off') fleetEvents(w, FL.tick(w.fleet, fleetCtx(w)));
+  // failsafes for the clearance: the Fleet Officer left (skip it), or nobody answered for three minutes (stand down)
+  const c = w.clearance;
+  if (c && !w.defence.live.fleet) { w.clearance = null; emit(w, 'clearanceok', { skipped: true }); fireBeacon(w, 'green', { auth: true }); }
+  else if (c && w.t - c.opened > 180) { w.clearance = null; emit(w, 'clearancefail', { timeout: true }); }
 }
-// A new enemy fleet, and ours shifted a few squares and repaired, so play carries on.
-function resetFleets(w) {
-  const f = w.fleet;
-  f.prevMineShift = f.mine.map(s => ({ ...s }));
-  f.mine = FL.shiftFleet(f.mine, w.fleetRng); f.enemy = FL.randomFleet(w.fleetRng);
-  f.myShots = {}; f.theirShots = {}; f.enemyAt = null; f.idleFrom = w.t; f.revealed = [];
-  (f.log = f.log || []).push({ t: w.t, text: 'A new enemy fleet on the horizon. Our ships are refitted and take new stations.', kind: 'info' });
+// ---------- the green beacon's clearance: two questions in Morse, which the Fleet Officer reads from their book ----------
+function startClearance(w) {
+  const a = pickQuestion(w.defRng); let b = pickQuestion(w.defRng);
+  for (let k = 0; k < 10 && b.q === a.q; k++) b = pickQuestion(w.defRng);
+  w.clearance = { qs: [a, b], step: 0, opened: w.t };
+  emit(w, 'clearance');
 }
-// The GM has fought off the reinforcements at the table: the watch resumes.
-function endReinforcements(w) {
-  if (!w.reinforce) return;
-  w.reinforce = false; resetFleets(w); w.paused = false; emit(w, 'reinforced'); emit(w, 'resumed');
+// The operator picks one of three answers. Returns 'next' | 'ok' | 'wrong' | 'none'.
+export function clearanceAnswer(w, choice) {
+  const c = w.clearance; if (!c) return 'none';
+  if (choice !== c.qs[c.step].answer) { w.clearance = null; emit(w, 'clearancefail', {}); return 'wrong'; }
+  if (++c.step < c.qs.length) { emit(w, 'clearancenext'); return 'next'; }
+  w.clearance = null; emit(w, 'clearanceok', {}); fireBeacon(w, 'green', { auth: true });
+  return 'ok';
+}
+export function clearanceCancel(w) { if (!w.clearance) return false; w.clearance = null; emit(w, 'clearancefail', { cancelled: true }); return true; }
+// The GM's fleet buttons.
+function gmFleet(w, cmd, arg) {
+  const f = w.fleet, play = f.phase === 'play';
+  if (cmd === 'fleet-load') { for (const d of arg.dept && arg.dept !== 'all' ? [arg.dept] : [...FL.DEPTS, 'fleet']) if (!(d === 'fleet' ? f.loaded.scan : f.dept[d] && f.dept[d].state === 'loaded')) FL.forceLoad(f, d, w.t); emit(w, 'fleetloaded', { dept: 'gm' }); }
+  if (cmd === 'fleet-relaunch' && play) {
+    const ids = arg.i != null && arg.i !== '' ? [Number(arg.i)] : Object.keys(f.salvage).map(Number);
+    for (const i of ids) if (FL.redeployRandom(f, i, w.fleetRng, w.t, true)) emit(w, 'fleetrelaunch', { ship: i, crew: f.mine[i].crew });
+  }
+  if (cmd === 'fleet-hit' && play) {
+    if (arg.side === 'theirs') {
+      const i = arg.i != null && arg.i !== '' ? Number(arg.i) : f.enemy.findIndex(s => !FL.sunk(s));
+      fleetEvents(w, FL.hitTheirs(f, i, w.t));
+    } else {
+      const live = f.mine.map((s, i) => i).filter(i => f.mine[i].x != null && !FL.sunk(f.mine[i]));
+      const i = arg.i != null && arg.i !== '' ? Number(arg.i) : live[Math.floor(w.fleetRng() * live.length)];
+      if (i != null) fleetEvents(w, FL.hitOurs(f, i, w.fleetRng, w.t));
+    }
+  }
+  if (cmd === 'fleet-enemyscan' && play) fleetEvents(w, [FL.enemySonar(f, w.fleetRng, w.t)]);
+  if (cmd === 'fleet-regroup' && FL.regroup(f, w.t)) emit(w, 'fleetregroup');
+}
+// The Fleet Officer's dispatch (their steady puzzle): reload the crosshair scan, or unmask a disguised warship.
+export const canUnmask = w => w.bergs.some(b => b.warship && !b.unmasked);
+export function dispatchReward(w, choice = 'scan') {
+  if (w.t < (w.rewards.dispatch || 0) || w.fleet.phase === 'off') return false;
+  if (choice === 'unmask') {
+    const pool = w.bergs.filter(b => b.warship && !b.unmasked); if (!pool.length) return false;
+    const b = pool[Math.floor(w.defRng() * pool.length)];
+    b.unmasked = true; if (!b.tag) b.tag = 'iron'; if (!w.tags.includes(b.id)) w.tags.push(b.id);
+    caseRow(w, b.id, true); setVerdict(w, b.id, 'EXCLUDED');
+    emit(w, 'unmasked', { num: b.num });
+  } else { FL.reloadScan(w.fleet, w.t); emit(w, 'scanloaded'); }
+  w.rewards.dispatch = w.t + T.rewardCooldown;
+  return true;
+}
+// The enemy has a line on the Watch: a shell breaks a machine, or shakes the console into a password check, or both.
+// The check only asks for the current password, but every third one without a security update is a lockdown.
+export function shellWatch(w) {
+  const r = w.fleetRng(), pool = ['furnace', 'winch', 'launcher', 'scanner', 'fuse', ...w.cams.filter(c => !c.broken).map(c => c.id)].filter(k => !isBroken(w, k));
+  let k = null, pw = null;
+  if (r < 0.67 && pool.length) { k = pool[Math.floor(w.fleetRng() * pool.length)]; breakThing(w, k); }
+  if ((r >= 0.33 || !k) && !w.seal) {
+    w.shellAsks = (w.shellAsks || 0) + 1; const deep = w.shellAsks >= 3;
+    if (openSeal(w, 'shell', { change: deep })) pw = deep ? 'lockdown' : 'ask';
+  }
+  w.shelled = k;
+  emit(w, 'fleetshell', { sys: k, pw });
+}
+function fleetEvents(w, ev) {
+  for (const e of ev) {
+    if (e.type === 'fleetshell') { shellWatch(w); continue; }
+    if (e.type === 'fleetlost') breakThing(w, 'furnace');   // the whole fleet lost: the enemy's guns reach the grate
+    emit(w, e.type, e);
+  }
 }
 
 // ---------- the officers' defences ----------
@@ -1292,7 +1384,7 @@ function scheduleDefence(w, role, from) {
   const d = w.defence;
   let at = from + randBetween(w, T.defenceEvery[role]);
   for (let k = 0; k < 20; k++) {
-    const clash = ROLES.some(r => r !== role && d.next[r] != null && Math.abs(d.next[r] - at) < T.defenceGap);
+    const clash = DEFENDERS.some(r => r !== role && d.next[r] != null && Math.abs(d.next[r] - at) < T.defenceGap);
     if (!clash) break;
     at += T.defenceGap;
   }
@@ -1307,13 +1399,13 @@ export function startDefence(w, role, reason = 'timer') {
 }
 function defenceStep(w) {
   const d = w.defence, t = w.t;
-  for (const role of ROLES) {
+  for (const role of DEFENDERS) {
     if (d.next[role] == null) scheduleDefence(w, role, 0);
     const a = d.active[role];
     // a station that dropped out mid-game: no result is coming, so no penalty
     if (a && t - a.at > GAME_TIME[a.kind] + 40) { delete d.active[role]; emit(w, 'defencelost', { role }); }
     if (t >= d.next[role]) {
-      if (d.live[role] && !d.active[role]) startDefence(w, role);
+      if (d.live[role] && !d.active[role] && (role !== 'fleet' || w.fleet.phase === 'play')) startDefence(w, role);
       scheduleDefence(w, role, t);
     }
   }
@@ -1331,6 +1423,16 @@ export function defenceResult(w, role, id, res = {}) {
     const hits = (res.hits || []).filter(c => w.cams.some(k => k.id === c && !k.broken));
     for (const c of hits) breakThing(w, c);
     emit(w, 'defencedone', { role, ok: !hits.length, n: hits.length });
+  } else if (role === 'fleet') {
+    // the depth charges failed: the Fleet Officer's own ship takes a hit (another of ours if she is down), and the
+    // enemy now knows where she lies
+    let ship = null;
+    if (!res.ok && w.fleet.phase === 'play') {
+      const f = w.fleet, up = i => f.mine[i] && f.mine[i].x != null && !FL.sunk(f.mine[i]);
+      ship = up(0) ? 0 : f.mine.findIndex((s, i) => up(i));
+      if (ship >= 0) fleetEvents(w, FL.hitOurs(f, ship, w.fleetRng, w.t, ' · THE DEPTH CHARGES FAILED')); else ship = null;
+    }
+    emit(w, 'defencedone', { role, ok: !!res.ok, ship });
   } else if (!res.ok) {
     if (role === 'signals') { const had = !!w.buoy; w.broken.winch = false; breakThing(w, 'winch'); emit(w, 'defencedone', { role, ok: false, buoy: had }); }
     if (role === 'engineer') {
@@ -1359,22 +1461,22 @@ export function minesReward(w, choice = 'beacon') {
   return true;
 }
 // ...or the outline of one enemy ship that has not been hit yet.
-export function canReveal(w) {
-  const f = w.fleet; if (!f || f.phase !== 'play') return false;
-  return f.enemy.some((s, i) => !f.revealed.includes(i) && FL.cellsOf(s).every(c => !f.myShots[FL.key(...c)]));
-}
+// Minesweeping's other reward: one square of an enemy hull is sighted on the fleet tables.
+export const canReveal = w => FL.canSpot(w.fleet);
 function revealEnemy(w) {
   if (!canReveal(w)) return false;
-  const f = w.fleet, pool = f.enemy.map((s, i) => i).filter(i => !f.revealed.includes(i) && FL.cellsOf(f.enemy[i]).every(c => !f.myShots[FL.key(...c)]));
-  const i = pool[Math.floor(w.defRng() * pool.length)];
-  f.revealed.push(i); w.rewards.mines = w.t + T.rewardCooldown;
-  f.log.push({ t: w.t, text: `Signals has swept the approaches: ${FL.ENEMY_NAMES[i]} is plotted.`, kind: 'info' });
-  emit(w, 'enemyrevealed', { name: FL.ENEMY_NAMES[i] });
+  const c = FL.spot(w.fleet, w.defRng, w.t); if (!c) return false;
+  w.rewards.mines = w.t + T.rewardCooldown;
+  emit(w, 'enemyrevealed', { square: FL.square(...c) });
   return true;
 }
-// Engineering's Lights Out: a free shovel in the fuel chute.
-export function lightsReward(w) {
+// The breaker panel's reward: a shovel of fuel, or power for a sunk ship of ours being salvaged.
+export function lightsReward(w, choice = 'fuel') {
   if (w.t < w.rewards.lights) return false;
+  if (choice === 'power' && w.fleet.phase !== 'off') {
+    const i = FL.salvagePower(w.fleet, w.t); if (i < 0) return false;
+    w.rewards.lights = w.t + T.rewardCooldown; emit(w, 'fleetpowered', { ship: i }); return true;
+  }
   w.rewards.lights = w.t + T.rewardCooldown;
   const f = w.furnace, had = f.chute;
   f.chute = Math.min(T.chuteMax, f.chute + 1);
@@ -1385,16 +1487,32 @@ export function stationAction(w, role, a) {
   if (!a || !a.act) return;
   if (a.act === 'banner-dismiss') { dismissBanner(w, role, a.eventId, a.key); return; }
   if (a.act === 'minesweeper' && role === 'signals') minesReward(w, a.choice);
-  if (a.act === 'lightsout' && role === 'engineer') lightsReward(w);
+  if (a.act === 'lightsout' && role === 'engineer') lightsReward(w, a.choice);
   if (a.act === 'seal' && role === 'gunnery') sealBeacon(w, a.color);
   if (a.act === 'defence') defenceResult(w, role, a.id, a.res);
   if (a.act === 'callsign') setCallsign(w, a.bergId, a.text);
   if (a.act === 'verdict') setVerdict(w, a.bergId, a.v);
   if (a.act === 'priority') setPriority(w, a.list || []);
   if (a.act === 'damper') setDamper(w, a.mode);
+  // the departments load the fleet's specials from their own stations
+  if (a.act === 'fleetcode' && ROLES.includes(role) && w.fleet.phase !== 'off') { const r = FL.enterCode(w.fleet, role, a.runes, w.t, w.fleetRng); if (r !== 'not ready') emit(w, { loaded: 'fleetloaded', question: 'fleetquestion', wrong: 'fleetcodewrong' }[r], { dept: role }); }
+  if (a.act === 'fleetanswer' && ROLES.includes(role) && w.fleet.phase !== 'off') { const r = FL.answerQuestion(w.fleet, role, a.choice, w.t); if (r !== 'not ready') emit(w, r === 'loaded' ? 'fleetloaded' : 'fleetmorsewrong', { dept: role }); }
+  if (a.act === 'dispatch' && role === 'fleet') dispatchReward(w, a.choice);
+  // the fleet itself answers to its commander: the Fleet Officer, or the operator when nobody holds that station
+  if (role !== fleetCommander(w) || w.fleet.phase === 'off') return;
+  const f = w.fleet;
   if (a.act === 'place') fleetPlace(w, a.i, a.x, a.y, a.dir);
+  if (a.act === 'randomdeploy' && f.phase === 'deploy') { FL.randomDeploy(f, w.fleetRng); emit(w, 'fleetplace'); }
   if (a.act === 'ready') fleetReady(w);
-  if (a.act === 'fire') fleetFire(w, a.x, a.y);
+  if (a.act === 'aim') FL.toggleAim(f, a.x, a.y);
+  if (a.act === 'fire') fleetFire(w);
+  if (a.act === 'special') FL.planSpecial(f, a.kind, a.args || null);
+  if (a.act === 'salvageset') FL.salvageSet(f, a.i, a.row, a.action);
+  if (a.act === 'salvagesend') { const ok = FL.salvageSend(f, a.i, w.t); if (ok != null) emit(w, ok ? 'fleetsalvaged' : 'spark', { ship: a.i }); }
+  if (a.act === 'redeploy') {
+    const ok = a.random ? FL.redeployRandom(f, a.i, w.fleetRng, w.t) : FL.redeploy(f, a.i, a.x, a.y, a.dir, w.t);
+    if (ok) emit(w, 'fleetrelaunch', { ship: a.i, crew: f.mine[a.i].crew });
+  }
 }
 
 // ---------- frozen monsters ----------
@@ -1579,10 +1697,12 @@ export function stationSnapshot(w, extra = {}) {
     pinging: w.pings.some(p => !p.delivered) };
   return {
     bannerEvent: w.bannerEvent || null, bannerNow: Date.now(),
-    ...extra, t: w.t, started: w.started, paused: w.paused, hold: w.hold, reinforce: w.reinforce, won: w.won,
+    ...extra, t: w.t, started: w.started, paused: w.paused, hold: w.hold, won: w.won,
     furnaceState: furnaceState(w), power: Object.fromEntries(SYSTEMS.map(s => [s, w.power[s].on])),
     beacons: w.beacons.stock, orange: w.beacons.orange, green: w.beacons.green, workshop: w.workshop,
-    fleet: w.fleet, defence: { active: w.defence.active }, rewards: w.rewards, callsigns: w.callsigns, canReveal: canReveal(w),
+    fleet: w.fleet, defence: { active: w.defence.active, live: w.defence.live }, rewards: w.rewards, callsigns: w.callsigns, canReveal: canReveal(w),
+    commander: w.fleet.phase === 'off' ? null : fleetCommander(w), needsPower: w.fleet.phase !== 'off' && FL.needsPower(w.fleet),
+    canUnmask: canUnmask(w), clearance: w.clearance ? { step: w.clearance.step, qs: w.clearance.qs.map(q => ({ q: q.q, opts: q.opts })) } : null,
     cams: w.cams.map(c => ({ id: c.id, broken: c.broken })), sonar,
     cases: w.cases.map(c => ({ bergId: c.bergId, seen: c.seen, callsign: w.callsigns[c.bergId] || null, num: (w.bergs.find(b => b.id === c.bergId) || {}).num, permanent: c.permanent, verdict: c.verdict, obs: w.obs[c.bergId] || null })),
   };
@@ -1592,21 +1712,21 @@ export function stationSnapshot(w, extra = {}) {
 export function snapshot(w) {
   const pend = w.reserve.find(b => b.elgarz);
   return {
-    bannerEvent: w.bannerEvent || null,
+    bannerEvent: w.bannerEvent || null, commander: w.fleet.phase === 'off' ? null : fleetCommander(w),
     seed: w.seed, t: w.t, won: w.won, paused: w.paused, started: w.started, levers: w.levers,
-    bergs: w.bergs.map(b => ({ id: b.id, num: b.num, name: b.name, x: b.x, y: b.y, large: b.large, length: b.length, sig: b.echo.sig, released: !!b.released, hollow: b.hollow, metal: b.metal, radio: b.radio, elgarz: b.elgarz, notable: b.notable, tombDrawn: b.tombDrawn, tag: b.tag })),
+    bergs: w.bergs.map(b => ({ id: b.id, num: b.num, name: b.name, x: b.x, y: b.y, large: b.large, length: b.length, sig: b.echo.sig, released: !!b.released, hollow: b.hollow, metal: b.metal, radio: b.radio, elgarz: b.elgarz, notable: b.notable, tombDrawn: b.tombDrawn, tag: b.tag, warship: !!b.warship, unmasked: !!b.unmasked })),
     pending: w.reserve.map(b => ({ name: b.name, elgarz: b.elgarz })), elgarzAt: pend ? pend.spawnAt : null, elgarzPlan: w.elgarzPlan,
     tomb: { x: w.tomb.x, y: w.tomb.y }, shark: { x: w.shark.x, y: w.shark.y, mode: w.shark.mode }, lastPing: w.lastPing, buoy: w.buoy,
     cams: w.cams.map(c => ({ id: c.id, name: c.name, x: c.x, y: c.y, facing: c.facing, heat: c.heat, broken: c.broken })),
     remorhazes: w.remorhazes.map(r => ({ x: r.x, y: r.y, cam: r.cam })),
     storms: stormsAt(w, w.t),
     lock: w.lock, ghost: ghostAt(w, w.t), power: Object.fromEntries(SYSTEMS.map(s => [s, w.power[s].on])),
-    beacons: w.beacons.stock, orange: w.beacons.orange, green: w.beacons.green, workshop: w.workshop, fleet: w.fleet, hold: w.hold, reinforce: w.reinforce,
+    beacons: w.beacons.stock, orange: w.beacons.orange, green: w.beacons.green, workshop: w.workshop, fleet: w.fleet, hold: w.hold,
     defence: { next: w.defence.next, active: w.defence.active, live: w.defence.live }, callsigns: w.callsigns, rewards: w.rewards, calibrated: w.scanner.calibrated, broken: brokenList(w).map(b => b.name),
     furnace: { lit: w.furnace.lit, heat: w.furnace.heat, chute: w.furnace.chute }, music: w.music, fatigue: w.fatigue,
     camCode: camCode(w), activeCam: w.activeCam, tom: { x: w.tom.x, y: w.tom.y, mode: w.tom.mode },
     furnaceState: furnaceState(w), sonarStrain: sonarStrain(w), camRune: w.camRune, brokenIds: Object.keys(w.broken).filter(k => w.broken[k]),
-    seal: w.seal ? { reason: w.seal.reason, mode: w.seal.mode, tries: w.seal.tries } : null, password: w.password, pwCap: w.pwCap, pwNext: w.pwNext, lamps: w.lamps, shuttered: shuttered(w),
+    seal: w.seal ? { reason: w.seal.reason, mode: w.seal.mode, tries: w.seal.tries } : null, clearance: w.clearance ? { step: w.clearance.step } : null, shellAsks: w.shellAsks, password: w.password, pwCap: w.pwCap, pwNext: w.pwNext, lamps: w.lamps, shuttered: shuttered(w),
     artifacts: w.artifacts.map(a => ({ ...a, num: a.bergId && a.bergId !== 'none' ? ([...w.bergs, ...w.reserve].find(b => b.id === a.bergId) || {}).num : null })),
     shoals: SHOALS, monsters: w.monsters.map(m => ({ x: m.x, y: m.y, num: m.num, fading: m.fadeAt != null })),
     cases: w.cases.map(c => ({ bergId: c.bergId, seen: c.seen, callsign: w.callsigns[c.bergId] || null, num: (w.bergs.find(b => b.id === c.bergId) || {}).num, permanent: c.permanent, verdict: c.verdict, obs: w.obs[c.bergId] || null })), camUnlocked: Object.keys(w.camUnlocked),

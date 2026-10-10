@@ -5,8 +5,8 @@ import {
   pressBoard, runeFunction, lockFromCamera, aimQuality, startRepair, sip, camCode, setLever, pressPlate, setCamTurn, camIsUnlocked, selectCam, gm,
   relockCase, setVerdict, isUp, inShoal, saveWorld, loadWorld, echoSeen, SYSTEMS,
   setDamper, setPriority, projectHeat, furnaceState, sonarStrain, breakThing, BREAKABLE,
-  sealBeacon, fleetPlace, fleetReady, fleetFire, startDefence, defenceResult, stationAction, ROLES, stationSnapshot,
-  orbCap, canReveal, artifactIn, camWeather,
+  sealBeacon, fleetPlace, fleetReady, fleetFire, fleetCommander, startDefence, defenceResult, stationAction, ROLES, stationSnapshot,
+  orbCap, canReveal, artifactIn, camWeather, brokenList, shellWatch, beaconHits, clearanceAnswer,
 } from '../src/sim.js';
 import * as FL from '../src/fleet.js';
 import * as WS from '../src/workshop.js';
@@ -367,7 +367,7 @@ function sharkSetup(seed) {
 // ---------- payloads, scanner range, repair rules ----------
 {
   const w = createWorld(51); light(w);
-  check(w.beacons.stock === 6 && w.beacons.orange === 3 && w.beacons.green === 3 && w.beacons.blue === undefined, 'Six red, three orange and three green beacons; no blue');
+  check(w.beacons.stock === 5 && w.beacons.orange === 2 && w.beacons.green === 1 && w.beacons.blue === undefined, 'Five red, two orange and one green beacon; no blue');
   for (let i = 0; i < 20; i++) step(w, DT);
   const b = w.bergs.find(b => b.large);
   lockOn(w, b.id, b.x, b.y, w.t, 'camera'); w.lock.track = { vx: b.vx || 0, vy: b.vy || 0, t: w.t, cam: 'c1' };
@@ -770,53 +770,241 @@ function sharkSetup(seed) {
 
   // the workshop: a sealed beacon cures only while the WORKSHOP is powered, then joins the stock
   const w = createWorld(91); light(w); for (let i = 0; i < 20; i++) step(w, DT);
-  const r0 = w.beacons.stock; sealBeacon(w, 'red'); for (let i = 0; i < (T.cureTime + 2) * 10; i++) step(w, DT);
+  w.beacons.stock--; const r0 = w.beacons.stock; sealBeacon(w, 'red'); for (let i = 0; i < (T.cureTime + 2) * 10; i++) step(w, DT);
   check(w.beacons.stock === r0 && w.workshop.curing.length === 1, 'A sealed beacon waits in the rack without workshop power');
   setPower(w, 'workshop', true); for (let i = 0; i < (T.cureTime + 3) * 10; i++) { keepFurnace(w); step(w, DT); }
   check(w.beacons.stock === r0 + 1 && !w.workshop.curing.length, '...and joins the stock once it has cured');
   const st = w.beacons.stock; for (let i = 0; i < 600; i++) { keepFurnace(w); step(w, DT); }
   check(w.beacons.stock === st, 'The red rack no longer refills by itself');
 
-  // the fleet: the watch holds while the crew deploys
+  // the fleet: the watch holds while it deploys
   const wf = createWorld(92, { deploy: true }); light(wf); for (let i = 0; i < 50; i++) step(wf, DT);
   check(wf.t === 0 && wf.hold === 'deploy', 'With the furnace lit, the watch holds while the fleet deploys');
-  check(!fleetPlace(wf, 0, 6, 0, 'h'), 'A ship cannot hang off the grid');
-  fleetPlace(wf, 0, 0, 0, 'h'); check(!fleetPlace(wf, 1, 1, 0, 'v'), 'Ships cannot overlap');
+  check(FL.SHIPS.join() === '4,2,3,3,3' && FL.ENEMY_SHIPS.join() === '5,4,3,3,2' && FL.CREW[0] === 'fleet' && FL.CREW[1] === 'fleet', 'Five ships a side: ours 4 (the Fleet Officer\'s), 2, 3, 3, 3; theirs 5, 4, 3, 3, 2');
+  check(!fleetPlace(wf, 1, 11, 0, 'h'), 'A ship cannot hang off the grid');
+  fleetPlace(wf, 0, 0, 0, 'h'); check(!fleetPlace(wf, 1, 0, 1, 'h'), 'Ships may not touch, not even at a corner');
   check(!fleetReady(wf), 'The watch will not start with ships still to place');
-  fleetPlace(wf, 1, 0, 2, 'h'); fleetPlace(wf, 2, 0, 4, 'h'); fleetPlace(wf, 3, 0, 6, 'h');
+  fleetPlace(wf, 1, 0, 3, 'h'); fleetPlace(wf, 2, 0, 6, 'h'); fleetPlace(wf, 3, 0, 9, 'h'); fleetPlace(wf, 4, 6, 0, 'v');
   check(fleetReady(wf) && !wf.hold, 'Once every ship is placed the watch begins');
-  for (let i = 0; i < 10; i++) step(wf, DT);
-  check(wf.t > 0.5, '...and time runs');
   const f = wf.fleet;
-  const shot = fleetFire(wf, 0, 0);
-  check(shot && fleetFire(wf, 1, 1) === null, 'One shot, then the enemy answers before the next');
-  const wait = f.enemyAt - wf.t;
-  check(wait >= 10 && wait <= 15, `The enemy takes 10 to 15 s to answer (${wait.toFixed(1)} s)`);
-  for (let i = 0; i < 155; i++) step(wf, DT);
-  check(Object.keys(f.theirShots).length === 1 && fleetFire(wf, 1, 1), 'The enemy fires back, and it is our turn again');
-  for (let i = 0; i < 155; i++) step(wf, DT);
-  const n0 = Object.keys(f.theirShots).length;
-  for (let i = 0; i < (FL.IDLE_SHOT + 1) * 10; i++) { keepFurnace(wf); step(wf, DT); }
-  check(Object.keys(f.theirShots).length === n0 + 1, 'Nobody fires for 45 s: the enemy takes a free shot');
-  // sink their fleet: a new enemy, and ours shifted and repaired
-  const before = JSON.stringify(f.mine);
-  for (const sh of f.enemy) for (const [x, y] of FL.cellsOf(sh)) { f.enemyAt = null; fleetFire(wf, x, y); }
-  check(f.wins === 1 && JSON.stringify(f.mine) !== before && !Object.keys(f.myShots).length && !Object.keys(f.theirShots).length && f.mine.every((_, i) => FL.fits(f.mine, i)),
-    'Sinking their fleet: a new enemy fleet, and ours moves a few squares and is repaired');
-  check(f.phase === 'redeploy' && f.prevMine && f.prevMine.length === 4, 'After a victory there is a redeploy window, and the old stations are shown');
-  check(fleetPlace(wf, 3, f.mine[3].x, f.mine[3].y, f.mine[3].dir === 'h' ? 'v' : 'h') || true, '(ships can be moved while redeploying)');
-  const quiet = Object.keys(f.theirShots).length;
-  for (let i = 0; i < (FL.REDEPLOY_TIME - 2) * 10; i++) { keepFurnace(wf); wf.fatigue = 0; step(wf, DT); }
-  check(f.phase === 'redeploy' && Object.keys(f.theirShots).length === quiet && wf.t > 30, 'The enemy holds its fire while we redeploy, and the watch keeps running');
-  for (let i = 0; i < 40; i++) { keepFurnace(wf); step(wf, DT); }
-  check(f.phase === 'play', 'After thirty seconds the action resumes by itself (READY ends it sooner)');
-  // lose every ship: reinforcements, and only the GM can resume
-  for (const sh of f.mine) for (const [x, y] of FL.cellsOf(sh)) f.theirShots[FL.key(x, y)] = 'hit';
-  delete f.theirShots[FL.key(...FL.cellsOf(f.mine[0])[0])];
-  for (let k = 0; k < 64 && !wf.reinforce; k++) { f.enemyAt = 0; step(wf, DT); }   // the enemy keeps firing until the last cell goes
-  check(wf.reinforce && wf.paused, 'Losing every ship brings devil reinforcements, and the watch pauses');
-  gm(wf, 'pause'); check(wf.paused, 'The crew cannot resume it themselves');
-  gm(wf, 'reinforced'); check(!wf.paused && !wf.reinforce && !Object.keys(f.theirShots).length, 'The GM resumes it once the fight is over, with the fleet repaired');
+  check(f.loaded.heavy && f.loaded.sounding && f.loaded.boost && f.loaded.scan && FL.DEPTS.every(d => f.dept[d].state === 'loaded'), 'Every special starts loaded');
+  check(fleetCommander(wf) === 'operator', 'With no Fleet Officer on station, the operator commands the fleet');
+  stationAction(wf, 'gunnery', { act: 'aim', x: 5, y: 5 }); check(!f.aim.length, '...and an officer cannot aim it');
+  wf.defence.live.fleet = true; stationAction(wf, 'operator', { act: 'aim', x: 5, y: 5 });
+  check(fleetCommander(wf) === 'fleet' && !f.aim.length, 'With a Fleet Officer on station, the operator only watches');
+  for (const [x, y] of [[1, 1], [3, 3], [5, 5], [7, 7], [9, 9]]) stationAction(wf, 'fleet', { act: 'aim', x, y });
+  stationAction(wf, 'fleet', { act: 'aim', x: 11, y: 11 });
+  check(f.aim.length === 5, 'Salvo: one shot aimed for each of our ships afloat');
+  stationAction(wf, 'fleet', { act: 'aim', x: 7, y: 7 }); check(f.aim.length === 4, '...and clicking a square again un-aims it');
+  const round0 = f.round; for (let i = 0; i < (FL.SALVO + 1) * 10; i++) { keepFurnace(wf); wf.fatigue = 0; if (wf.seal) sealInput(wf, wf.password); if (wf.defence.active.fleet) delete wf.defence.active.fleet; step(wf, DT); }
+  check(f.round === round0 + 1 && Object.keys(f.marks).length >= 3 && Object.keys(f.theirShots).length >= 1, 'When the salvo clock runs out both fleets fire together');
+  stationAction(wf, 'fleet', { act: 'fire' }); check(f.round === round0 + 2, 'The Fleet Officer can fire sooner');
+  gm(wf, 'salvo', { secs: 120 }); check(f.salvoEvery === 120 && f.nextSalvo - wf.t <= 120, 'The GM sets the time between salvos');
+  // the enemy reloads after a hit: it fires one shot fewer next round
+  { const g = FL.newFleet(mulberry32(5)); FL.randomDeploy(g, mulberry32(6)); FL.begin(g, 0); g.reload = 2; check(FL.enemyAim(g, mulberry32(7)).length === FL.ENEMY_SHIPS.length - 2, 'Every hit the enemy lands costs it a shot next round'); }
+  // the specials: the sounding, then reloads by flag code, with a Morse question every second reload
+  const e0 = f.enemy[0], [ex, ey] = FL.cellsOf(e0)[0];
+  stationAction(wf, 'fleet', { act: 'special', kind: 'sounding', args: { line: 'row', n: ey } }); stationAction(wf, 'fleet', { act: 'fire' });
+  const sd = f.soundings[f.soundings.length - 1], real = f.enemy.reduce((a, s) => a + FL.cellsOf(s).filter(q => q[1] === ey).length, 0);
+  check(sd && sd.count === real && !f.loaded.sounding && f.dept.signals.state === 'cooldown', `A sounding counts the ship squares in its line (${real}), and the flags come down for a while`);
+  const coolDown = d => { f.dept[d].readyAt = wf.t; step(wf, DT); };
+  coolDown('signals'); check(f.dept.signals.state === 'flags' && f.dept.signals.flags.length === 4 && new Set(f.dept.signals.flags).size === 4, 'After the cooldown, four different flags go up');
+  let want = FL.flagCode(f.dept.signals.flags);
+  stationAction(wf, 'signals', { act: 'fleetcode', runes: want.map(r => (r + 1) % 8) }); check(!f.loaded.sounding && f.dept.signals.state === 'flags', 'A wrong code loads nothing');
+  stationAction(wf, 'signals', { act: 'fleetcode', runes: want.slice(0, 3) }); check(!f.loaded.sounding, '...nor does a short one');
+  stationAction(wf, 'signals', { act: 'fleetcode', runes: want }); check(f.loaded.sounding && f.dept.signals.state === 'loaded' && f.dept.signals.reloads === 1, 'The first reload: the right four runes load the sounding, no question');
+  check(FL.padName(0) === 'ICE 1' && FL.PAD.length === 8 && FL.FLAGS.length === 12 && FL.CODEBOOK.length === 4 && FL.CODEBOOK.every(r => r.length === 12 && r.every(v => v >= 0 && v < 8)), 'The codebook has four places, twelve flags, and runes by house and weight');
+  stationAction(wf, 'fleet', { act: 'special', kind: 'sounding', args: { line: 'col', n: 0 } }); stationAction(wf, 'fleet', { act: 'fire' }); coolDown('signals');
+  want = FL.flagCode(f.dept.signals.flags); stationAction(wf, 'signals', { act: 'fleetcode', runes: want });
+  const q1 = f.dept.signals.question;
+  check(!f.loaded.sounding && f.dept.signals.state === 'question' && q1 && q1.opts.length === 3 && q1.answer >= 0 && q1.answer < 3, 'The second reload asks a question in Morse, three answers');
+  stationAction(wf, 'signals', { act: 'fleetanswer', choice: (q1.answer + 1) % 3 });
+  check(!f.loaded.sounding && f.dept.signals.state === 'cooldown' && Math.abs(f.dept.signals.readyAt - wf.t - FL.LOCKOUT) < 0.01, 'A wrong answer locks the reload for a minute');
+  const oldFlags = f.dept.signals.flags.join(); stationAction(wf, 'signals', { act: 'fleetcode', runes: want }); check(f.dept.signals.state === 'cooldown', '...and no code goes in meanwhile');
+  coolDown('signals'); want = FL.flagCode(f.dept.signals.flags); stationAction(wf, 'signals', { act: 'fleetcode', runes: want });
+  const q2 = f.dept.signals.question; check(f.dept.signals.state === 'question' && q2, '...then new flags, and a new question after the code');
+  stationAction(wf, 'signals', { act: 'fleetanswer', choice: q2.answer }); check(f.loaded.sounding && f.dept.signals.reloads === 2, 'The right answer loads it');
+  stationAction(wf, 'fleet', { act: 'special', kind: 'sounding', args: { line: 'col', n: 1 } }); stationAction(wf, 'fleet', { act: 'fire' }); coolDown('signals');
+  stationAction(wf, 'signals', { act: 'fleetcode', runes: FL.flagCode(f.dept.signals.flags) }); check(f.loaded.sounding, 'The third reload is a plain code again (the 2nd, 4th, 6th ask)');
+  { const { QUESTIONS, toMorse, MORSE } = await import('../src/morse.js');
+    const dec = m => m.split(' / ').map(wd => wd.split(' ').map(c => Object.keys(MORSE).find(k => MORSE[k] === c)).join('')).join(' ');
+    check(QUESTIONS.every(([q, ...a]) => q.split(' ').length <= 6 && a.length === 3 && a.every(x => /^[A-Z]+$/.test(x)) && new Set(a).size === 3 && dec(toMorse(q)) === q), 'Every Morse question is six words or fewer, with three one-word answers, and reads back true'); }
+  // the heavy shell takes a red or orange beacon, never a green
+  const red0 = wf.beacons.stock, green0 = wf.beacons.green;
+  stationAction(wf, 'fleet', { act: 'special', kind: 'heavy', args: { x: ex, y: ey } }); stationAction(wf, 'fleet', { act: 'fire' });
+  check(wf.beacons.stock === red0 - 1 && wf.beacons.green === green0 && f.marks[ex + ',' + ey] === 'hit', 'A heavy shell bursts over a 2 × 2 and uses one red beacon');
+  wf.beacons.stock = 0; wf.beacons.orange = 0; f.loaded.heavy = true; stationAction(wf, 'fleet', { act: 'special', kind: 'heavy', args: { x: 0, y: 0 } }); stationAction(wf, 'fleet', { act: 'fire' });
+  check(f.loaded.heavy && wf.beacons.green === green0, '...and with only greens left it will not fire');
+  wf.beacons.stock = T.beaconStock; wf.beacons.orange = T.orangeStock;
+  // the boost moves one of ours a square, and the enemy's hits on where she was go stale
+  for (const s of f.mine) s.hits = [];
+  f.loaded.boost = true; const s3 = f.mine[3], y3 = s3.y, c3 = FL.cellsOf(s3)[1]; f.ai.hits = [c3];
+  stationAction(wf, 'fleet', { act: 'special', kind: 'boost', args: { ship: 3, dx: 0, dy: 1 } }); stationAction(wf, 'fleet', { act: 'fire' });
+  check(s3.y === y3 + 1 && !f.ai.hits.some(h => h[0] === c3[0] && h[1] === c3[1]), 'A boost moves one of our ships a square, and the enemy forgets its hit there');
+  // the Fleet Officer's crosshair scan: seven squares, enemy hulls under it are sighted, not hit
+  { check(FL.crosshairCells(5, 5, 'v').length === 7 && FL.crosshairCells(5, 5, 'h').length === 7 && FL.crosshairCells(5, 5, 'v').some(c => c[1] === 3) && FL.crosshairCells(5, 5, 'h').some(c => c[0] === 3), 'The crosshair is seven squares, its long arm turned by R');
+    const tgt = f.enemy.find(s => !FL.sunk(s) && FL.cellsOf(s).some(c => !f.marks[c.join()])), [tx, ty] = FL.cellsOf(tgt).find(c => !f.marks[c.join()]), hits0 = tgt.hits.length; f.loaded.scan = true;
+    stationAction(wf, 'fleet', { act: 'special', kind: 'scan', args: { x: tx, y: ty, dir: 'v' } }); stationAction(wf, 'fleet', { act: 'fire' });
+    check(f.marks[tx + ',' + ty] === 'seen' && tgt.hits.length === hits0 && !f.loaded.scan, 'The crosshair scan sights the enemy squares under it without hitting them');
+    stationAction(wf, 'fleet', { act: 'dispatch', choice: 'scan' }); check(f.loaded.scan, 'Decoding a dispatch reloads the scan');
+    wf.rewards.dispatch = wf.t + 30; f.loaded.scan = false; stationAction(wf, 'fleet', { act: 'dispatch', choice: 'scan' }); check(!f.loaded.scan, '...once a minute'); }
+  // a sunk ship: salvage it with Engineering, power it from the breaker panel, then the Fleet Officer redeploys her
+  for (const s of f.mine) s.hits = []; f.salvage = {}; wf.shelled = null;
+  const s1 = f.mine[1]; s1.hits = [0]; wf.defence.live.engineer = true;
+  const last = FL.cellsOf(s1)[1]; f.ai.hits = []; f.ai.shot = {}; f.ai.focus = null; for (let y = 0; y < FL.SIZE; y++) for (let x = 0; x < FL.SIZE; x++) if (x !== last[0] || y !== last[1]) f.ai.shot[x + ',' + y] = true;
+  stationAction(wf, 'fleet', { act: 'fire' });
+  check(FL.sunk(s1) && f.salvage[1], 'When one of ours is sunk, a salvage board opens for it');
+  const sv = f.salvage[1]; sv.board.rows.forEach((row, j) => stationAction(wf, 'fleet', { act: 'salvageset', i: 1, row: j, action: 'OPEN' }));
+  stationAction(wf, 'fleet', { act: 'salvagesend', i: 1 });
+  const ok = sv.board.rows.every(r => repairAction('engineer', r) === 'OPEN');
+  check(sv.done === ok, 'A wrong salvage setting resets the board');
+  sv.board.rows.forEach((row, j) => stationAction(wf, 'fleet', { act: 'salvageset', i: 1, row: j, action: repairAction('engineer', row) }));
+  stationAction(wf, 'fleet', { act: 'salvagesend', i: 1 }); check(sv.done, "Engineering's flowchart reads the salvage board");
+  stationAction(wf, 'fleet', { act: 'redeploy', i: 1, random: true }); check(FL.sunk(s1), '...but without power she cannot be redeployed');
+  for (let k = 0; k < 4; k++) { if (wf.seal) sealInput(wf, wf.password); stationAction(wf, 'fleet', { act: 'fire' }); }
+  check(FL.sunk(s1) && f.salvage[1], 'Engineering on station: she waits for power (no relaunch by herself)');
+  wf.rewards.lights = 0; stationAction(wf, 'engineer', { act: 'lightsout', choice: 'power' }); check(sv.power && FL.salvageReady(f, 1), 'The breaker panel powers the sunk ship: ready to redeploy');
+  const old1 = FL.cellsOf(s1); f.ai.hits = [old1[0]];
+  let spot1 = null; for (let y = 0; y < FL.SIZE && !spot1; y++) for (let x = 0; x < FL.SIZE && !spot1; x++) { const t1 = f.mine.map((o, j) => j === 1 ? { ...o, x, y, dir: 'h' } : o); if (FL.fits(t1, 1, true) && !old1.some(c => c[1] === y)) spot1 = [x, y]; }
+  stationAction(wf, 'fleet', { act: 'redeploy', i: 1, x: spot1[0], y: spot1[1], dir: 'h' });
+  check(!FL.sunk(s1) && !f.salvage[1] && s1.x === spot1[0] && s1.y === spot1[1] && !f.ai.hits.length, 'The Fleet Officer redeploys her anywhere free, and the enemy\'s old hits on her go stale');
+  // left waiting, a ready ship is put back for you
+  { const g = FL.newFleet(mulberry32(21)); FL.randomDeploy(g, mulberry32(22)); FL.begin(g, 0); g.mine[2].hits = [0, 1, 2]; g.salvage[2] = { board: { rows: [] }, done: true, power: true, since: 0, readyRound: 0 };
+    for (let k = 0; k < FL.REDEPLOY_WAIT; k++) FL.salvo(g, { t: k * 70, rng: mulberry32(30 + k), spendBeacon: () => true, shellReady: () => false });
+    check(!FL.sunk(g.mine[2]) && !g.salvage[2], `A ready ship left waiting ${FL.REDEPLOY_WAIT} salvos is redeployed at random (a failsafe)`); }
+  // with nobody from Engineering, only the GM relaunches
+  wf.shelled = null; const s2 = f.mine[2]; s2.hits = [0, 1, 2]; f.salvage[2] = { board: { rows: [] }, done: false, power: false, since: f.round, readyRound: null }; wf.defence.live.engineer = false;
+  for (let k = 0; k < 6; k++) { if (wf.seal) sealInput(wf, wf.password); f.mine.forEach((s, i) => { if (i !== 2) { s.hits = []; delete f.salvage[i]; } }); stationAction(wf, 'fleet', { act: 'fire' }); }
+  check(FL.sunk(s2) && f.salvage[2], 'With nobody from Engineering on station, a sunk ship stays down...');
+  gm(wf, 'fleet-relaunch', {}); check(!FL.sunk(s2) && !f.salvage[2], '...until the GM relaunches her');
+  // the shells: half the salvos while one of ours is down, then one in five
+  { let first = 0, after = 0, n = 0, n2 = 0;
+    for (let k = 0; k < 1500; k++) {
+      const g = FL.newFleet(mulberry32(500 + k)); FL.randomDeploy(g, mulberry32(9000 + k)); FL.begin(g, 0); g.mine[1].hits = [0, 1]; g.salvage[1] = { board: { rows: [] }, done: false, power: false, since: 0, readyRound: null };
+      const ctx = { t: 0, rng: mulberry32(77 + k * 3), spendBeacon: () => true, shellReady: () => true };
+      const a = FL.salvo(g, ctx).some(e => e.type === 'fleetshell'); first += a; n++;
+      if (a && g.salvage[1]) { ctx.t = 70; after += FL.salvo(g, ctx).some(e => e.type === 'fleetshell'); n2++; }
+    }
+    check(Math.abs(first / n - FL.SHELL_FIRST) < 0.05 && Math.abs(after / n2 - FL.SHELL_AFTER) < 0.05, `While one of ours is down: the first shell ${pct(first, n)} a salvo, later ones ${pct(after, n2)}`);
+    const g = FL.newFleet(mulberry32(3)); FL.randomDeploy(g, mulberry32(4)); FL.begin(g, 0); g.mine[1].hits = [0, 1]; g.salvage[1] = { board: { rows: [] }, done: false, power: false, since: 0, readyRound: null };
+    let any = false; for (let k = 0; k < 30; k++) any ||= FL.salvo(g, { t: k * 70, rng: mulberry32(k), spendBeacon: () => true, shellReady: () => false }).some(e => e.type === 'fleetshell');
+    check(!any, 'No shell while a machine an earlier shell broke is still broken'); }
+  { const ws = createWorld(95, { deploy: true }); light(ws); gm(ws, 'fleet-auto'); for (let i = 0; i < 20; i++) step(ws, DT);
+    let broke = 0, asked = 0, deep = 0;
+    for (let k = 0; k < 60; k++) { const b0 = brokenList(ws).length, n0 = ws.events.length; shellWatch(ws); const e = ws.events.slice(n0).find(x => x.type === 'fleetshell');
+      if (brokenList(ws).length > b0) broke++; if (e.pw) asked++; if (e.pw === 'lockdown') deep++;
+      if (k % 2) gm(ws, 'repair'); ws.seal = null; }
+    check(broke > 15 && asked > 15 && ws.events.some(e => e.type === 'fleetshell' && e.sys && e.pw), `A shell breaks a machine (${broke}), asks for the password (${asked}), or both`);
+    check(deep > 0 && deep <= asked / 3 + 1, `Every third password check without a security update is a lockdown (${deep} of ${asked})`);
+    const w3 = createWorld(96, { deploy: true }); light(w3); gm(w3, 'fleet-auto'); for (let i = 0; i < 20; i++) step(w3, DT);
+    w3.fleetRng = () => 0.9; shellWatch(w3); const firstSeal = w3.seal && w3.seal.reason === 'shell' && !w3.seal.change; sealInput(w3, w3.password);
+    shellWatch(w3); sealInput(w3, w3.password); shellWatch(w3);
+    check(firstSeal && w3.seal && w3.seal.change, 'The first shell checks only ask; the third descends a layer');
+    if (w3.seal) { sealInput(w3, w3.password); sealInput(w3, 'Jerry$1x' + 'a'.repeat(30)); } w3.seal = null; }
+  // the enemy's sonar: every fourth salvo it sounds a row or column; the Fleet Officer sees which
+  { const g = FL.newFleet(mulberry32(41)); FL.randomDeploy(g, mulberry32(42)); FL.begin(g, 0); let son = 0;
+    for (let k = 0; k < 8; k++) son += FL.salvo(g, { t: k * 70, rng: mulberry32(50 + k), spendBeacon: () => true, shellReady: () => false }).filter(e => e.type === 'fleetenemysonar').length;
+    check(son === 2 && g.enemySonar && g.enemySonar.round === 8, 'The enemy sounds our water every fourth salvo, and we see where');
+    const h = FL.newFleet(mulberry32(43)); FL.randomDeploy(h, mulberry32(44)); FL.begin(h, 0); const s = h.mine[2], [sx, sy] = FL.cellsOf(s)[0];
+    for (let y = 0; y < FL.SIZE; y++) for (let x = 0; x < FL.SIZE; x++) h.ai.shot[x + ',' + y] = true;
+    const e = FL.enemySonar(h, mulberry32(1), 0, 'row', sy);
+    check(e.count > 0 && !h.ai.shot[sx + ',' + sy] && FL.enemyAim(h, mulberry32(2)).some(([x, y]) => y === sy), 'A ship redeployed on water the enemy had cleared: its sonar finds the row, and it fires along it'); }
+  // the wave: their fleet down to one ship, ours is refitted and a fresh fleet comes
+  f.marks = {}; for (const k of Object.keys(f.salvage)) { f.mine[k].hits = []; delete f.salvage[k]; }
+  f.enemy.forEach((s, i) => { s.hits = i === 0 ? [] : Array.from({ length: s.len }, (_, j) => j).slice(i === 1 ? 1 : 0); }); f.aim = [FL.cellsOf(f.enemy[1])[0]];
+  f.mine[0].hits = [0]; const wins0 = f.wins; stationAction(wf, 'fleet', { act: 'fire' });
+  check(f.wins === wins0 + 1 && f.mine.every(s => !s.hits.length) && !Object.keys(f.marks).length && FL.afloat(f.enemy).length === 5, 'Their fleet down to one ship: the last one runs, ours is refitted and a new fleet comes');
+  // the GM: load specials, land hits on either side, sound our water, fall back and redeploy the enemy
+  for (const d of FL.DEPTS) Object.assign(f.dept[d], { state: 'cooldown', readyAt: wf.t + 99 }); f.loaded = {};
+  gm(wf, 'fleet-load', {}); check(f.loaded.heavy && f.loaded.sounding && f.loaded.boost && f.loaded.scan && FL.DEPTS.every(d => f.dept[d].state === 'loaded'), 'The GM loads every special');
+  { const h0 = f.enemy[2].hits.length; gm(wf, 'fleet-hit', { side: 'theirs', i: 2 }); const m0 = f.mine[3].hits.length; gm(wf, 'fleet-hit', { side: 'ours', i: 3 });
+    check(f.enemy[2].hits.length === h0 + 1 && f.mine[3].hits.length === m0 + 1 && f.ai.hits.length >= 1, 'The GM lands a hit on a chosen ship, either side (the enemy learns where ours is)'); }
+  { const n0 = wf.events.length; gm(wf, 'fleet-enemyscan'); check(wf.events.slice(n0).some(e => e.type === 'fleetenemysonar') && f.enemySonar, 'The GM orders an enemy radar sweep'); }
+  { const old = JSON.stringify(f.enemy.map(s => [s.x, s.y])); gm(wf, 'fleet-regroup');
+    check(f.phase === 'regroup' && !wf.fleet.aim.length, 'The GM sends the enemy back to await reinforcements');
+    stationAction(wf, 'fleet', { act: 'fire' }); const r0 = f.round;
+    for (let i = 0; i < (FL.REGROUP_TIME + 1) * 10; i++) { keepFurnace(wf); wf.fatigue = 0; if (wf.seal) sealInput(wf, wf.password); delete wf.defence.active.fleet; step(wf, DT); }
+    check(f.phase === 'play' && f.round === r0 && JSON.stringify(f.enemy.map(s => [s.x, s.y])) !== old && f.log.some(l => /ENEMY SHIPS REDEPLOYED/.test(l.text)), `${FL.REGROUP_TIME} s later a whole new fleet deploys, and the Fleet Officer is told`); }
+  // the Fleet Officer's defence: the depth charges. Fail it and their own ship is hit, and the enemy knows where
+  { for (const s of f.mine) s.hits = []; f.salvage = {}; f.ai.hits = [];
+    check(startDefence(wf, 'fleet') && wf.defence.active.fleet.kind === 'depth' && GA.GAME_TIME.depth === 45, 'The Fleet Officer has a defence of their own: the depth charges');
+    defenceResult(wf, 'fleet', wf.defence.active.fleet.id, { ok: false });
+    check(f.mine[0].hits.length === 1 && f.ai.hits.length === 1, 'Failing it: the main ship is hit, and the enemy knows where');
+    f.mine[0].hits = [0, 1, 2, 3]; startDefence(wf, 'fleet'); defenceResult(wf, 'fleet', wf.defence.active.fleet.id, { ok: false });
+    check(f.mine.slice(1).some(s => s.hits.length === 1), '...with the main ship down, another of ours takes it');
+    for (const s of f.mine) s.hits = []; f.salvage = {}; f.ai.hits = []; startDefence(wf, 'fleet'); defenceResult(wf, 'fleet', wf.defence.active.fleet.id, { ok: true });
+    check(f.mine.every(s => !s.hits.length), 'Holding it off costs nothing'); }
+  // lose the whole fleet: the grate cracks, and a minute later the fleet is refitted
+  for (const s of f.mine) s.hits = Array.from({ length: s.len }, (_, i) => i).slice(1);
+  f.ai.shot = {}; f.ai.hits = []; f.ai.focus = null; for (let y = 0; y < FL.SIZE; y++) for (let x = 0; x < FL.SIZE; x++) if (!f.mine.some(s => FL.cellsOf(s)[0][0] === x && FL.cellsOf(s)[0][1] === y)) f.ai.shot[x + ',' + y] = true;
+  f.reload = 0; f.enemy.forEach(s => { s.hits = []; });
+  for (let k = 0; k < 6 && f.phase === 'play'; k++) { if (wf.seal) sealInput(wf, wf.password); stationAction(wf, 'fleet', { act: 'fire' }); }
+  check(f.phase === 'refit' && wf.broken.furnace, 'Losing the whole fleet: the enemy shells the furnace grate, and the fleet refits');
+  for (let i = 0; i < (FL.REFIT_TIME + 2) * 10; i++) { delete wf.defence.active.fleet; step(wf, DT); }
+  check(f.phase === 'play' && f.mine.every(s => s.x != null && !s.hits.length), '...a minute later it is back on station');
+
+  // the Fleet Officer's dispatch (Mastermind) and depth charges
+  check(GA.mmScore([0, 1, 2, 3], [0, 1, 2, 3]).full === 4 && JSON.stringify(GA.mmScore([0, 0, 1, 1], [1, 1, 0, 0])) === '{"full":0,"half":4}' && JSON.stringify(GA.mmScore([0, 1, 2, 3], [0, 0, 0, 0])) === '{"full":1,"half":0}' && JSON.stringify(GA.mmScore([5, 4, 3, 3], [3, 3, 3, 4])) === '{"full":1,"half":2}' && GA.MM.colors.length === 6 && GA.MM.tries === 8 && GA.MM.len === 4,
+    'The dispatch: four lights from six colours, eight tries, full and half marks counted right (repeats too)');
+  { const play = (seed, react, fire) => { const r = mulberry32(seed), st = GA.depthStart(r); let think = 0, goal = st.x;
+      while (!st.over) { think -= 0.05; if (think <= 0) { think = react;
+        const safe = x => !st.shots.some(s => s.y < GA.DC.shipY + 110 && Math.abs(s.x - x) < GA.DC.shipW / 2 + 12), live = st.foes.filter(f => f.alive).sort((a, b) => a.y - b.y || Math.abs(a.x - st.x) - Math.abs(b.x - st.x)), tg = live[0];
+        let want = tg ? tg.x : st.x; if (!safe(st.x)) { let best = null; for (let x = 30; x <= GA.DC.W - 30; x += 10) if (safe(x) && (best === null || Math.abs(x - st.x) < Math.abs(best - st.x))) best = x; if (best !== null) want = best; } else if (!safe(want)) want = st.x;
+        goal = want; if (fire && tg && Math.abs(tg.x - st.x) < 18) GA.depthDrop(st); }
+        GA.depthStep(st, 0.05, Math.abs(goal - st.x) < 6 ? 0 : Math.sign(goal - st.x), r); if (st.t > 60) break; }
+      return st; };
+    const good = Array.from({ length: 60 }, (_, i) => play(i + 1, 0.15, true)), idle = Array.from({ length: 60 }, (_, i) => play(i + 1, 99, false));
+    check(good.every(s => s.over && s.t <= GA.GAME_TIME.depth + 0.1) && good.filter(s => s.won).length >= 20 && idle.every(s => !s.won), `Depth charges: a simple steady bot wins ${good.filter(s => s.won).length}/60 (people dodge better); doing nothing always loses`); }
+  // the stations' update stays small with a busy fleet (full log, two ships under salvage, Morse questions up)
+  { const wz = createWorld(101, { deploy: true }); light(wz); gm(wz, 'fleet-auto'); for (let i = 0; i < 20; i++) step(wz, DT);
+    for (let k = 0; k < 30; k++) { wz.seal = null; stationAction(wz, 'operator', { act: 'fire' }); }
+    const fz = wz.fleet; for (const i of [2, 3]) { fz.mine[i].hits = Array.from({ length: fz.mine[i].len }, (_, j) => j); fz.salvage[i] = { board: makeRepairBoard('engineer', mulberry32(i)), done: false, power: false, since: fz.round, readyRound: null }; }
+    for (const d of FL.DEPTS) Object.assign(fz.dept[d], { state: 'question', question: { q: 'HOW MANY DAYS IN A WEEK', opts: ['SEVEN', 'FIVE', 'NINE'], answer: 0 } });
+    const ss = JSON.stringify(stationSnapshot(wz, { iid: 'x', born: 1 }));
+    check(ss.length < 14000 && fz.log.length <= 40, `The stations' update stays small with a busy fleet (${ss.length} bytes)`); }
+  // the beacon rack: 5 red, 2 orange, 1 green, and never more; a green can always be built once one is fired
+  { const wb = createWorld(97, { deploy: true }); light(wb); gm(wb, 'fleet-auto'); setPower(wb, 'workshop', true);
+    check(wb.beacons.stock === 5 && wb.beacons.orange === 2 && wb.beacons.green === 1, 'The Watch starts with 5 red, 2 orange and 1 green beacon');
+    check(!sealBeacon(wb, 'green') && !sealBeacon(wb, 'red') && !wb.workshop.curing.length, 'A full rack takes no more');
+    wb.beacons.green = 0; check(sealBeacon(wb, 'green') && !sealBeacon(wb, 'green'), 'Fire the green and one more can be built (only one)');
+    for (let i = 0; i < (T.cureTime + 3) * 10; i++) { keepFurnace(wb); wb.fatigue = 0; if (wb.seal) sealInput(wb, wb.password); delete wb.defence.active.fleet; step(wb, DT); }
+    check(wb.beacons.green === 1, '...and it cures into the rack'); }
+  // the disguised warships: four, large and hollow and metal, playing the war drums; none in a sea without the fleet
+  { const wa = createWorld(98, { deploy: true }), wn = createWorld(98), ships = wa.bergs.filter(b => b.warship);
+    check(ships.length === 4 && ships.every(b => b.large && b.hollow && b.metal && b.echo.sig === 'halls' && b.radio.decoded === 'RRW' && b.radio.band === 'MID' && b.look === 'warship'), 'Four disguised warships: large, hollow, metal, and the war drums on the radio');
+    check(!wn.bergs.some(b => b.warship) && wn.bergs.every(b => { const o = wa.bergs.find(x => x.id === b.id); return o && o.x === b.x && o.y === b.y; }), 'The rest of the sea is the same with or without them');
+    const nums = [...wa.bergs, ...wa.reserve].map(b => b.num); check(new Set(nums).size === nums.length, 'Every iceberg still has its own number');
+    check(!wa.artifacts.some(a => ships.some(s => s.id === a.bergId)), 'No artifact is hidden in a warship');
+    gm(wa, 'fleet-auto'); for (let i = 0; i < 20; i++) step(wa, DT);
+    const seen0 = Object.values(wa.fleet.marks).filter(v => v === 'seen').length; beaconHits(wa, ships[0], 'red', wa.t);
+    const seen1 = Object.values(wa.fleet.marks).filter(v => v === 'seen').length;
+    check(seen1 >= 2 && seen1 > seen0 && wa.bergs.includes(ships[0]) && wa.events.some(e => e.type === 'warshiphit'), 'A beacon in a warship plots one of the enemy\'s ships on our tables; the warship stays');
+    beaconHits(wa, ships[0], 'red', wa.t); check(Object.values(wa.fleet.marks).filter(v => v === 'seen').length === seen1, '...once per warship');
+    wa.defence.live.fleet = true; stationAction(wa, 'fleet', { act: 'dispatch', choice: 'unmask' });
+    const um = ships.find(b => b.unmasked), row = um && wa.cases.find(c => c.bergId === um.id);
+    check(um && um.tag && row && row.permanent && row.verdict === 'EXCLUDED', 'A decoded dispatch can unmask a warship: tagged on the chart and EXCLUDED on the case board'); }
+  // the green beacon: with a Fleet Officer on station, the operator also needs their clearance (two Morse questions)
+  { const wg = createWorld(99, { deploy: true }); light(wg); gm(wg, 'fleet-auto'); for (let i = 0; i < 20; i++) step(wg, DT);
+    const b = wg.bergs.find(x => x.large && !x.elgarz); lockOn(wg, b.id, b.x, b.y, wg.t, 'camera'); wg.defence.live.fleet = true;
+    fireBeacon(wg, 'green'); sealInput(wg, wg.password);
+    const c = wg.clearance; check(c && c.qs.length === 2 && c.qs[0].q !== c.qs[1].q && !wg.beacons.flying.length, 'After the password: FLEET OFFICER CLEARANCE REQUIRED, two questions');
+    check(stationSnapshot(wg).clearance && stationSnapshot(wg).clearance.qs[0].opts.length === 3, 'The Fleet Officer\'s station sees the questions too');
+    clearanceAnswer(wg, (c.qs[0].answer + 1) % 3); check(!wg.clearance && !wg.beacons.flying.length && wg.beacons.green === 1, 'A wrong answer refuses clearance; the green stays in the rack');
+    fireBeacon(wg, 'green'); sealInput(wg, wg.password); const c2 = wg.clearance;
+    clearanceAnswer(wg, c2.qs[0].answer); check(wg.clearance && wg.clearance.step === 1, '...the right one goes on to the second');
+    clearanceAnswer(wg, c2.qs[1].answer); check(!wg.clearance && wg.beacons.flying.length === 1 && wg.beacons.green === 0, 'Both right: the green beacon flies');
+    wg.beacons.green = 1; wg.beacons.flying = []; wg.defence.live.fleet = false; fireBeacon(wg, 'green'); sealInput(wg, wg.password);
+    check(!wg.clearance && wg.beacons.flying.length === 1, 'With no Fleet Officer on station, no clearance is asked');
+    wg.beacons.green = 1; wg.beacons.flying = []; wg.defence.live.fleet = true; fireBeacon(wg, 'green'); sealInput(wg, wg.password); wg.defence.live.fleet = false; step(wg, DT);
+    check(!wg.clearance && wg.beacons.flying.length === 1, 'If the Fleet Officer drops out mid-clearance, it is waived');
+    wg.beacons.green = 1; wg.beacons.flying = []; wg.defence.live.fleet = true; fireBeacon(wg, 'green'); sealInput(wg, wg.password); gm(wg, 'clearance');
+    check(!wg.clearance && wg.beacons.flying.length === 1, 'The GM can grant clearance'); }
+  // old saves: a revision-18 fleet (four ships) is replaced on load
+  { const wl = createWorld(100, { deploy: true }); light(wl); gm(wl, 'fleet-auto'); for (let i = 0; i < 20; i++) step(wl, DT);
+    const back = loadWorld(saveWorld(wl)); check(JSON.stringify(back.fleet) === JSON.stringify(wl.fleet) && back.bergs.filter(b => b.warship).length === 4, 'A save keeps the fleet and the warships');
+    wl.fleet.mine = wl.fleet.mine.slice(0, 4); for (const d of FL.DEPTS) delete wl.fleet.dept[d].reloads; delete wl.shellAsks; delete wl.clearance; delete wl.rewards.dispatch;
+    const old = loadWorld(saveWorld(wl)); check(old.fleet.mine.length === 5 && old.fleet.phase === 'play' && old.shellAsks === 0 && old.clearance === null && old.rewards.dispatch === 0, 'An old save gets a fresh five-ship fleet, already on station');
+    for (let i = 0; i < 100; i++) step(old, DT); check(old.t > 1, '...and the watch runs on'); }
 
   // the defences: none without a station connected
   const wd = createWorld(93); light(wd);
@@ -864,9 +1052,13 @@ function sharkSetup(seed) {
   wr.furnace.chute = 1; stationAction(wr, 'engineer', { act: 'lightsout' }); const c1 = wr.furnace.chute; stationAction(wr, 'engineer', { act: 'lightsout' });
   check(c1 === 2 && wr.furnace.chute === 2, 'Clearing the breaker panel puts a free shovel in the chute, once a minute');
   // the defence games themselves
-  { let body = GA.snakeStart(); check(body.length === 17 && GA.SN.start + GA.SN.need === 25, 'The cable starts seventeen long and must reach twenty-five');
-    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 18 && !r.dead, 'Each loose end makes the cable longer');
-    let b2 = GA.snakeStart(), dead = false; for (let i = 0; i < 40 && !dead; i++) { const m = GA.snakeMove(b2, [1, 0], null); b2 = m.body; dead = m.dead; } check(!dead, 'Through a wall the cable comes out the other side');
+  { let body = GA.snakeStart(); check(body.length === 20 && GA.SN.start + GA.SN.need === 30 && body.every((c, i) => !i || Math.abs(c[0] - body[i - 1][0]) + Math.abs(c[1] - body[i - 1][1]) === 1), 'The cable starts twenty long, all in one piece, and must reach thirty');
+    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 21 && !r.dead, 'Each loose end makes the cable longer');
+    let b2 = GA.snakeStart(), dead = false; for (let i = 0; i < 3 && !dead; i++) { const m = GA.snakeMove(b2, [1, 0], null); b2 = m.body; dead = m.dead; } check(!dead && b2[0][0] < 3, 'Through a wall the cable comes out the other side');
+    { let ok = true; for (let k = 0; k < 200; k++) { const r2 = mulberry32(k + 1), b0 = GA.snakeStart(), sp = GA.sparksStart(r2, b0); if (sp.length !== GA.SN.sparks || sp.some(s => b0.some(c => Math.abs(c[0] - s.x) + Math.abs(c[1] - s.y) < 3))) ok = false; }
+      check(ok, 'Three stray sparks, always starting well clear of the cable'); }
+    { const sp = [{ x: GA.SN.W - 0.1, y: 3, dx: 1, dy: 0 }]; GA.sparksStep(sp, 0.1); check(sp[0].x < 1 && GA.sparkHits(sp, [0, 3]) && !GA.sparkHits(sp, [5, 5]), 'A spark drifts through the wall like the cable, and touching it is a hit'); }
+    check(GA.SN.sink === 6, 'A loose end sinks after six seconds');
     let b3 = GA.snakeStart(); for (const d of [[0, 1], [-1, 0], [0, -1]]) { const m = GA.snakeMove(b3, d, null); b3 = m.body; if (d[1] === -1) check(m.dead, 'Turning back into the cable fails the splice'); }
     { // the stokehold: a dead fire and a burst one each cost a fail; a fire left alone dies; a steady stoker holds 45 s
       const s1 = GA.stokeStart(rng); s1.lanes[0].heat = 0.5; const e1 = GA.stokeStep(s1, 0.5, rng);
@@ -887,7 +1079,7 @@ function sharkSetup(seed) {
     check(GA.GAME_TIME.missile === 30 && GA.missileWaves(rng, 0, 'fall').length >= 16 && GA.missileWaves(rng, 20, 'fall').length >= 28 && GA.missileWaves(rng, 20, 'arc').length <= 0.75 * GA.missileWaves(rng, 20, 'fall').length && GA.missileWaves(rng, 0, 'arc').every(w => w.from < 0.2 || w.from > 0.8), 'Thirty seconds of devil fire, twice as much as before; the skiffs fire from the sides, about 30% less'); }
   // the stations' own small update, and the rehearsal
   { const ss = JSON.stringify(stationSnapshot(wo, { iid: 'x', born: 1 }));
-    check(ss.length < 6000 && ['fleet', 'furnaceState', 'sonar', 'cases', 'workshop', 'defence'].every(k => ss.includes('"' + k + '"')), `The stations' update is small (${ss.length} bytes) and has what they draw`);
+    check(ss.length < 10000 && ['fleet', 'furnaceState', 'sonar', 'cases', 'workshop', 'defence'].every(k => ss.includes('"' + k + '"')), `The stations' update is small (${ss.length} bytes) and has what they draw`);
     gm(wo, 'rehearse'); check(ROLES.every((r, i) => Math.abs(wo.defence.next[r] - (wo.t + 1 + i * 50)) < 0.01), 'The rehearsal lines up every station\'s event, one after another'); }
   check(createWorld(5).bergs.length + createWorld(5).reserve.length === 40, 'The sea holds forty glaciers');
   // a station's actions go through one door
@@ -939,14 +1131,22 @@ function sharkSetup(seed) {
     w2.readings = { t: w2.t, x: b2.x, y: b2.y, surface: { x: 0, y: 0 }, deep: { x: 0, y: 0 }, wind: { x: 0, y: 0 }, windFrom: 0, windSpeed: 0, temp: -170 };
     T.orbCapWind = -100; const q2 = aimQuality(w2); T.orbCapWind = T0.orbCapWind;
     check(q2.chance > q.chance, 'A fresh current reading beside the ice beats the capped orb track'); }
-  // Signals can plot an enemy ship instead of beaconing a glacier
+  // Signals can sight a square of an enemy hull instead of beaconing a glacier
   const wf = createWorld(1004, { deploy: true }); light(wf); gm(wf, 'fleet-auto'); for (let i = 0; i < 20; i++) step(wf, DT);
-  check(canReveal(wf), 'With the fleet in action, there is an enemy ship to plot');
+  check(canReveal(wf), 'With the fleet in action, there is an enemy hull to sight');
   const tags0 = wf.tags.length; stationAction(wf, 'signals', { act: 'minesweeper', choice: 'reveal' });
-  const ri = wf.fleet.revealed[0];
-  check(wf.fleet.revealed.length === 1 && wf.tags.length === tags0 && FL.cellsOf(wf.fleet.enemy[ri]).every(cc => !wf.fleet.myShots[FL.key(...cc)]), 'Plotting reveals one enemy ship that has not been hit');
+  const seen = Object.entries(wf.fleet.marks).filter(([, v]) => v === 'seen');
+  check(seen.length === 1 && wf.tags.length === tags0 && wf.fleet.enemy.some(s => FL.cellsOf(s).some(q => q.join() === seen[0][0])), 'Minesweeping sights one square of an enemy hull');
   stationAction(wf, 'signals', { act: 'minesweeper', choice: 'reveal' });
-  check(wf.fleet.revealed.length === 1, '...once a minute');
+  check(Object.values(wf.fleet.marks).filter(v => v === 'seen').length === 1, '...once a minute');
+}
+
+// ---------- the fleet's balance (simulated crews) ----------
+{
+  const { session } = await import('./sim-fleet.mjs');
+  const runs = Array.from({ length: 60 }, (_, i) => session(i + 1));
+  const waves = runs.reduce((a, r) => a + r.waves.length, 0), lost = runs.reduce((a, r) => a + r.losses, 0);
+  check(waves / 60 > 2 && lost / 60 < 0.3, `A steady crew usually wins at sea: ${(waves / 60).toFixed(1)} enemy fleets sunk in 40 minutes, ${(lost / 60).toFixed(2)} of ours lost`);
 }
 
 // ---------- shots ----------
