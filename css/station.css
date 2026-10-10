@@ -164,3 +164,30 @@ button { font-family: inherit; cursor: pointer; }
 #cracks.sev10 { background: radial-gradient(ellipse at 50% 120%, rgba(60,60,60,.35), transparent 60%); }
 #cracks.sev10 svg { animation: crackflick 2.4s steps(2) infinite; }
 @keyframes crackflick { 50% { opacity: .7; } }
+
+/* revision 19: the right-hand column, the damage, the clearance, the dispatch */
+#rightcol { display: grid; gap: 12px; align-content: start; min-width: 0; }
+#rightcol .panel { padding: 10px 12px; }
+#rightcol .panel h2 { margin-bottom: 6px; }
+#leftcol.wide { grid-column: 1 / -1; }
+#leftcol, #rightcol { transition: transform 1.2s cubic-bezier(.3,1.6,.5,1); transform-origin: 50% 0; }
+body.tilt #leftcol, body.tilt #rightcol, body.tilt #clearpanel { transform: rotate(-10deg); }
+body.tilt { overflow-x: hidden; }
+#redlight { position: fixed; inset: 0; pointer-events: none; z-index: 59; opacity: 0; transition: opacity 1.5s; background: radial-gradient(ellipse at 50% 40%, rgba(255,60,30,.25), rgba(140,0,0,.65)); mix-blend-mode: multiply; }
+body.redlight #redlight { opacity: 1; animation: redpulse 2.6s ease-in-out infinite alternate; }
+@keyframes redpulse { from { filter: brightness(1); } to { filter: brightness(1.35); } }
+#clearpanel { grid-column: 1 / -1; border: 2px solid #5cff9d; box-shadow: 0 0 22px rgba(92,255,157,.3); }
+#clearpanel h2 { color: #5cff9d; }
+.morsebig { font: 600 30px 'Share Tech Mono', monospace; letter-spacing: 4px; color: #ffd36a; background: #0a0806; border: 1px solid #3a2d1c; border-radius: 4px; padding: 10px 14px; margin: 8px 0; word-break: break-word; }
+.morseopts { display: grid; gap: 6px; }
+.morseopts div { font: 600 24px 'Share Tech Mono', monospace; letter-spacing: 4px; color: #ffd36a; }
+.morseopts b { font: 600 14px 'IBM Plex Mono', monospace; color: #b9a77c; margin-right: 12px; }
+.mmboard { display: grid; gap: 5px; min-width: 260px; }
+.mmrow { display: flex; gap: 6px; align-items: center; padding: 3px 6px; background: #0f1214; border: 1px solid #22262a; border-radius: 4px; }
+.mmrow.cur { border-color: #6e5430; }
+.mmlamp { display: inline-block; border-radius: 50%; border: 2px solid #000; }
+.mmpegs { display: grid; grid-template-columns: repeat(2, 9px); gap: 3px; margin-left: 10px; }
+.mmpegs i { width: 9px; height: 9px; border-radius: 50%; background: #222; border: 1px solid #444; }
+.mmpegs i.full { background: #f4f1e6; box-shadow: 0 0 5px #fff; } .mmpegs i.half { background: #7a6a4a; }
+.mmpick { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.mmpick button[data-c] { background: none; border: 1px solid #3a2d1c; border-radius: 50%; padding: 2px; }

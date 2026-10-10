@@ -5,8 +5,10 @@ export const DROP_MS = 700, HOLD_MS = 4300, LIFT_MS = 550, CORD_MS = 3000;
 // STICKY covers stay down until their cord is pulled: up to OFFICER_STICKY of them on connected officers, the rest on the operator.
 export const STICKY = 4, OFFICER_STICKY = 2;
 export const OPERATOR_PANELS = ['p-sonar', 'p-map', 'p-cams', 'p-board', 'p-launch', 'p-fleet'];
-export const OFFICER_ROLES = ['gunnery', 'signals', 'engineer'];
-export const BANNER_PANELS = [...OPERATOR_PANELS, ...OFFICER_ROLES.flatMap(r => [r + ':job', r + ':fleetpanel'])];
+export const OFFICER_ROLES = ['gunnery', 'signals', 'engineer', 'fleet'];
+// each officer's two covered panels (the Fleet Officer has no fleet panel of their own: their dispatch instead)
+export const officerPanels = r => [r + ':job', r + (r === 'fleet' ? ':steady' : ':fleetpanel')];
+export const BANNER_PANELS = [...OPERATOR_PANELS, ...OFFICER_ROLES.flatMap(officerPanels)];
 
 // A separate stream: rolling magazine covers must never change ice, runes or combat.
 export function rollBanners(w, now = Date.now()) {

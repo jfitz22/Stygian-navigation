@@ -37,6 +37,7 @@
 <div id="lost" class="hidden">LOST CONTACT WITH THE WATCH · RECONNECTING… <small>(check that the operator's game is open, and the code)</small></div>
 <main id="desk" class="hidden">
   <section id="firstcard" class="panel hidden"></section>
+  <section id="clearpanel" class="panel hidden"></section>
   <section id="defence" class="panel console hidden">
     <div class="dhead"><b id="dtitle"></b><span id="dsub"></span><span id="dtime" class="nixie"></span></div>
     <div id="dbody"></div>
@@ -46,11 +47,14 @@
     <section id="job" class="panel"><h2 id="jobtitle"></h2><div id="jobbody"></div></section>
     <section id="steady" class="panel hidden"><h2 id="steadytitle"></h2><div id="steadybody"></div></section>
   </div>
-  <section id="fleetdept" class="panel"><h2>THE FLEET: YOUR SPECIAL <small>loaded with the Fleet Officer's codebook</small></h2><div id="fleetdeptbody"></div></section>
-  <section id="fleetpanel" class="panel"><h2>THE FLEET <small>the Fleet Officer commands it</small></h2><div id="fleet"></div></section>
+  <div id="rightcol">
+    <section id="fleetdept" class="panel"><h2>THE FLEET: YOUR SPECIAL <small>loaded with the Fleet Officer's codebook</small></h2><div id="fleetdeptbody"></div></section>
+    <section id="fleetpanel" class="panel"><h2>THE FLEET <small>the Fleet Officer commands it</small></h2><div id="fleet"></div></section>
+  </div>
 </main>
 
 <div id="cracks"></div>
+<div id="redlight"></div>
 <div id="alert" class="hidden"><div class="card"><h1 id="alerttitle"></h1><p id="alerttext"></p></div></div>
 
 <script type="module" src="src/station.js"></script>
