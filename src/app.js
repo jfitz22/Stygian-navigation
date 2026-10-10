@@ -6,7 +6,7 @@ import {
   ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
   startRepair, badRepair, gm, cameraView, snowAt, stormsAt, dist, snapshot, SYSTEMS, DT,
   saveWorld, loadWorld, pressBoard, runeFunction, sip, setColor, aimQuality, brokenList, BREAKABLE, scannerReach, inShoal, setLever, pressPlate, setCamTurn, camIsUnlocked, camWeather, setVerdict, relockCase,
-  setDamper, setPriority, furnaceState, sonarStrain, repairWorking, stationAction, ROLES, OFFICERS, fleetCommander, stationSnapshot, clearanceAnswer, clearanceCancel, fleetReady,
+  setDamper, setPriority, furnaceState, sonarStrain, repairWorking, stationAction, ROLES, OFFICERS, fleetCommander, stationSnapshot, clearanceAnswer, clearanceCancel, fleetReady, pwExtra,
 } from './sim.js';
 import { MAP, CENTER, OBSERVATORY, REACH, ISLAND_R, GRID, CELL, TOMB_RADIUS, TUNING as T, BOARD_PAGES, SHOALS, SIZE_CUT } from './scenario.js';
 import { glyphSVG, echoAt, ECHO_W } from './glyphs.js';
@@ -1127,7 +1127,8 @@ function drawSeal() {
   if (ui.sealKey !== key) {
     ui.sealKey = key; term.classList.remove('hidden');
     const set = s.mode === 'set', update = s.reason === 'lockdown' || !!s.change;
-    const sub = set ? `DESCENDING TO ${layerName(world.pwCap)}. SET A NEW PASSWORD: EVERY RULE BELOW MUST PASS.`
+    const sub = set && world.pwToll ? 'THE BOTTOM OF THE PIT. IT DEMANDS A NEW TOLL, AND REMEMBERS EVERY PASSWORD: SET A NEW ONE THAT PASSES EVERY RULE BELOW.'
+      : set ? `DESCENDING TO ${layerName(world.pwCap)}. SET A NEW PASSWORD: EVERY RULE BELOW MUST PASS.`
       : update ? `SECURITY UPDATE: DESCENDING TO ${layerName(world.pwCap)}. FIRST, ENTER THE <u>CURRENT</u> PASSWORD.`
       : 'ENTER THE <u>CURRENT</u> PASSWORD.';
     term.innerHTML = `<div class="t">${SEAL_TITLE[s.reason] || 'LOCKED'}</div>
@@ -1158,8 +1159,9 @@ function drawSeal() {
 // the rule list ticks as you type; the newest rule (this layer's) is marked
 function refreshSealRules() {
   const s = world.seal; if (!s || s.mode !== 'set' || !$('sealrules')) return;
-  const chk = checkPassword($('sealin').value, world.pwCap), last = chk.results.length - 1;
-  const html = chk.results.map((r, i) => `<li class="${r.ok ? 'ok' : ''}${i === last && r.layer ? ' new' : ''}">${i === last && r.layer ? `<i>${r.layer[1]} · ${r.layer[0]}</i> ` : ''}${esc(r.text)}${!r.ok && r.hint ? `<small>${esc(r.hint)}</small>` : ''}</li>`).join('');
+  const extra = pwExtra(world), chk = checkPassword($('sealin').value, world.pwCap, extra), last = chk.results.length - 1;
+  const isNew = (r, i) => extra.length ? r.id === 'toll' || r.id === 'fresh' : i === last && r.layer;
+  const html = chk.results.map((r, i) => `<li class="${r.ok ? 'ok' : ''}${isNew(r, i) ? ' new' : ''}">${isNew(r, i) ? `<i>${r.layer[1]} · ${r.layer[0]}</i> ` : ''}${esc(r.text)}${!r.ok && r.hint ? `<small>${esc(r.hint)}</small>` : ''}</li>`).join('');
   if ($('sealrules').innerHTML !== html) $('sealrules').innerHTML = html;
   $('sealgo').disabled = !chk.ok;
 }

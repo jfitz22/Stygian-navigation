@@ -66,14 +66,44 @@ export const RULES = [
   { id: 'agree', layer: ['NESSUS', 'IX'], text: 'Sign the contract: it must include IAGREE.', test: p => p.toUpperCase().includes('IAGREE') },
 ];
 export const LAYERS = RULES.filter(r => r.layer).map(r => r.layer);
+
+// ---------- the Pit's toll: below the ninth layer ----------
+// Every security update past the bottom deals one of these (never the same kind twice running), and the Pit forgets
+// nothing: no password used before will do. Many read the game itself, so an old password cannot fit them.
+// toll: { kind, ... } as dealt by the game (sim.js dealToll). ctx: live readings { red(), house(), page() }.
+export const TOLL_KINDS = ['minute', 'red', 'lastberg', 'orbhouse', 'roman', 'sin'];
+export function toRoman(n) {
+  let out = '';
+  for (const [v, s] of [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']]) while (n >= v) { out += s; n -= v; }
+  return out;
+}
+const PIT = ['THE PIT', '∞'];
+export function tollRule(toll, ctx = {}) {
+  const has = (p, n) => numbersIn(p).includes(n);
+  if (toll.kind === 'minute') return { id: 'toll', layer: PIT, text: `The Pit's toll: it must include ${toll.minute} (the watch minute when this update began) exactly as many times as the rune board's page number.`,
+    test: p => { const n = p.split(toll.minute).length - 1, want = [toll.times, ctx.page ? ctx.page() : toll.times]; return want.includes(n) || `${toll.minute} appears ${n} time${n === 1 ? '' : 's'}.`; } };
+  if (toll.kind === 'red') return { id: 'toll', layer: PIT, text: "The Pit's toll: it must include, as a number on its own, how many red beacons are left in the rack.",
+    test: p => has(p, toll.red) || (ctx.red && has(p, ctx.red())) };
+  if (toll.kind === 'lastberg') return { id: 'toll', layer: PIT, text: "The Pit's toll: it must include, as a number on its own, the case-board number of the last iceberg a beacon struck.",
+    test: p => has(p, toll.num) };
+  if (toll.kind === 'orbhouse') return { id: 'toll', layer: PIT, text: "The Pit's toll: it must include the house of the rune carved on the orb now on screen.",
+    test: p => !!(ctx.house && p.toUpperCase().includes(ctx.house().toUpperCase())) };
+  if (toll.kind === 'roman') return { id: 'toll', layer: PIT, text: "The Pit's toll: it must begin with its own length in Roman numerals (capitals or not).",
+    test: p => p.toUpperCase().startsWith(toRoman(p.length)) || `The length is ${p.length}.` };
+  if (toll.kind === 'sin') return { id: 'toll', layer: PIT, text: "The Pit's toll: it must include a deadly sin that the current password does not.",
+    test: p => SINS.some(s => !toll.prev.includes(s) && p.toUpperCase().includes(s)) };
+  return { id: 'toll', layer: PIT, text: "The Pit's toll.", test: () => true };
+}
+export const freshRule = history => ({ id: 'fresh', layer: PIT, text: 'The Pit forgets nothing: it cannot be any password used before.',
+  test: p => !history.some(h => h.toUpperCase() === p.toUpperCase()) || 'That password has been used before.' });
 export const ruleCap = n => Math.max(1, Math.min(RULES.length, n));
 // how many layers down the rules have gone (0 at the gate)
 export const layerOf = cap => Math.max(0, ruleCap(cap) - BASE_RULES);
 
 // Check a candidate against the first `cap` rules. Returns { ok, ascii, results: [{id, text, ok, hint}] }.
-export function checkPassword(raw, cap) {
+export function checkPassword(raw, cap, extra = []) {
   const p = cleanPassword(raw), ascii = keyboardOnly(p);
-  const results = RULES.slice(0, ruleCap(cap)).map(r => {
+  const results = [...RULES.slice(0, ruleCap(cap)), ...extra].map(r => {
     const v = ascii && p ? r.test(p) : false;
     return { id: r.id, text: r.text, layer: r.layer || null, ok: v === true, hint: typeof v === 'string' ? v : '' };
   });
