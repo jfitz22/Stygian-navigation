@@ -1,6 +1,7 @@
 import { createBannerUI } from './banner-ui.js';
 import {art,sprite,artOn} from './art-assets.js';
 import { stokeArt } from './stokeart.js';
+import { depthArt, drawDepth } from './depthart.js';
 // An officer's station: joined to the game with the operator's code. Draws the game's snapshot and sends actions
 // back; the game decides what they do. Each station has a steady job, the shared fleet, and a defence game that
 // the game triggers every few minutes.
@@ -80,6 +81,7 @@ function takeStation() {
   link.join(code);
   $('join').classList.add('hidden'); $('desk').classList.remove('hidden');
   $('rolename').textContent = '· ' + ROLE_NAME[role] + ' ·';
+  document.body.dataset.role = role;
   $('jobtitle').textContent = JOB[role];
   document.title = 'The Last Watch · ' + ROLE_NAME[role];
   jobKey = ''; $('jobbody').innerHTML = '';
@@ -159,6 +161,7 @@ function safely(name, fn) { try { fn(); } catch (e) { if (!reported.has(name)) {
 let bannerUI, bannerRole;
 function frame() {
   if (role === 'engineer') stokeArt();   // load the stokehold art early, so the first call shows it
+  if (role === 'fleet') depthArt();
   if (role !== bannerRole) { bannerUI?.destroy(); bannerRole = role; bannerUI = createBannerUI(role, (eventId, key) => send({act:'banner-dismiss', eventId, key})); }
 
   const live = snap && performance.now() - snapAt < 4000;
@@ -868,7 +871,7 @@ function startMissile(g) {
 }
 
 // ---------- Depth charges (the Fleet Officer): Space Invaders, upside down ----------
-// Placeholder art (shapes); sprites named depth-destroyer, depth-sub, depth-whale are used if they ever load.
+// The painted sprites (assets/depth), with plain shapes until they have loaded.
 function startDepth(g) {
   const W = GA.DC.W, H = GA.DC.H, S = 2;
   $('dbody').innerHTML = `<canvas width="${W * S}" height="${H * S}" tabindex="0"></canvas><p class="hint" style="text-align:center">← → or A D to steer · SPACE drops a charge (three in the water at most). Click the board first if the keys do nothing.</p>`;
@@ -896,12 +899,17 @@ function startDepth(g) {
       } }
     ctx.save(); ctx.scale(S, S);
     // the sea: lighter at the surface, black in the deep
-    const sea = ctx.createLinearGradient(0, 0, 0, H); sea.addColorStop(0, '#2a4a5a'); sea.addColorStop(0.16, '#123040'); sea.addColorStop(1, '#02080c');
-    ctx.fillStyle = '#0a0f14'; ctx.fillRect(0, 0, W, GA.DC.surface - 8); ctx.fillStyle = sea; ctx.fillRect(0, GA.DC.surface - 8, W, H);
-    ctx.strokeStyle = 'rgba(160,220,255,.5)'; ctx.beginPath(); for (let x = 0; x <= W; x += 8) ctx.lineTo(x, GA.DC.surface - 8 + Math.sin(x / 14 + st.t * 3) * 2); ctx.stroke();
+    const DA = depthArt();
+    if (DA.backdrop) ctx.drawImage(DA.backdrop, 0, 0, W, H);
+    else { const sea = ctx.createLinearGradient(0, 0, 0, H); sea.addColorStop(0, '#2a4a5a'); sea.addColorStop(0.16, '#123040'); sea.addColorStop(1, '#02080c');
+      ctx.fillStyle = '#0a0f14'; ctx.fillRect(0, 0, W, GA.DC.surface - 8); ctx.fillStyle = sea; ctx.fillRect(0, GA.DC.surface - 8, W, H); }
+    ctx.strokeStyle = DA.backdrop ? 'rgba(160,220,255,0)' : 'rgba(160,220,255,.5)'; ctx.beginPath(); for (let x = 0; x <= W; x += 8) ctx.lineTo(x, GA.DC.surface - 8 + Math.sin(x / 14 + st.t * 3) * 2); ctx.stroke();
     // the destroyer
     const hx = st.x, hy = GA.DC.shipY, flash = st.hitFlash > 0 && Math.floor(st.t * 20) % 2;
-    if (!sprite(ctx, 'depth-destroyer', hx - 30, hy - 16, 60, 26)) {
+    if (flash) ctx.globalAlpha = 0.45;
+    const shipDrawn = drawDepth(ctx, 'destroyer', hx, hy + 12, 74);
+    ctx.globalAlpha = 1;
+    if (!shipDrawn) {
       ctx.fillStyle = flash ? '#ff8a7a' : '#7d8a96'; ctx.beginPath(); ctx.moveTo(hx - 28, hy); ctx.lineTo(hx + 28, hy); ctx.lineTo(hx + 22, hy + 9); ctx.lineTo(hx - 24, hy + 9); ctx.fill();
       ctx.fillStyle = flash ? '#ffb3a8' : '#a5b2bd'; ctx.fillRect(hx - 10, hy - 9, 18, 9); ctx.fillRect(hx - 2, hy - 16, 4, 8);
     }
@@ -909,7 +917,10 @@ function startDepth(g) {
     for (const c of st.charges) { ctx.fillStyle = '#e8cf98'; ctx.fillRect(c.x - 4, c.y - 5, 8, 10); ctx.fillStyle = '#5a4630'; ctx.fillRect(c.x - 4, c.y - 1, 8, 2); }
     for (const f of st.foes) {
       if (!f.alive) continue; const [w, h] = GA.depthSize(f);
-      if (sprite(ctx, f.kind === 'whale' ? 'depth-whale' : 'depth-sub', f.x - w / 2, f.y - h / 2, w, h)) continue;
+      // painted facing right: turned round while the formation sweeps left; a pale rim so they read against the deep
+      ctx.save(); ctx.shadowColor = f.kind === 'whale' ? 'rgba(200,140,255,.85)' : 'rgba(255,170,120,.8)'; ctx.shadowBlur = 4;
+      const drawn = drawDepth(ctx, f.kind === 'whale' ? 'whale' : 'sub', f.x, f.y + h / 2 + 1, f.kind === 'whale' ? 50 : 46, st.dir < 0);
+      ctx.restore(); if (drawn) continue;
       if (f.kind === 'whale') { const glow = 0.5 + 0.5 * Math.sin(st.t * 4 + f.x); ctx.fillStyle = '#4a3a6a'; ctx.beginPath(); ctx.ellipse(f.x, f.y, w / 2, h / 2, 0, 0, 7); ctx.fill(); ctx.beginPath(); ctx.moveTo(f.x + w / 2 - 4, f.y); ctx.lineTo(f.x + w / 2 + 8, f.y - 7); ctx.lineTo(f.x + w / 2 + 8, f.y + 7); ctx.fill(); ctx.fillStyle = `rgba(200,140,255,${glow})`; ctx.beginPath(); ctx.arc(f.x - w / 4, f.y - 2, 3, 0, 7); ctx.fill(); }
       else { ctx.fillStyle = '#5a1e18'; ctx.beginPath(); ctx.ellipse(f.x, f.y, w / 2, h / 2, 0, 0, 7); ctx.fill(); ctx.fillRect(f.x - 4, f.y - h / 2 - 6, 8, 6); ctx.fillStyle = '#ff8a5a'; ctx.fillRect(f.x - 1, f.y - h / 2 - 9, 2, 3); }
     }

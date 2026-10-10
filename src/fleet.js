@@ -35,7 +35,7 @@ export const SALVO = 70;          // seconds between salvos, to start (the GM ca
 export const SPECIAL_COOLDOWN = 75;
 export const LOCKOUT = 60;        // a wrong Morse answer locks the department's reload this long
 export const ENEMY_SONAR_EVERY = 4;
-export const SHELL_FIRST = 0.5, SHELL_AFTER = 0.2;   // the chance a salvo shells the Watch while one of ours is down
+export const SHELL_FIRST = 0.5, SHELL_AFTER = 0.1;   // the chance a salvo shells the Watch while one of ours is down
 export const REDEPLOY_WAIT = 3;   // salvos a salvaged ship waits to be redeployed before it is placed for you
 export const REFIT_TIME = 60;     // seconds to refit after the whole fleet is lost
 export const REGROUP_TIME = 90;   // seconds the enemy falls back before a full redeploy (the GM's call)
@@ -370,7 +370,7 @@ export function salvo(f, ctx) {
   f.last = { round: f.round, t, ours, theirs, used };
   // a salvaged ship left waiting is put back for you
   for (const [i, s] of Object.entries(f.salvage)) if (s.readyRound != null && f.round - s.readyRound >= REDEPLOY_WAIT && redeployRandom(f, Number(i), rng, t)) ev.push({ type: 'fleetrelaunch', ship: Number(i), crew: f.mine[i].crew });
-  // while one of ours is down the enemy may shell the Watch: half the time at first, then one salvo in five
+  // while one of ours is down the enemy may shell the Watch: half the time at first, then one salvo in ten
   if (!Object.keys(f.salvage).length) f.shellsDown = 0;
   else if ((!ctx.shellReady || ctx.shellReady()) && rng() < (f.shellsDown ? SHELL_AFTER : SHELL_FIRST)) { f.shellsDown++; ev.push({ type: 'fleetshell' }); }
   ev.push(...checkEnd(f, rng, t));

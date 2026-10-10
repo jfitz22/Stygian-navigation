@@ -4,7 +4,7 @@ const NAMES = ['backdrop', 'box-out', 'box-dying', 'box-good', 'box-roaring', 'b
 const art = {};
 let started = false;
 
-function keyed(img) {
+export function keyed(img) {
   const w = img.naturalWidth, h = img.naturalHeight, c = document.createElement('canvas');
   c.width = w; c.height = h;
   const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(img, 0, 0);
