@@ -502,7 +502,7 @@ function newSteadyBoard() {
   const rng = mulberry32(Math.floor(Math.random() * 1e9));
   if (steady.kind === 'mines') { const { mines, start } = GA.msBoard(rng), M = new Set(mines), open = new Set(); GA.msOpen(M, open, start); steady.state = { M, open, flags: new Set(), boom: -1, over: false }; }
   else if (steady.kind === 'dispatch') steady.state = { secret: GA.mmSecret(rng), guesses: [], cur: [], over: false };
-  else steady.state = { board: GA.loBoard(rng).board, over: false };
+  else { const n = GA.LO_SIZES[steady.loTurn = ((steady.loTurn ?? -1) + 1) % GA.LO_SIZES.length]; steady.state = { board: GA.loBoard(rng, n).board, n, over: false }; }   // 4 x 4, then 5 x 5, in turn
   steady.msg = ''; drawSteady(true);
 }
 let steadyKey = '';
@@ -591,7 +591,7 @@ function drawMinesSteady(cd) {
 function drawLightsSteady(cd) {
   const st = steady.state;
   $('steadybody').innerHTML = `<div class="steadygrid">
-    <div class="lo6${st.over ? ' rest' : ''}">${st.board.map((v, i) => `<button class="${v ? 'on' : ''}" data-i="${i}"></button>`).join('')}</div>
+    <div class="lo6${st.over ? ' rest' : ''}" style="grid-template-columns:repeat(${st.n || GA.LO}, ${(st.n || GA.LO) > 4 ? 56 : 64}px)">${st.board.map((v, i) => `<button class="${v ? 'on' : ''}" data-i="${i}"></button>`).join('')}</div>
     <div class="howto" style="max-width:330px">
       The breakers on the boiler line. <b>Get every breaker dark</b> and choose: <b>a free shovel of fuel</b>, or, while one of our ships is being salvaged, <b>power for that ship</b>.<br><br>
       <b>Pressing a breaker flips it and its four neighbours</b> (up, down, left, right).<br><br>
@@ -603,7 +603,7 @@ function drawLightsSteady(cd) {
   if ($('lopower')) $('lopower').onclick = () => pick('power');
   if (st.over) return;
   $('steadybody').querySelectorAll('.lo6 button').forEach(b => b.onclick = () => {
-    st.board = GA.loPress(st.board, Number(b.dataset.i)); audio.sfx.click();
+    st.board = GA.loPress(st.board, Number(b.dataset.i), st.n || GA.LO); audio.sfx.click();
     if (GA.loSolved(st.board)) { st.over = true; st.won = true; st.wonAt = performance.now(); audio.sfx.calibrated();
       if (snap && snap.needsPower) { st.choosing = true; steady.msg = 'PANEL CLEAR. Choose:'; }
       else { steady.msg = 'PANEL CLEAR. A shovel of fuel drops into the chute.'; send({ act: 'lightsout', choice: 'fuel' }); } }

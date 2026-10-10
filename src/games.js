@@ -5,8 +5,8 @@
 
 export const GAME_TIME = { missile: 30, snake: 45, stoke: 45, depth: 45 };   // seconds each defence lasts
 
-// ---------- Lights Out (Engineering's steady puzzle): a 4 x 4 breaker panel ----------
-export const LO = 4;
+// ---------- Lights Out (Engineering's steady puzzle): the breaker panel, 4 x 4 and 5 x 5 in turn ----------
+export const LO = 4, LO_SIZES = [4, 5];
 // Pressing a breaker flips it and its four neighbours.
 export function loPress(board, i, n = LO) {
   const x = i % n, y = Math.floor(i / n), out = [...board];
@@ -16,10 +16,11 @@ export function loPress(board, i, n = LO) {
   }
   return out;
 }
-// A board made by pressing 3 to 5 different breakers on a dark panel: those same presses solve it.
+// A board made by pressing a few different breakers on a dark panel (3 to 5 on a 4 x 4, 4 to 6 on a 5 x 5): those
+// same presses solve it.
 export function loBoard(rng, n = LO) {
   for (;;) {
-    const k = 3 + Math.floor(rng() * 3), presses = new Set();
+    const k = (n > 4 ? 4 : 3) + Math.floor(rng() * 3), presses = new Set();
     while (presses.size < k) presses.add(Math.floor(rng() * n * n));
     let b = Array(n * n).fill(0);
     for (const p of presses) b = loPress(b, p, n);

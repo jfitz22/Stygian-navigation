@@ -759,6 +759,8 @@ function sharkSetup(seed) {
   // the puzzles: every one can be solved
   check(Array.from({ length: 200 }, () => GA.loBoard(rng)).every(({ board, solution }) => GA.loSolved(solution.reduce((b, p) => GA.loPress(b, p), board)) && solution.length <= 5 && board.length === 16),
     'Every 4 x 4 Lights Out board is solved by five presses or fewer');
+  check(Array.from({ length: 200 }, () => GA.loBoard(rng, 5)).every(({ board, solution }) => GA.loSolved(solution.reduce((b, p) => GA.loPress(b, p, 5), board)) && solution.length <= 6 && board.length === 25),
+    'Every 5 x 5 Lights Out board is solved by six presses or fewer');
   check(Array.from({ length: 200 }, () => GA.msBoard(rng)).every(({ mines, start }) => mines.length === GA.MS_MINES && GA.msSolvable(new Set(mines), start)),
     'Every Minesweeper board can be cleared by logic from its start square');
   let cutsOk = true;
