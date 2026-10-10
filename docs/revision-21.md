@@ -8,3 +8,8 @@
   defence goes to them alone.
 - A link to the Engineering book sits on the LOOK RIGHT header (salvage boards and repairs still read its flowchart).
 - Salvage dashboards and FL-3 now say the operator powers ships from LOOK RIGHT when nobody holds Engineering.
+- LOOK RIGHT appears only while no officer holds Engineering. When one joins, it hides and the operator is returned to
+  the main view (with a toast); when they leave, it comes back (with a toast). The button glows while something waits
+  on Engineering (a ship needing power, or the boost's flags or Morse question). The crew board says "covered by the
+  operator (LOOK RIGHT)". The stokehold defence still only goes to a real Engineering officer.
+- A damaged station lists 6° (was 10°).
