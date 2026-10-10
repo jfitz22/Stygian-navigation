@@ -87,21 +87,23 @@ export function msBoard(rng) {
 // 'fall': devil fire falls from the sky. 'arc': devil skiffs on the horizon lob shells that arc in from the sides.
 // The schedule: [{ at (s), from (0..1), to (tower 0..6), speed }]. More fire later in the watch.
 export const MISSILE_KINDS = ['fall', 'arc'];
+export const MISSILE_SPEED = 0.75;   // devil fire flies at three quarters of its old speed
 export function missileWaves(rng, watchMinutes, kind = 'fall') {
   const n = Math.round(16 + Math.min(12, watchMinutes / 1.5)), out = [];
   for (let i = 0; i < n; i++) {
     if (kind === 'arc' && i % 10 >= 7) continue;   // the skiffs' arcing shells are harder to stop: about 30% fewer
     const from = kind === 'arc' ? (rng() < 0.5 ? rng() * 0.18 : 0.82 + rng() * 0.18) : rng();
-    out.push({ at: 1.5 + (i / n) * (GAME_TIME.missile - 9) + rng() * 2, from, to: Math.floor(rng() * 7), speed: 1.1 + rng() * 0.5 });
+    out.push({ at: 1.5 + (i / n) * (GAME_TIME.missile - 9) + rng() * 2, from, to: Math.floor(rng() * 7), speed: (1.1 + rng() * 0.5) * MISSILE_SPEED });
   }
   return out.sort((a, b) => a.at - b.at);
 }
 
 // ---------- The cable (Signals' defence): Snake ----------
-// Splice the buoy's cable: steer the splice head round the grid and collect the loose ends. It starts twenty long and
-// grows with every end, to thirty. Through a wall it comes out the other side; touch the cable itself, or one of
+// Splice the buoy's cable: steer the splice head round the grid and collect the loose ends. It starts fifteen long and
+// grows with every end, to twenty-five. Through a wall it comes out the other side; touch the cable itself, or one of
 // the stray sparks drifting through the water, and the splice fails. A loose end left too long sinks, and another floats up.
-export const SN = { W: 17, H: 13, start: 20, need: 10, step: 0.13, sparks: 3, sparkSpeed: 2.2, sink: 6 };
+// grace: for the first few seconds of play the splice cannot fail (the cable passes through itself and the sparks)
+export const SN = { W: 17, H: 13, start: 15, need: 10, step: 0.13, sparks: 3, sparkSpeed: 2.2, sink: 6, grace: 5 };
 export function snakeStart() {
   // head first, moving right along the middle row; the tail curls down the left side
   const y = Math.floor(SN.H / 2), row = Math.min(SN.start, SN.W - 3), body = [];

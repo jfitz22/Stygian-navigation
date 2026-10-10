@@ -203,6 +203,8 @@ function drawRepairBay() {
       $('repairtabs').appendChild(b);
     }
     $('repairboard').dataset.ver = '';
+    // the board starts below however many rows of tabs there are, so no broken machine hides behind it
+    $('repairboard').style.top = (46 + Math.max(30, $('repairtabs').offsetHeight) + 6) + 'px';
   }
   const el = $('repairboard');
   if (!ui.repairSel) { if (el.dataset.ver !== 'none') { el.dataset.ver = 'none'; el.innerHTML = '<div class="rb-sub" style="margin-top:20px">Nothing is broken. Long may it last.</div>'; } return; }
@@ -1398,10 +1400,11 @@ function handleEvents() {
       case 'broke': audio.sfx.camdead(); if (e.sys !== 'winch' || ui.buoyDeadAt !== world.t) toast(BROKE_MSG[e.sys] + ' · REPAIR BAY ▲'); break;
       case 'detune': audio.sfx.runefail(); toast('THE WATER HAS CHANGED · THE SCANNER HAS DRIFTED OUT OF TUNE'); break;
       case 'flip': audio.sfx.flip(); break;
-      case 'defence': audio.sfx.alarm(); toast({ fleet: 'FLEET OFFICER: ENEMY SUBMARINES BELOW · DEPTH CHARGES', gunnery: 'GUNNERY STATION: DEVIL FIRE INBOUND ON THE TOWERS', signals: 'SIGNALS STATION: THE BUOY CABLE HAS SNAPPED', engineer: e.reason === 'overheat' ? 'THE FURNACE IS IN THE RED · ENGINEERING: THE STOKEHOLD FIRES ARE FAILING' : 'ENGINEERING STATION: THE STOKEHOLD FIRES ARE FAILING' }[e.role]); break;
+      case 'defence': audio.sfx.alarm(); if (e.role === 'gunnery' && e.kind === 'snake') { toast('GUNNERY STATION: THE BUOY CABLE HAS SNAPPED'); break; } toast({ fleet: 'FLEET OFFICER: ENEMY SUBMARINES BELOW · DEPTH CHARGES', gunnery: 'GUNNERY STATION: DEVIL FIRE INBOUND ON THE TOWERS', signals: 'SIGNALS STATION: THE BUOY CABLE HAS SNAPPED', engineer: e.reason === 'overheat' ? 'THE FURNACE IS IN THE RED · ENGINEERING: THE STOKEHOLD FIRES ARE FAILING' : 'ENGINEERING STATION: THE STOKEHOLD FIRES ARE FAILING' }[e.role]); break;
       case 'freebeacon': audio.sfx.launch(); wire(`SIGNALS COMPLETED A MINESWEEP · THE GUNS FIRED · A BEACON STRUCK #${e.num}`, 'info'); break;
       case 'freefuel': audio.sfx.fuel(); wire(e.full ? 'ENGINEERING CLEARED THE BREAKER PANEL · THE CHUTE WAS ALREADY FULL' : 'ENGINEERING CLEARED THE BREAKER PANEL · A FREE SHOVEL IN THE CHUTE', 'info'); break;
-      case 'defencedone': (stationHist[e.role] = stationHist[e.role] || []).push({ t: world.t, ok: e.ok, what: DEF_WHAT[e.role] || 'defence' }); if (e.ok) wire({ fleet: 'THE FLEET OFFICER BEAT OFF THE SUBMARINES', gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING HELD THE STOKEHOLD' }[e.role], 'info');
+      case 'defencedone': (stationHist[e.role] = stationHist[e.role] || []).push({ t: world.t, ok: e.ok, what: e.kind === 'snake' ? 'cable splice' : DEF_WHAT[e.role] || 'defence' });
+        if (e.role === 'gunnery' && e.kind === 'snake') { if (e.ok) wire('GUNNERY SPLICED THE BUOY CABLE', 'info'); else { audio.sfx.camdead(); wire('GUNNERY\'S SPLICE FAILED · THE BUOY IS LOST · REPAIR THE WINCH ▲'); } break; } if (e.ok) wire({ fleet: 'THE FLEET OFFICER BEAT OFF THE SUBMARINES', gunnery: 'GUNNERY HELD THE TOWERS', signals: 'SIGNALS SPLICED THE BUOY CABLE', engineer: 'ENGINEERING HELD THE STOKEHOLD' }[e.role], 'info');
         else { audio.sfx.camdead(); wire({ fleet: `THE DEPTH CHARGES FAILED${e.ship != null ? ' · ' + FL.SHIP_NAMES[e.ship] + ' IS HIT, AND THE ENEMY KNOWS WHERE SHE IS' : ''}`, gunnery: `DEVIL FIRE STRUCK ${e.n} TOWER${e.n > 1 ? 'S' : ''} · THOSE ORBS ARE DOWN`, signals: 'THE SPLICE FAILED · THE BUOY IS LOST · REPAIR THE WINCH ▲', engineer: `THE STOKEHOLD FIRES FAILED · ${e.sys ? SYS_LABEL[e.sys] + ' IS OFF, ' : ''}THE CHUTE IS EMPTY, LIGHTS RED` }[e.role]); } break;
       case 'fleetwin': audio.sfx.reveal(); wire('THE ENEMY FLEET IS SUNK · OUR FLEET IS REFITTED · A NEW ENEMY IS ON THE HORIZON', 'info'); break;
       case 'defencelost': break;

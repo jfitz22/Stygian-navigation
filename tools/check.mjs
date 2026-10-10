@@ -752,8 +752,8 @@ function sharkSetup(seed) {
 {
   let s = 99; const rng = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
   // the puzzles: every one can be solved
-  check(Array.from({ length: 200 }, () => GA.loBoard(rng)).every(({ board, solution }) => GA.loSolved(solution.reduce((b, p) => GA.loPress(b, p), board)) && solution.length <= 7 && board.length === 36),
-    'Every 6 x 6 Lights Out board is solved by seven presses or fewer');
+  check(Array.from({ length: 200 }, () => GA.loBoard(rng)).every(({ board, solution }) => GA.loSolved(solution.reduce((b, p) => GA.loPress(b, p), board)) && solution.length <= 5 && board.length === 16),
+    'Every 4 x 4 Lights Out board is solved by five presses or fewer');
   check(Array.from({ length: 200 }, () => GA.msBoard(rng)).every(({ mines, start }) => mines.length === GA.MS_MINES && GA.msSolvable(new Set(mines), start)),
     'Every Minesweeper board can be cleared by logic from its start square');
   let cutsOk = true;
@@ -962,6 +962,9 @@ function sharkSetup(seed) {
     for (const d of FL.DEPTS) Object.assign(fz.dept[d], { state: 'question', question: { q: 'HOW MANY DAYS IN A WEEK', opts: ['SEVEN', 'FIVE', 'NINE'], answer: 0 } });
     const ss = JSON.stringify(stationSnapshot(wz, { iid: 'x', born: 1 }));
     check(ss.length < 14000 && fz.log.length <= 40, `The stations' update stays small with a busy fleet (${ss.length} bytes)`); }
+  // revision 23: the GM hands Engineering a fresh breaker panel
+  { const wl = createWorld(103); light(wl); wl.rewards.lights = 999; const s0 = stationSnapshot(wl).lightsSeq; gm(wl, 'lights-reset');
+    check(stationSnapshot(wl).lightsSeq === s0 + 1 && wl.rewards.lights === 0, 'The GM resets the breaker panel, and it can pay out at once'); }
   // revision 22: Gunnery alternates devil fire and the cable; the GM repairs one machine; slower devil fire
   { const wg = createWorld(102, { deploy: true }); light(wg); gm(wg, 'fleet-auto'); for (let i = 0; i < 20; i++) step(wg, DT);
     const kinds = []; for (let k = 0; k < 4; k++) { startDefence(wg, 'gunnery'); const a = wg.defence.active.gunnery; kinds.push(a.kind); defenceResult(wg, 'gunnery', a.id, { ok: true, hits: [] }); }

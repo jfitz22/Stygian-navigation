@@ -81,6 +81,8 @@
         <button data-defence="signals">Signals: the cable</button>
         <button data-defence="engineer">Engineering: the stokehold</button>
         <button data-defence="fleet">Fleet Officer: depth charges</button>
+        <button data-defence="gunnery" data-kind="snake">Gunnery: the cable</button>
+        <label style="grid-column:2 / -1;display:flex;gap:6px;align-items:center">Repair one <select id="fixone"><option value="">(nothing broken)</option></select><button id="fixonebtn">Repair it now</button></label>
         <button data-cmd="fleet-auto">Deploy the fleet for them</button>
         <label style="grid-column:2 / -1;display:flex;gap:6px;align-items:center">Time between salvos <input id="salvosecs" type="number" min="20" max="300" step="5" value="70" style="width:70px"> s <button id="setsalvo">Set</button></label>
         <button data-cmd="rehearse" style="grid-column:1 / -1">Rehearsal: every station's event, one after another (connected stations only)</button>
@@ -187,7 +189,8 @@ function drawArts(s) {
 const artStatus = a => (a.num != null ? 'in #' + a.num : a.bergId === null ? 'the first metal glacier scanned' : 'unplaced') + (a.recovered ? ' · RECOVERED' : a.found ? ' · found' : '');
 document.getElementById('setarts').onclick = () => ch.postMessage({ cmd: 'artifacts', arg: { names: [...document.querySelectorAll('[data-art]')].map(i => i.value) } });
 document.getElementById('setsalvo').onclick = () => ch.postMessage({ cmd: 'salvo', arg: { secs: Number(document.getElementById('salvosecs').value) } });
-document.querySelectorAll('[data-defence]').forEach(b => b.onclick = () => ch.postMessage({ cmd: 'defence', arg: { role: b.dataset.defence } }));
+document.querySelectorAll('[data-defence]').forEach(b => b.onclick = () => ch.postMessage({ cmd: 'defence', arg: { role: b.dataset.defence, kind: b.dataset.kind || (b.dataset.defence === 'gunnery' ? 'missile' : null) } }));
+document.getElementById('fixonebtn').onclick = () => { const v = document.getElementById('fixone').value; if (v) ch.postMessage({ cmd: 'repair-one', arg: { id: v } }); };
 // the fleet: which ship to hit
 const OUR_SHIPS = ['THE WARDEN (Fleet Officer, 4)', 'THE LANTERN (Fleet Officer, 2)', 'THE CINDERWAKE (Gunnery, 3)', 'THE GALLOWS (Signals, 3)', 'THE BRIMSTONE (Engineering, 3)'];
 const THEIR_SHIPS = ['THE IRON TITHE (5)', 'THE WAILING SAINT (4)', 'THE BRASS PENITENT (3)', 'THE CINDER WIDOW (3)', 'THE HOLLOW CENSER (2)'];
@@ -323,6 +326,12 @@ function draw(s) {
     `<b>Case board</b>: ${s.cases.length ? s.cases.map(c => `#${c.num}${c.permanent ? '' : ' (temp)'} ${c.verdict}`).join(' · ') : 'empty'}`;
   for (const [k, v] of Object.entries(s.levers)) { const inp = document.querySelector(`[data-lever=${k}]`); if (inp && document.activeElement !== inp) { inp.value = v; document.getElementById('lv-' + k).textContent = Number(v).toFixed(2) + '×'; } }
   const notable = s.bergs.filter(b => b.notable || b.warship).sort((a, b) => b.elgarz - a.elgarz);
+  { // the one-machine repair list: every broken orb and machine
+    const MACH = { furnace: 'Furnace grate', launcher: 'Beacon launcher', winch: 'Buoy winch', fuse: 'Radio receiver', scanner: 'Metal scanner', sonarhead: 'Sonar head' };
+    const items = [...s.cams.filter(c => c.broken).map(c => [c.id, c.name + ' orb']), ...(s.brokenIds || []).map(k => [k, MACH[k] || k])];
+    const sel = document.getElementById('fixone'), key = items.map(i => i[0]).join();
+    if (sel && sel.dataset.k !== key) { const keep = sel.value; sel.dataset.k = key; sel.innerHTML = items.length ? items.map(([id, n]) => '<option value="' + id + '">' + n + '</option>').join('') : '<option value="">(nothing broken)</option>'; if (items.some(i => i[0] === keep)) sel.value = keep; }
+  }
   const fg = document.getElementById('fleetgm');
   if (fg && s.fleet && s.fleet.phase !== 'off') fg.innerHTML = 'Specials loaded: ' + ['heavy', 'sounding', 'boost', 'scan'].map(k => k + (s.fleet.loaded[k] ? ' ✓' : ' ✗')).join(' · ') + ' · departments: ' + Object.entries(s.fleet.dept || {}).map(([d, v]) => d + ' ' + v.state + (v.locked ? ' (LOCKED)' : '')).join(', ') + ' · disguised warships: ' + s.bergs.filter(b => b.warship).map(b => '#' + b.num + (b.unmasked ? ' (unmasked)' : '')).join(', ');
   document.getElementById('roster').innerHTML = '<tr><th>#</th><th>Name</th><th>Echo</th><th>Met</th><th>Radio</th><th>Tag</th></tr>' +
