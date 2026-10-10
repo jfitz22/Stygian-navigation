@@ -488,7 +488,7 @@ function drawFurnace() {
 // THE STEADY PUZZLES (optional, with a reward)
 // =====================================================================
 // Signals: Minesweeper. Clear a field and a red beacon strikes a glacier for free (once a minute).
-// Engineering: Lights Out, 6 x 6. Clear a panel and a free shovel goes in the furnace chute (once a minute).
+// Engineering: Lights Out, 4 x 4. Clear a panel and a free shovel goes in the furnace chute (once a minute).
 const steady = { kind: null, state: null, msg: '' };
 function buildSteady() {
   steady.kind = role === 'signals' ? 'mines' : role === 'engineer' ? 'lights' : role === 'fleet' ? 'dispatch' : null;
@@ -508,6 +508,11 @@ function newSteadyBoard() {
 let steadyKey = '';
 function drawSteady(force) {
   if (!steady.kind || !steady.state) return;
+  // the GM can hand Engineering a fresh breaker panel (and clear the wait)
+  if (steady.kind === 'lights' && snap && snap.lightsSeq != null) {
+    if (steady.seq == null) steady.seq = snap.lightsSeq;
+    else if (steady.seq !== snap.lightsSeq) { steady.seq = snap.lightsSeq; newSteadyBoard(); return; }
+  }
   const cd = Math.ceil(cooldownLeft()), waiting = steady.state.over && cd > 0;
   const k = JSON.stringify([waiting ? cd : -1, steady.msg, snap && snap.canReveal, snap && snap.needsPower, snap && snap.canUnmask]) + (force ? Math.random() : '');
   if (k === steadyKey && !force) return;

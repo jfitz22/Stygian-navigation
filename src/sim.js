@@ -1022,6 +1022,8 @@ export function gm(w, cmd, arg = {}) {
   }
   if (cmd === 'restock') { w.beacons.stock = T.beaconStock; w.beacons.orange = T.orangeStock; w.beacons.green = T.greenStock; }
   if (cmd === 'defence' && DEFENDERS.includes(arg.role)) startDefence(w, arg.role, 'gm', ['missile', 'snake', 'stoke', 'depth'].includes(arg.kind) ? arg.kind : null);
+  // a fresh breaker panel for Engineering, ready to pay out at once
+  if (cmd === 'lights-reset') { w.rewards.lights = 0; w.lightsSeq = (w.lightsSeq || 0) + 1; emit(w, 'lightsreset'); }
   // repair one machine or orb at once (as if the crew had finished)
   if (cmd === 'repair-one' && arg.id) { const cam = w.cams.find(c => c.id === arg.id); if (cam ? cam.broken : w.broken[arg.id]) finishRepair(w, arg.id); }
   if (cmd === 'clearance' && w.clearance) { w.clearance = null; emit(w, 'clearanceok', {}); fireBeacon(w, 'green', { auth: true }); }
@@ -1714,7 +1716,7 @@ export function stationSnapshot(w, extra = {}) {
     ...extra, t: w.t, started: w.started, paused: w.paused, hold: w.hold, won: w.won,
     furnaceState: furnaceState(w), power: Object.fromEntries(SYSTEMS.map(s => [s, w.power[s].on])),
     beacons: w.beacons.stock, orange: w.beacons.orange, green: w.beacons.green, workshop: w.workshop,
-    fleet: w.fleet, defence: { active: w.defence.active, live: w.defence.live }, rewards: w.rewards, callsigns: w.callsigns, canReveal: canReveal(w),
+    fleet: w.fleet, defence: { active: w.defence.active, live: w.defence.live }, rewards: w.rewards, callsigns: w.callsigns, canReveal: canReveal(w), lightsSeq: w.lightsSeq || 0,
     commander: w.fleet.phase === 'off' ? null : fleetCommander(w), needsPower: w.fleet.phase !== 'off' && FL.needsPower(w.fleet),
     canUnmask: canUnmask(w), clearance: w.clearance ? { step: w.clearance.step, qs: w.clearance.qs.map(q => ({ q: q.q, opts: q.opts })) } : null,
     cams: w.cams.map(c => ({ id: c.id, broken: c.broken })), sonar,
