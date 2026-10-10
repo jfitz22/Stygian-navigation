@@ -313,11 +313,11 @@ function draw(s) {
   const d = s.defence || { live: {}, next: {}, active: {} };
   document.getElementById('stationinfo').innerHTML = ['gunnery', 'signals', 'engineer', 'fleet'].map(r => `${r}: ${d.live[r] ? '<b style="color:#5cff9d">linked</b>' : 'not linked'}${d.active[r] ? ' · <b style="color:#ffb347">PLAYING</b>' : d.next[r] != null ? ' · next ' + fmt(d.next[r]) : ''}`).join(' &nbsp;|&nbsp; ');
   document.getElementById('pwtruth').innerHTML = (s.password ? `password <b style="color:#5cff9d">${s.password.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</b>` : 'no password set yet') +
-    ` · ${layerOf(s.pwCap) ? "layer " + LAYERS[layerOf(s.pwCap) - 1].join(" ") : "the gate (base rules)"} · next update ${s.pwNext != null ? fmt(s.pwNext) : "?"}` + (s.seal ? ` · <b style="color:#ffb347">LOCKED (${s.seal.reason}, ${s.seal.mode === 'set' ? 'setting a new password' : s.seal.tries + ' wrong'})</b>` : '') +
+    ` · ${layerOf(s.pwCap) ? "layer " + LAYERS[layerOf(s.pwCap) - 1].join(" ") : "the gate (base rules)"}${s.pwToll ? ' · <b style="color:#ffb347">toll: ' + s.pwToll.replace("The Pit's toll: ", '') + '</b>' : ''} · next update ${s.pwNext != null ? fmt(s.pwNext) : "?"}` + (s.seal ? ` · <b style="color:#ffb347">LOCKED (${s.seal.reason}, ${s.seal.mode === 'set' ? 'setting a new password' : s.seal.tries + ' wrong'})</b>` : '') +
     (s.lamps ? ` · lights ${['', 'red', 'green'][s.lamps]}` : '') + (s.shuttered ? ' · shutters down' : '');
   document.getElementById('tools').innerHTML =
     `<b>Scanner code now</b> (from the latest buoy reading): ${s.code ? s.code.map(i => RUNES[i].name).join(' → ') : 'no reading yet'}<br>` +
-    `<b>Cabin wireless</b> (music on only): ${s.stations.map(st => `${st.freq} ${st.band}`).join(', ')}<br>` +
+    `<b>Cabin wireless</b>: ${s.music ? '<b style="color:#5cff9d">ON</b>' : 'OFF'} · stations (heard only while it is on): ${s.stations.map(st => `${st.freq} ${st.band}`).join(', ')}<br>` +
     `<b>Rune board</b> page ${s.board.page}: ${s.board.fns.join(' · ')}<br>` +
     `<b>Orb unlock code</b> (the orb on screen): housing rune ${RUNES[s.camCode.rune].name} (${s.camCode.house}); levers WIND ${s.camCode.wind}, TEMP ${s.camCode.temp}; plates ${s.camCode.order.join(' → ')}${s.camUnlocked.length ? ' · unlocked: ' + s.camUnlocked.join(', ') : ''}<br>` +
     `<b>Furnace</b>: ${s.furnaceState.lit ? `heat ${s.furnaceState.heat.toFixed(1)}, burning ${s.furnaceState.burn.toFixed(2)}/s, ${s.furnaceState.n} on` : 'out'} · damper ${s.furnaceState.damper.toUpperCase()} · shed order ${s.furnaceState.priority.join(' > ')}<br>` +

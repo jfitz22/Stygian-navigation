@@ -134,8 +134,8 @@ button { font-family: inherit; cursor: pointer; }
 .steadygrid { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
 .ms.small { grid-template-columns: repeat(8, 40px); }
 .ms.small div { width: 40px; height: 40px; font-size: 18px; }
-.lo6 { display: grid; grid-template-columns: repeat(6, 52px); gap: 6px; }
-.lo6 button { width: 52px; height: 52px; border-radius: 6px; background: radial-gradient(circle at 50% 35%, #2a2016, #0d0a06); border: 3px solid #4a3a22; }
+.lo6 { display: grid; grid-template-columns: repeat(4, 64px); gap: 8px; }
+.lo6 button { width: 64px; height: 64px; border-radius: 6px; background: radial-gradient(circle at 50% 35%, #2a2016, #0d0a06); border: 3px solid #4a3a22; }
 .lo6 button.on { background: radial-gradient(circle at 50% 35%, #fff4c8, #ffb020 55%, #6b4510); border-color: #ffd27a; box-shadow: 0 0 12px #ffb020; }
 .lo6.rest button { opacity: .25; cursor: default; }
 .reward { font-size: 14px; color: var(--phos); margin-top: 8px; min-height: 20px; }

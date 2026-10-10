@@ -102,6 +102,7 @@ export const TUNING = {
   radioAlignRadius: 180,
   radioWidth: 45,          // how wide a signal's peak is on the dial (frequency units)
   radioReadable: 0.7,      // signal strength needed to read the lamps
+  iceFlat: 15,             // the beaconed ice's signal is at full strength this far either side of its frequency
   gainWindow: 1.3,         // how far the gain can be off and still read the lamps
   stationGain: 3,          // gain the cabin wireless stations need
   fuseClip: 12,            // seconds of clipping before the radio fuse blows (a warning shows from halfway)

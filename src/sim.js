@@ -7,7 +7,7 @@ import {
   BOARD_GRID, BOARD_PAGES,
 } from './scenario.js';
 import { RUNES, makePlate, keypadCode, shuffle, octantName } from './glyphs.js';
-import { checkPassword, passwordMatches, BASE_RULES, RULES_PER_LOCKDOWN, RULES as PW_RULES, WRONG_TRIES, DEFAULT_PASSWORD, revealPair } from './password.js';
+import { checkPassword, passwordMatches, BASE_RULES, RULES_PER_LOCKDOWN, RULES as PW_RULES, WRONG_TRIES, DEFAULT_PASSWORD, revealPair, tollRule, freshRule, TOLL_KINDS, SINS } from './password.js';
 import * as FL from './fleet.js';
 import { GAME_TIME } from './games.js';
 import { pickQuestion } from './morse.js';
@@ -563,7 +563,11 @@ export function flipBoard(w) {
 export function openSeal(w, reason, { change = false, pending = null } = {}) {
   if (w.seal) return false;
   if (!w.password) w.password = DEFAULT_PASSWORD;
-  if (change) { w.pwCap = Math.min(PW_RULES.length, w.pwCap + RULES_PER_LOCKDOWN); w.pwNext = w.t + T.pwUpdateEvery; w.shellAsks = 0; }
+  if (change) {
+    const bottom = w.pwCap >= PW_RULES.length;   // already past the ninth layer: the Pit deals a new toll instead
+    w.pwCap = Math.min(PW_RULES.length, w.pwCap + RULES_PER_LOCKDOWN); w.pwNext = w.t + T.pwUpdateEvery; w.shellAsks = 0;
+    if (bottom) dealToll(w);
+  }
   w.seal = { reason, mode: 'enter', change, pending, tries: 0, shown: [], opened: w.t };
   emit(w, 'sealed', { reason, mode: w.seal.mode });
   return true;
@@ -582,14 +586,43 @@ export function sealInput(w, text) {
     emit(w, 'pwwrong', { left: WRONG_TRIES - s.tries });
     return 'wrong';
   }
-  const chk = checkPassword(text, w.pwCap);
+  const chk = checkPassword(text, w.pwCap, pwExtra(w));
   if (!chk.ok) { emit(w, 'deny', { msg: chk.ascii ? 'THAT PASSWORD BREAKS A RULE' : 'KEYBOARD LETTERS, NUMBERS AND SYMBOLS ONLY' }); return 'rejected'; }
   w.password = chk.value; w.pwMet = w.pwCap; w.pwSets++;
+  (w.pwHistory = w.pwHistory || [DEFAULT_PASSWORD]).push(chk.value);
   emit(w, 'pwset', { rules: w.pwCap, password: chk.value });
   finishSeal(w);
   return 'ok';
 }
-export const sealRules = w => w.seal ? checkPassword('', w.pwCap).results.map(r => r.text) : [];
+export const sealRules = w => w.seal ? checkPassword('', w.pwCap, pwExtra(w)).results.map(r => r.text) : [];
+// The Pit's toll and its memory, while a toll is in force (past the ninth layer), for checking a new password.
+export function pwExtra(w) {
+  if (!w.pwToll) return [];
+  const ctx = { red: () => w.beacons.stock, house: () => RUNES[w.camRune[w.activeCam]].house, page: () => w.board.page + 1 };
+  return [tollRule(w.pwToll, ctx), freshRule(w.pwHistory || [w.password])];
+}
+// Deal the next toll: never the same kind twice running, and only one that can be met alongside the nine layers
+// (exactly one 1 and three 6s overall, so a number that would need more is not dealt).
+function dealToll(w) {
+  const hist = w.pwHistory = w.pwHistory || [DEFAULT_PASSWORD];
+  if (!hist.includes(w.password)) hist.push(w.password);
+  const fits = s => s.split('1').length - 1 <= 1 && s.split('6').length - 1 <= 3;
+  const minute = String(Math.floor(w.t / 60)).padStart(2, '0'), times = w.board.page + 1;
+  const last = w.lastStruck != null ? w.lastStruck : w.beacons.last && w.beacons.last.hit ? w.beacons.last.num : null;
+  const prev = (w.password || '').toUpperCase();
+  const can = {
+    minute: fits(minute.repeat(times)),
+    red: true,
+    lastberg: last != null && fits(String(last)),
+    orbhouse: true,
+    roman: true,
+    sin: SINS.some(s => !prev.includes(s)),
+  };
+  const pool = TOLL_KINDS.filter(k => can[k] && k !== (w.pwToll && w.pwToll.kind));
+  const kind = pool[Math.floor(w.rng() * pool.length)] || 'roman';
+  w.pwToll = { kind, minute, times, red: w.beacons.stock, num: last, prev, dealt: w.t };
+  emit(w, 'pwtoll', { kind });
+}
 function finishSeal(w) {
   const p = w.seal && w.seal.pending;
   w.seal = null; emit(w, 'unsealed');
@@ -822,7 +855,10 @@ export function radioSignal(w) {
   if (!isUp(w, 'radio')) return none;
   let best = null, bs = 0;
   for (const s of radioSources(w)) {
-    const k = s.base * Math.exp(-(((w.radio.freq - s.freq) / T.radioWidth) ** 2));
+    // the ice's own signal holds full strength across a flat top (T.iceFlat either side), so it is easier to find;
+    // the cabin wireless stations keep their narrow peak
+    const off = Math.max(0, Math.abs(w.radio.freq - s.freq) - (s.kind === 'ice' ? T.iceFlat : 0));
+    const k = s.base * Math.exp(-((off / T.radioWidth) ** 2));
     if (k > bs) { bs = k; best = s; }
   }
   if (!best || bs < 0.02) return none;
@@ -878,6 +914,7 @@ function futureOf(w, b0, seconds) {
 }
 export function beaconHits(w, b, color, t) {
   const bc = w.beacons;
+  w.lastStruck = b.num;
   b.tag = color; if (!w.tags.includes(b.id)) w.tags.push(b.id);
   if (!w.cases.find(c => c.bergId === b.id && c.permanent)) { caseRow(w, b.id, true); emit(w, 'casepinned', { num: b.num }); }
   emit(w, 'hit', { berg: b.id, num: b.num, color });
@@ -1742,6 +1779,7 @@ export function snapshot(w) {
     furnace: { lit: w.furnace.lit, heat: w.furnace.heat, chute: w.furnace.chute }, music: w.music, fatigue: w.fatigue,
     camCode: camCode(w), activeCam: w.activeCam, tom: { x: w.tom.x, y: w.tom.y, mode: w.tom.mode },
     furnaceState: furnaceState(w), sonarStrain: sonarStrain(w), camRune: w.camRune, brokenIds: Object.keys(w.broken).filter(k => w.broken[k]),
+    pwToll: w.pwToll ? tollRule(w.pwToll).text : null,
     seal: w.seal ? { reason: w.seal.reason, mode: w.seal.mode, tries: w.seal.tries } : null, clearance: w.clearance ? { step: w.clearance.step } : null, shellAsks: w.shellAsks, password: w.password, pwCap: w.pwCap, pwNext: w.pwNext, lamps: w.lamps, shuttered: shuttered(w),
     artifacts: w.artifacts.map(a => ({ ...a, num: a.bergId && a.bergId !== 'none' ? ([...w.bergs, ...w.reserve].find(b => b.id === a.bergId) || {}).num : null })),
     shoals: SHOALS, monsters: w.monsters.map(m => ({ x: m.x, y: m.y, num: m.num, fading: m.fadeAt != null })),

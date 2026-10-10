@@ -6,7 +6,7 @@ import {
   relockCase, setVerdict, isUp, inShoal, saveWorld, loadWorld, echoSeen, SYSTEMS,
   setDamper, setPriority, projectHeat, furnaceState, sonarStrain, breakThing, BREAKABLE,
   sealBeacon, fleetPlace, fleetReady, fleetFire, fleetCommander, startDefence, defenceResult, stationAction, ROLES, stationSnapshot,
-  orbCap, canReveal, artifactIn, camWeather, brokenList, shellWatch, beaconHits, clearanceAnswer,
+  orbCap, canReveal, artifactIn, camWeather, brokenList, shellWatch, beaconHits, clearanceAnswer, pwExtra,
 } from '../src/sim.js';
 import * as FL from '../src/fleet.js';
 import * as WS from '../src/workshop.js';
@@ -15,7 +15,7 @@ import { OBSERVATORY, CENTER, REACH, TUNING as T, TOMB_RADIUS, CAMERAS, CELL, RA
 import { keypadCode, RUNES } from '../src/glyphs.js';
 import { FLOWS, repairAction, makeRepairBoard, randomRow, ownerOf, OWNER } from '../src/repair.js';
 import { tempAt, makeField, PLATE_BY_HOUSE } from '../src/scenario.js';
-import { checkPassword, RULES as PW_RULES, WRONG_TRIES, DEFAULT_PASSWORD, BASE_RULES, revealPair } from '../src/password.js';
+import { checkPassword, RULES as PW_RULES, WRONG_TRIES, DEFAULT_PASSWORD, BASE_RULES, revealPair, toRoman, SINS } from '../src/password.js';
 
 const SEEDS = Array.from({ length: Number(process.argv[2]) || 40 }, (_, i) => 1000 + i * 37);
 let failures = 0;
@@ -216,6 +216,11 @@ function sharkSetup(seed) {
   check(sig.lamps === b.radio.shown, 'Tuned and gained correctly, the lamps show the signal');
   setFreq(w, b.radio.freq + 12); sig = radioSignal(w);
   check(sig.strength > 0.75, 'The tuning window is forgiving (12 units off still reads)');
+  setFreq(w, b.radio.freq + 15 + 26); setGain(w, gainFor(dist(b, OBSERVATORY))); const wide = radioSignal(w);
+  setFreq(w, b.radio.freq - 15 - 26); const wide2 = radioSignal(w);
+  setFreq(w, b.radio.freq + 15 + 30); const past = radioSignal(w);
+  check(wide.lamps === b.radio.shown && wide2.lamps === b.radio.shown && !past.lamps, 'The beaconed ice reads 15 units further either side than before (about ±41)');
+  setFreq(w, b.radio.freq + 12); setGain(w, gainFor(dist(b, OBSERVATORY)));
   setFreq(w, b.radio.freq); setGain(w, 10); sig = radioSignal(w);
   check(!sig.lamps, 'Too much gain clips the signal and the lamps go dark');
   setMusic(w, true); const st = w.stations[0]; setFreq(w, st.freq); setGain(w, T.stationGain); sig = radioSignal(w);
@@ -754,6 +759,8 @@ function sharkSetup(seed) {
   // the puzzles: every one can be solved
   check(Array.from({ length: 200 }, () => GA.loBoard(rng)).every(({ board, solution }) => GA.loSolved(solution.reduce((b, p) => GA.loPress(b, p), board)) && solution.length <= 5 && board.length === 16),
     'Every 4 x 4 Lights Out board is solved by five presses or fewer');
+  check(Array.from({ length: 200 }, () => GA.loBoard(rng, 5)).every(({ board, solution }) => GA.loSolved(solution.reduce((b, p) => GA.loPress(b, p, 5), board)) && solution.length <= 6 && board.length === 25),
+    'Every 5 x 5 Lights Out board is solved by six presses or fewer');
   check(Array.from({ length: 200 }, () => GA.msBoard(rng)).every(({ mines, start }) => mines.length === GA.MS_MINES && GA.msSolvable(new Set(mines), start)),
     'Every Minesweeper board can be cleared by logic from its start square');
   let cutsOk = true;
@@ -962,6 +969,47 @@ function sharkSetup(seed) {
     for (const d of FL.DEPTS) Object.assign(fz.dept[d], { state: 'question', question: { q: 'HOW MANY DAYS IN A WEEK', opts: ['SEVEN', 'FIVE', 'NINE'], answer: 0 } });
     const ss = JSON.stringify(stationSnapshot(wz, { iid: 'x', born: 1 }));
     check(ss.length < 14000 && fz.log.length <= 40, `The stations' update stays small with a busy fleet (${ss.length} bytes)`); }
+  // revision 25: below the ninth layer, the Pit deals a new toll at every update, and no old password will do
+  { // build a password that meets all twelve rules plus a toll, if one exists (the test's own solver)
+    const alt = str => [...str].map((c, i) => i % 2 ? c.toLowerCase() : c.toUpperCase()).join('');
+    const build = (w, extraRules) => {
+      const t = w.pwToll; let mid = '', roman = false;
+      if (t.kind === 'minute') mid = 'a' + t.minute.repeat(t.times) + 'b';
+      if (t.kind === 'red') mid = 'a' + w.beacons.stock + 'b';
+      if (t.kind === 'lastberg') mid = 'a' + t.num + 'b';
+      if (t.kind === 'orbhouse') mid = RUNES[w.camRune[w.activeCam]].house;
+      if (t.kind === 'roman') roman = true;
+      const sin = alt(t.kind === 'sin' ? SINS.find(x => !t.prev.includes(x)) : 'ENVY');
+      const ones = mid.split('1').length - 1, sixes = mid.split('6').length - 1;
+      const chain = ones ? '######' : '###1###', six = '6'.repeat(3 - sixes);
+      if (ones) mid = '###' + mid + '###';
+      for (const L of [43, 45, 47, 49, 53, 55, 57, 59, 73, 75, 77, 79, 83, 85, 87, 89, 93, 95, 97]) {
+        const core = 'JerRy' + chain + '$999Q0K' + sin + six + 'q2+2=5IAGReE!' + mid;
+        const pre = roman ? alt(toRoman(L)) : '', need = L - pre.length - core.length - String(L).length;
+        if (need < 1) continue;
+        const pw = pre + core + 'xYzQ'.repeat(30).slice(0, need) + L;
+        if (checkPassword(pw, 12, extraRules).ok) return pw;
+      }
+      return null;
+    };
+    let dealt = 0, solved = 0, repeats = 0, reused = true, kinds = new Set(); const seq = w => { const k = w.pwToll.kind; if (k === w.__lastKind) repeats++; w.__lastKind = k; };
+    for (let k = 0; k < 300; k++) {
+      const w = createWorld(400 + k, { deploy: true }); light(w);
+      w.pwCap = PW_RULES.length; w.password = 'JerRy###1###$999-273ENVY666+2=5IAGReE!xYzQxYzQ43';
+      w.t = (k * 97) % 4000; w.board.page = k % 4; w.beacons.stock = k % 6; w.activeCam = w.cams[k % 7].id; if (k % 3) w.lastStruck = (k * 7) % 44 + 1;
+      let prevKind = null;
+      for (let u = 0; u < 3; u++) {
+        w.seal = null; openSeal(w, 'lockdown', { change: true }); dealt++; kinds.add(w.pwToll.kind); seq(w);
+        const pw = build(w, pwExtra(w)); if (pw) solved++; else console.log('no password for', JSON.stringify(w.pwToll));
+        if (pw) { w.seal.mode = 'set'; if (sealInput(w, pw) !== 'ok') solved--; else { w.seal = null; openSeal(w, 'lockdown', { change: true }); seq(w); w.seal.mode = 'set'; if (sealInput(w, pw) === 'ok') reused = false; w.seal = null; } }
+        w.t += 541; w.board.page = (w.board.page + 1) % 4; w.beacons.stock = (w.beacons.stock + 2) % 6;
+      }
+    }
+    check(dealt === 900 && solved === dealt, `Every toll the Pit deals can be met alongside all nine layers (${solved}/${dealt}, kinds: ${[...kinds].join(', ')})`);
+    check(repeats === 0 && kinds.size === 6, 'The Pit never deals the same kind of toll twice running, and deals all six');
+    check(reused, 'No password that has been used before is accepted again');
+    const w0 = createWorld(5); light(w0); w0.pwCap = PW_RULES.length - 1; openSeal(w0, 'lockdown', { change: true });
+    check(!w0.pwToll && !pwExtra(w0).length && w0.pwCap === PW_RULES.length, 'Reaching the ninth layer adds IAGREE as before; the tolls start at the next update'); }
   // revision 23: the GM hands Engineering a fresh breaker panel
   { const wl = createWorld(103); light(wl); wl.rewards.lights = 999; const s0 = stationSnapshot(wl).lightsSeq; gm(wl, 'lights-reset');
     check(stationSnapshot(wl).lightsSeq === s0 + 1 && wl.rewards.lights === 0, 'The GM resets the breaker panel, and it can pay out at once'); }

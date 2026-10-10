@@ -197,3 +197,4 @@ body.redlight #redlight { opacity: 1; animation: redpulse 2.6s ease-in-out infin
 /* revision 21: the station embedded in the operator's screen (LOOK RIGHT) */
 body.embed #bar, body.embed #lost, body.embed #firstcard, body.embed #defence, body.embed #join { display: none !important; }
 body.embed #desk { padding: 10px; }
+.lo6[style*="56px"] button { width: 56px; height: 56px; }
