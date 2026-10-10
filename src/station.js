@@ -80,6 +80,7 @@ function takeStation() {
   link.join(code);
   $('join').classList.add('hidden'); $('desk').classList.remove('hidden');
   $('rolename').textContent = '· ' + ROLE_NAME[role] + ' ·';
+  document.body.dataset.role = role;
   $('jobtitle').textContent = JOB[role];
   document.title = 'The Last Watch · ' + ROLE_NAME[role];
   jobKey = ''; $('jobbody').innerHTML = '';

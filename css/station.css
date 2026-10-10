@@ -170,8 +170,10 @@ button { font-family: inherit; cursor: pointer; }
 #rightcol .panel { padding: 10px 12px; }
 #rightcol .panel h2 { margin-bottom: 6px; }
 #leftcol.wide { grid-column: 1 / -1; }
-#leftcol, #rightcol { transition: transform 1.2s cubic-bezier(.3,1.6,.5,1); transform-origin: 50% 0; }
-body.tilt #leftcol, body.tilt #rightcol, body.tilt #clearpanel { transform: rotate(-10deg); }
+/* the list tilts every panel but Gunnery's workshop, whose drag-and-drop needs it level */
+#leftcol > section, #rightcol, #clearpanel { transition: transform 1.2s cubic-bezier(.3,1.6,.5,1); transform-origin: 50% 0; }
+body.tilt #leftcol > section, body.tilt #rightcol, body.tilt #clearpanel { transform: rotate(-10deg); }
+body.tilt[data-role="gunnery"] #job { transform: none; }
 body.tilt { overflow-x: hidden; }
 #redlight { position: fixed; inset: 0; pointer-events: none; z-index: 59; opacity: 0; transition: opacity 1.5s; background: radial-gradient(ellipse at 50% 40%, rgba(255,60,30,.25), rgba(140,0,0,.65)); mix-blend-mode: multiply; }
 body.redlight #redlight { opacity: 1; animation: redpulse 2.6s ease-in-out infinite alternate; }
