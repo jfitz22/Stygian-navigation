@@ -822,7 +822,10 @@ export function radioSignal(w) {
   if (!isUp(w, 'radio')) return none;
   let best = null, bs = 0;
   for (const s of radioSources(w)) {
-    const k = s.base * Math.exp(-(((w.radio.freq - s.freq) / T.radioWidth) ** 2));
+    // the ice's own signal holds full strength across a flat top (T.iceFlat either side), so it is easier to find;
+    // the cabin wireless stations keep their narrow peak
+    const off = Math.max(0, Math.abs(w.radio.freq - s.freq) - (s.kind === 'ice' ? T.iceFlat : 0));
+    const k = s.base * Math.exp(-((off / T.radioWidth) ** 2));
     if (k > bs) { bs = k; best = s; }
   }
   if (!best || bs < 0.02) return none;

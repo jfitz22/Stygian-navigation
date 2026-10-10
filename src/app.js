@@ -828,6 +828,7 @@ function drawRadio() {
   if (document.activeElement !== $('gain')) $('gain').value = world.radio.gain;
   $('gainval').textContent = world.radio.gain.toFixed(1);
   $('radiosrc').textContent = world.music ? 'cabin wireless is ON' : 'hears beaconed ice only';
+  for (const id of ['cabinlamp', 'cabinlamp2']) { const l = $(id), txt = world.music ? 'CABIN WIRELESS ON' : 'CABIN WIRELESS OFF'; if (l.textContent !== txt) { l.textContent = txt; l.classList.toggle('on', !!world.music); } }
   const fuse = world.radio.clipTime / T.fuseClip;
   $('p-radio').classList.toggle('fusehot', fuse > 0.5);
   $('fusefill').style.width = Math.min(100, fuse * 100) + '%';

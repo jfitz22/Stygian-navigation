@@ -216,6 +216,11 @@ function sharkSetup(seed) {
   check(sig.lamps === b.radio.shown, 'Tuned and gained correctly, the lamps show the signal');
   setFreq(w, b.radio.freq + 12); sig = radioSignal(w);
   check(sig.strength > 0.75, 'The tuning window is forgiving (12 units off still reads)');
+  setFreq(w, b.radio.freq + 15 + 26); setGain(w, gainFor(dist(b, OBSERVATORY))); const wide = radioSignal(w);
+  setFreq(w, b.radio.freq - 15 - 26); const wide2 = radioSignal(w);
+  setFreq(w, b.radio.freq + 15 + 30); const past = radioSignal(w);
+  check(wide.lamps === b.radio.shown && wide2.lamps === b.radio.shown && !past.lamps, 'The beaconed ice reads 15 units further either side than before (about ±41)');
+  setFreq(w, b.radio.freq + 12); setGain(w, gainFor(dist(b, OBSERVATORY)));
   setFreq(w, b.radio.freq); setGain(w, 10); sig = radioSignal(w);
   check(!sig.lamps, 'Too much gain clips the signal and the lamps go dark');
   setMusic(w, true); const st = w.stations[0]; setFreq(w, st.freq); setGain(w, T.stationGain); sig = radioSignal(w);
