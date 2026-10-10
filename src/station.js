@@ -21,7 +21,7 @@ const ROLE_NAME = { gunnery: 'GUNNERY & TARGETING', signals: 'SIGNALS & SONAR', 
 const JOB = { gunnery: 'THE BEACON WORKSHOP', signals: 'THE CASE BOARD', engineer: 'THE FURNACE', fleet: 'FLEET COMMAND' };
 const FIRST = {
   fleet: ['<b>You command the fleet.</b> Click their table to aim one shot for each of our ships afloat; both fleets fire together when the salvo clock runs out, or when you press FIRE. Your own ship is the four-long.', '<b>The specials</b> start loaded. The departments reload theirs with four flags: your codebook turns each into a rune, and every second reload a Morse question too (your book has the table). Your own crosshair scan reloads when you decode a dispatch (below).', '<b>A sunk ship</b> is salvaged: read its board to Engineering, wait for their power, then place her back at sea. <b>When the depth-charge alarm sounds</b>, steer with ← → and drop charges with SPACE.'],
-  gunnery: ['<b>Build beacons</b> at the workshop: your book has the shell; Engineering has the core; Signals has the crystal.', '<b>When devil fire comes</b>, click to burst flak in its path: every tower it reaches is an orb lost.', '<b>Your special</b> (the heavy shell) reloads by flag code: describe your four flags to the Fleet Officer, press the runes they read back. Every second reload asks a Morse question.'],
+  gunnery: ['<b>Build beacons</b> at the workshop: your book has the shell; Engineering has the core; Signals has the crystal.', '<b>When devil fire comes</b>, click to burst flak in its path: every tower it reaches is an orb lost. Every other alarm is the <b>buoy cable</b> instead: steer with the arrow keys and collect the loose ends.', '<b>Your special</b> (the heavy shell) reloads by flag code: describe your four flags to the Fleet Officer, press the runes they read back. Every second reload asks a Morse question.'],
   signals: ['<b>Keep the case board</b>: decode each radio pattern and type in its call sign. The sonar here is a copy of the operator\'s.', '<b>Minesweeping</b> is optional: complete a sweep and the guns beacon a glacier for free.', '<b>When the buoy cable snaps</b>, steer with the arrow keys and collect the ends; the walls wrap round, your own cable does not.'],
   engineer: ['<b>Keep the furnace alive</b>: the log shows where the heat is heading. Set the shed order and the damper.', '<b>The breaker panel</b> is optional: clear it for a free shovel of fuel.', '<b>When the stokehold fires fail</b>, run the decks with ↑ ↓ and fling coal with SPACE: keep all four fires in the green.'],
 };
@@ -612,7 +612,7 @@ function drawLightsSteady(cd) {
 const DEF_TITLE = {
   missile: ['DEVIL FIRE INBOUND', 'Shoot it down before it reaches the towers. Click to burst flak in its path.'],
   missileArc: ['DEVIL SKIFFS ON THE HORIZON', 'Their shells arc in from the sides. Click to burst flak in their path.'],
-  snake: ['THE BUOY CABLE HAS SNAPPED', `Splice it: steer with the arrow keys (or WASD) and collect ${GA.SN.need} loose ends before they sink. Do not touch the cable or the stray sparks; the walls wrap round.`],
+  snake: ['THE BUOY CABLE HAS SNAPPED', `Splice it: steer with the arrow keys (or WASD) and collect ${GA.SN.need} loose ends before they sink. Do not touch the cable or the stray sparks (the first ${GA.SN.grace} s are safe); the walls wrap round.`],
   stoke: ['THE STOKEHOLD FIRES ARE FAILING', 'Keep all four fires in the green. ↑ ↓ (or W S) changes deck, SPACE flings coal. A fire that dies or bursts is a fail; three and the stokehold is lost.'],
   depth: ['ENEMY SUBMARINES BELOW', 'Your destroyer runs the surface. ← → (or A D) steers, SPACE drops a depth charge. Dodge their torpedoes and do not let them surface. Lose, and your own ship takes a hit.'],
 };
@@ -684,14 +684,15 @@ function startSnake(g) {
       GA.sparksStep(sparks, dt);
       foodAge += dt;
       if (foodAge > GA.SN.sink) { food = GA.snakeFood(g.rng, body); foodAge = 0; audio.sfx.puff(); }   // the loose end sank; another floats up
-      if (GA.sparkHits(sparks, body[0]) && !g.done) fail('A STRAY SPARK HIT THE SPLICE · THE BUOY IS LOST');
+      const safe = since - READY < GA.SN.grace;   // the first seconds of play: nothing can fail the splice
+      if (!safe && GA.sparkHits(sparks, body[0]) && !g.done) fail('A STRAY SPARK HIT THE SPLICE · THE BUOY IS LOST');
       while (acc >= GA.SN.step && !dead && !g.done) {
         acc -= GA.SN.step;
         if (queued.length) dir = queued.shift();
         const r = GA.snakeMove(body, dir, food);
         body = r.body;
-        if (r.dead) { fail('THE SPLICE FAILED · THE BUOY IS LOST'); break; }
-        if (GA.sparkHits(sparks, body[0])) { fail('A STRAY SPARK HIT THE SPLICE · THE BUOY IS LOST'); break; }
+        if (r.dead && !safe) { fail('THE SPLICE FAILED · THE BUOY IS LOST'); break; }
+        if (!safe && GA.sparkHits(sparks, body[0])) { fail('A STRAY SPARK HIT THE SPLICE · THE BUOY IS LOST'); break; }
         if (r.ate) { got++; audio.sfx.click(); if (got >= GA.SN.need) { finishDefence(true, {}, 'THE CABLE IS SPLICED'); break; } food = GA.snakeFood(g.rng, body); foodAge = 0; }
       }
     }
@@ -721,6 +722,7 @@ function startSnake(g) {
     ctx.fillStyle = '#e8cf98'; ctx.font = '600 16px IBM Plex Mono'; ctx.textAlign = 'left';
     ctx.fillText(`CABLE ${body.length} / ${GA.SN.start + GA.SN.need}`, 10, 22);
     if (since <= READY) { ctx.textAlign = 'center'; ctx.font = '800 30px Cinzel'; ctx.fillText('READY...', W / 2, H / 2); }
+    else if (since - READY < GA.SN.grace && !dead) { ctx.textAlign = 'right'; ctx.font = '600 16px IBM Plex Mono'; ctx.fillStyle = '#5cff9d'; ctx.fillText(`SAFE FOR ${Math.ceil(GA.SN.grace - (since - READY))} s`, W - 10, 22); }
   };
   cv.tabIndex = 0; cv.focus({ preventScroll: true });
 }

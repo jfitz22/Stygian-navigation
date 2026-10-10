@@ -660,3 +660,6 @@ input[type=range]::-moz-range-thumb { width: 16px; height: 20px; border-radius: 
 #engframe { flex: 1; border: 0; border-top: 2px solid var(--brass); background: #0c0e10; width: 100%; }
 #lookright.needed { animation: engneeded 1s ease-in-out infinite alternate; border-color: #ffb347; }
 @keyframes engneeded { to { box-shadow: 0 0 16px rgba(255,179,71,.8); color: #ffd99a; } }
+
+/* revision 22: smaller repair tabs; the board is placed below them */
+#repairtabs button { padding: 4px 8px; font-size: 10px; letter-spacing: .5px; }

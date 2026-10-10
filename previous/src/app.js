@@ -93,7 +93,14 @@ function note(text) {
 // Look up (the overhead deck), down (the main board) or left (the cabin).
 function look(where) {
   if (where === true) where = 'up'; if (where === false) where = 'main';
-  $('stage').classList.toggle('up', where === 'up'); $('stage').classList.toggle('left', where === 'left'); audio.sfx.clunk();
+  $('stage').classList.toggle('up', where === 'up'); $('stage').classList.toggle('left', where === 'left'); $('stage').classList.toggle('right', where === 'right'); audio.sfx.clunk();
+  if (where === 'right') { if (world.defence.live.engineer) { $('stage').classList.remove('right'); return; } openEngineRoom(); }
+}
+// LOOK RIGHT: the Engineering station itself, for when no officer holds it (or to work alongside them)
+function openEngineRoom() {
+  if (world.defence.live.engineer) return;
+  const f = $('engframe');
+  if (!f.src) f.src = 'station.html?role=engineer&embed=1&code=' + encodeURIComponent(roomCode);
 }
 const lookingLeft = () => $('stage').classList.contains('left');
 $('lookup').onclick = () => look('up');
@@ -101,6 +108,8 @@ $('gofire').onclick = () => look('up');
 $('lookdown').onclick = () => look('main');
 $('lookleft').onclick = () => look('left');
 $('lookback').onclick = () => look('main');
+$('lookright').onclick = () => look('right');
+$('engback').onclick = () => look('main');
 $('godeploy').onclick = () => look('left');
 const togglePause = () => gm(world, 'pause');
 $('pausebtn').onclick = togglePause;
@@ -1506,14 +1515,14 @@ const DEF_WHAT = { gunnery: 'devil fire', signals: 'cable splice', engineer: 'st
 const DEF_NAME = { missile: 'DEVIL FIRE ON THE TOWERS', snake: 'THE BUOY CABLE SNAPPED', stoke: 'THE STOKEHOLD FIRES ARE FAILING', depth: 'SUBMARINES BELOW' };
 function drawCrew() {
   const now = performance.now(), cards = OFFICERS.map(r => {
-    const live = world.defence.live[r], ev = world.defence.active[r];
+    const live = world.defence.live[r], ev = world.defence.active[r], covered = r === 'engineer' && !live;
     let stat = '';
     if (r === 'gunnery') { const q = world.workshop.curing; stat = `Beacons: red ${world.beacons.stock} · orange ${world.beacons.orange} · green ${world.beacons.green}${q.length ? ` · ${q.length} in the rack${isUp(world, 'workshop') ? '' : ' (WORKSHOP off)'}` : ''}`; }
     if (r === 'signals') { const cd = Math.max(0, Math.ceil(world.rewards.mines - world.t)); stat = cd ? `Next sweep reward in ${cd} s` : 'A sweep reward is ready'; }
     if (r === 'engineer') { const cd = Math.max(0, Math.ceil(world.rewards.lights - world.t)); stat = cd ? `Next free shovel in ${cd} s` : 'A free shovel is ready'; }
     if (r === 'fleet') { const f = world.fleet; stat = f.phase === 'off' ? '' : `Wave ${f.wave} · ${FL.afloat(f.mine).length} of ours, ${FL.afloat(f.enemy).length} of theirs afloat${Object.keys(f.salvage).length ? ' · ' + Object.keys(f.salvage).length + ' under salvage' : ''}`; }
     return `<div class="crewcard${live ? '' : ' off'}${ev ? ' alarm' : ''}"><div class="nm"><i class="${live ? 'on' : ''}"></i>${STATION_NAME[r].toUpperCase()}</div>
-      <div class="doing">${live ? (stationDoing[r] || 'at their station') : 'not connected'}</div>
+      <div class="doing">${live ? (stationDoing[r] || 'at their station') : covered ? 'covered by the operator (LOOK RIGHT)' : 'not connected'}</div>
       ${ev ? `<div class="ev">${DEF_NAME[ev.kind] || 'UNDER ATTACK'} · ${Math.max(0, Math.ceil((GAME_TIME[ev.kind] || 30) - (world.t - ev.at)))} s</div>` : ''}
       ${(stationHist[r] || []).length ? `<div class="hist">${stationHist[r].slice(-4).reverse().map(h => `<div><b>${fmt(h.t)}</b> ${h.what} · <span class="${h.ok ? 'ok' : 'bad'}">${h.ok ? 'HELD' : 'FAILED'}</span></div>`).join('')}</div>` : ''}
       <div class="stat">${stat}</div></div>`;
@@ -1542,6 +1551,8 @@ const stationSeen = {};
 function onStation(m) {
   if (!OFFICERS.includes(m.role)) return;
   if (m.iid && m.iid !== GAME_ID) return;   // that station follows another game on this code
+  // the operator's own LOOK RIGHT (Engineering) acts for the department but is not an officer on station
+  if (m.embed) { if (!m.hello) { stationAction(world, m.role, m); snapSoon = true; } return; }
   stationSeen[m.role] = performance.now();
   if (m.doing != null) stationDoing[m.role] = m.doing;
   if (!m.hello) { stationAction(world, m.role, m); snapSoon = true; }
@@ -1553,6 +1564,17 @@ function drawStations() {
   // the fleet must be deployed before the watch begins
   const deploying = world.hold === 'deploy' && ui.started;
   $('deploybanner').classList.toggle('hidden', !deploying || lookingLeft());
+  // LOOK RIGHT is Engineering's station, worked by the operator while no officer holds it
+  const engOn = !!world.defence.live.engineer;
+  if (ui.engOn !== engOn) {
+    if (ui.engOn !== undefined && ui.started) toast(engOn ? 'ENGINEERING IS ON STATION · THEY TAKE OVER FROM LOOK RIGHT' : 'NOBODY HOLDS ENGINEERING · WORK IT YOURSELF: LOOK RIGHT ▶', engOn ? 'info' : '');
+    ui.engOn = engOn;
+    if (engOn && $('stage').classList.contains('right')) look('main');
+  }
+  $('lookright').classList.toggle('hidden', engOn);
+  // nudge the operator when something waits on Engineering and nobody else will do it
+  const engNeeded = !engOn && world.fleet.phase !== 'off' && (Object.values(world.fleet.salvage).some(s => !s.power) || (world.fleet.dept.engineer && ['flags', 'question'].includes(world.fleet.dept.engineer.state)));
+  $('lookright').classList.toggle('needed', engNeeded);
   $('twogames').classList.toggle('hidden', performance.now() - otherGameAt > 5000);
 }
 const STATION_NAME = { gunnery: 'Gunnery', signals: 'Signals', engineer: 'Engineering', fleet: 'Fleet Officer' };

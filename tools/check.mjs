@@ -962,6 +962,20 @@ function sharkSetup(seed) {
     for (const d of FL.DEPTS) Object.assign(fz.dept[d], { state: 'question', question: { q: 'HOW MANY DAYS IN A WEEK', opts: ['SEVEN', 'FIVE', 'NINE'], answer: 0 } });
     const ss = JSON.stringify(stationSnapshot(wz, { iid: 'x', born: 1 }));
     check(ss.length < 14000 && fz.log.length <= 40, `The stations' update stays small with a busy fleet (${ss.length} bytes)`); }
+  // revision 22: Gunnery alternates devil fire and the cable; the GM repairs one machine; slower devil fire
+  { const wg = createWorld(102, { deploy: true }); light(wg); gm(wg, 'fleet-auto'); for (let i = 0; i < 20; i++) step(wg, DT);
+    const kinds = []; for (let k = 0; k < 4; k++) { startDefence(wg, 'gunnery'); const a = wg.defence.active.gunnery; kinds.push(a.kind); defenceResult(wg, 'gunnery', a.id, { ok: true, hits: [] }); }
+    check(kinds.join() === 'missile,snake,missile,snake', "Gunnery's alarms alternate: devil fire, then the buoy cable");
+    wg.buoy = { x: 900, y: 900, landAt: 0 }; startDefence(wg, 'gunnery'); startDefence(wg, 'gunnery'); const a2 = wg.defence.active.gunnery;
+    if (a2.kind !== 'snake') { defenceResult(wg, 'gunnery', a2.id, { ok: true, hits: [] }); startDefence(wg, 'gunnery'); }
+    const a3 = wg.defence.active.gunnery; defenceResult(wg, 'gunnery', a3.id, { ok: false });
+    check(a3.kind === 'snake' && wg.broken.winch && !wg.buoy && !wg.cams.some(c => c.broken), 'A failed splice at Gunnery loses the buoy (and no orb)');
+    gm(wg, 'defence', { role: 'gunnery', kind: 'snake' }); check(wg.defence.active.gunnery.kind === 'snake', 'The GM can send Gunnery the cable');
+    breakThing(wg, 'c3'); breakThing(wg, 'launcher'); gm(wg, 'repair-one', { id: 'c3' });
+    check(!wg.cams.find(c => c.id === 'c3').broken && wg.broken.launcher, 'The GM repairs one orb, and leaves the rest broken');
+    gm(wg, 'repair-one', { id: 'launcher' }); check(!wg.broken.launcher, '...or one machine');
+    const fast = GA.missileWaves(mulberry32(3), 10, 'fall').map(m => m.speed);
+    check(GA.MISSILE_SPEED === 0.75 && Math.max(...fast) <= 1.6 * 0.75 + 1e-9 && Math.min(...fast) >= 1.1 * 0.75 - 1e-9, 'Devil fire flies at three quarters of its old speed'); }
   // the beacon rack: 5 red, 2 orange, 1 green, and never more; a green can always be built once one is fired
   { const wb = createWorld(97, { deploy: true }); light(wb); gm(wb, 'fleet-auto'); setPower(wb, 'workshop', true);
     check(wb.beacons.stock === 5 && wb.beacons.orange === 2 && wb.beacons.green === 1, 'The Watch starts with 5 red, 2 orange and 1 green beacon');
@@ -1052,8 +1066,8 @@ function sharkSetup(seed) {
   wr.furnace.chute = 1; stationAction(wr, 'engineer', { act: 'lightsout' }); const c1 = wr.furnace.chute; stationAction(wr, 'engineer', { act: 'lightsout' });
   check(c1 === 2 && wr.furnace.chute === 2, 'Clearing the breaker panel puts a free shovel in the chute, once a minute');
   // the defence games themselves
-  { let body = GA.snakeStart(); check(body.length === 20 && GA.SN.start + GA.SN.need === 30 && body.every((c, i) => !i || Math.abs(c[0] - body[i - 1][0]) + Math.abs(c[1] - body[i - 1][1]) === 1), 'The cable starts twenty long, all in one piece, and must reach thirty');
-    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 21 && !r.dead, 'Each loose end makes the cable longer');
+  { let body = GA.snakeStart(); check(body.length === 15 && GA.SN.start + GA.SN.need === 25 && GA.SN.grace === 5 && body.every((c, i) => !i || Math.abs(c[0] - body[i - 1][0]) + Math.abs(c[1] - body[i - 1][1]) === 1), 'The cable starts fifteen long, all in one piece, and must reach twenty-five; the first five seconds are safe');
+    const food = [body[0][0] + 1, body[0][1]], r = GA.snakeMove(body, [1, 0], food); check(r.ate && r.body.length === 16 && !r.dead, 'Each loose end makes the cable longer');
     let b2 = GA.snakeStart(), dead = false; for (let i = 0; i < 3 && !dead; i++) { const m = GA.snakeMove(b2, [1, 0], null); b2 = m.body; dead = m.dead; } check(!dead && b2[0][0] < 3, 'Through a wall the cable comes out the other side');
     { let ok = true; for (let k = 0; k < 200; k++) { const r2 = mulberry32(k + 1), b0 = GA.snakeStart(), sp = GA.sparksStart(r2, b0); if (sp.length !== GA.SN.sparks || sp.some(s => b0.some(c => Math.abs(c[0] - s.x) + Math.abs(c[1] - s.y) < 3))) ok = false; }
       check(ok, 'Three stray sparks, always starting well clear of the cable'); }

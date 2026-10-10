@@ -32,6 +32,10 @@ const gridRef = p => p ? COLS[Math.max(0, Math.min(GRID - 1, Math.floor(p.x / CE
 
 // ---------- joining ----------
 const params = new URLSearchParams(location.search);
+// embed=1: this station is shown inside the operator's own screen (LOOK RIGHT for Engineering). It acts for its
+// department but never counts as an officer on station: no hello, no defences, no damage effects, no posters.
+const EMBED = params.get('embed') === '1';
+if (EMBED) document.body.classList.add('embed');
 let role = params.get('role'), code = cleanCode(params.get('code'));
 try { role = role || localStorage.getItem('lastwatch-station-role'); code = code || cleanCode(localStorage.getItem('lastwatch-station-code')); } catch (e) { }
 let snap = null, snapAt = 0, netState = '', linkedOnce = false;
@@ -44,7 +48,7 @@ const link = openLink(m => {
   if (live.length && live[0][0] !== g.iid) return;   // an older game still open on this code: follow the newest
   snap = g; snapAt = now; linkedOnce = true;
 }, s => { netState = s; });
-const send = act => link.send({ station: { role, iid: snap ? snap.iid : null, ...act } });
+const send = act => link.send({ station: { role, iid: snap ? snap.iid : null, ...(EMBED ? { embed: true } : {}), ...act } });
 // the game's clock, run on between updates
 const ticking = () => snap && !snap.paused && !snap.hold && snap.started;
 const nowT = () => !snap ? 0 : snap.t + (ticking() ? Math.min(2, (performance.now() - snapAt) / 1000) : 0);
@@ -75,10 +79,10 @@ function firstCard() {
   el.querySelector('button').onclick = () => { el.classList.add('hidden'); try { localStorage.setItem('lastwatch-station-seen-' + role, '1'); } catch (e) { } };
 }
 // reconnect by itself when the relay drops
-setInterval(() => { if (code && /CLOSED|CHANNEL_ERROR|TIMED_OUT|OFFLINE/.test(netState)) link.rejoin(); }, 5000);
+setInterval(() => { if (!EMBED && code && /CLOSED|CHANNEL_ERROR|TIMED_OUT|OFFLINE/.test(netState)) link.rejoin(); }, 5000);
 $('switch').onclick = () => { $('desk').classList.add('hidden'); $('join').classList.remove('hidden'); };
 function takeStation() {
-  link.join(code);
+  if (!EMBED) link.join(code);   // embedded: same browser as the game, so the local channel is enough
   $('join').classList.add('hidden'); $('desk').classList.remove('hidden');
   $('rolename').textContent = '· ' + ROLE_NAME[role] + ' ·';
   document.body.dataset.role = role;
@@ -95,9 +99,9 @@ function takeStation() {
   $('fleetdept').classList.toggle('hidden', role === 'fleet');
   $('leftcol').classList.toggle('wide', role === 'fleet'); $('rightcol').classList.toggle('hidden', role === 'fleet');
   buildSteady();
-  firstCard();
+  if (!EMBED) firstCard();
 }
-setInterval(() => { if (role && !$('desk').classList.contains('hidden')) send({ hello: true, doing: doing() }); }, 2000);
+setInterval(() => { if (!EMBED && role && !$('desk').classList.contains('hidden')) send({ hello: true, doing: doing() }); }, 2000);
 // a few words for the operator's crew board
 function doing() {
   if (current && !current.done) return 'defending';
@@ -162,7 +166,7 @@ let bannerUI, bannerRole;
 function frame() {
   if (role === 'engineer') stokeArt();   // load the stokehold art early, so the first call shows it
   if (role === 'fleet') depthArt();
-  if (role !== bannerRole) { bannerUI?.destroy(); bannerRole = role; bannerUI = createBannerUI(role, (eventId, key) => send({act:'banner-dismiss', eventId, key})); }
+  if (!EMBED && role !== bannerRole) { bannerUI?.destroy(); bannerRole = role; bannerUI = createBannerUI(role, (eventId, key) => send({act:'banner-dismiss', eventId, key})); }
 
   const live = snap && performance.now() - snapAt < 4000;
   $('link').innerHTML = `<i class="${live ? 'on' : netState === 'SUBSCRIBED' || netState === 'LOCAL' ? 'wait' : 'off'}"></i><span>${live ? 'linked to the Watch' : code ? 'waiting for the Watch · code ' + code : 'not linked'}</span>`;
@@ -170,13 +174,13 @@ function frame() {
   if (snap) {
     $('clock').textContent = snap.hold === 'deploy' ? 'DEPLOY' : fmt(nowT());
     if (role === 'fleet') safely('fleet command', () => fleetCommandUI().render()); else { safely('fleet', () => fleetUI.render()); safely('fleet dept', () => deptUI.render()); }
-    safely('cracks', drawCracks);
+    if (!EMBED) safely('cracks', drawCracks);
     if (role === 'fleet') safely('clearance', drawClearance);
     if (role === 'gunnery') safely('workshop', drawWorkshop);
     if (role === 'signals') { safely('sonar', drawSonar); safely('case board', drawCaseBoard); }
     if (role === 'engineer') safely('furnace', drawFurnace);
     safely('steady', () => drawSteady());
-    safely('defence', checkDefence);
+    if (!EMBED) safely('defence', checkDefence);
   }
   if (bannerUI) bannerUI.update($('desk').classList.contains('hidden') ? null : snap?.bannerEvent, snap?.bannerNow);
   requestAnimationFrame(frame);

@@ -1021,7 +1021,9 @@ export function gm(w, cmd, arg = {}) {
     w.repairs = {}; w.buoyRebuildAt = 0; w.radio.clipTime = 0;
   }
   if (cmd === 'restock') { w.beacons.stock = T.beaconStock; w.beacons.orange = T.orangeStock; w.beacons.green = T.greenStock; }
-  if (cmd === 'defence' && DEFENDERS.includes(arg.role)) startDefence(w, arg.role, 'gm');
+  if (cmd === 'defence' && DEFENDERS.includes(arg.role)) startDefence(w, arg.role, 'gm', ['missile', 'snake', 'stoke', 'depth'].includes(arg.kind) ? arg.kind : null);
+  // repair one machine or orb at once (as if the crew had finished)
+  if (cmd === 'repair-one' && arg.id) { const cam = w.cams.find(c => c.id === arg.id); if (cam ? cam.broken : w.broken[arg.id]) finishRepair(w, arg.id); }
   if (cmd === 'clearance' && w.clearance) { w.clearance = null; emit(w, 'clearanceok', {}); fireBeacon(w, 'green', { auth: true }); }
   if (cmd.startsWith('fleet-') && w.fleet.phase !== 'off') gmFleet(w, cmd, arg);
   if (cmd === 'artifacts') nameArtifacts(w, arg.names);
@@ -1390,11 +1392,19 @@ function scheduleDefence(w, role, from) {
   }
   d.next[role] = at;
 }
-export function startDefence(w, role, reason = 'timer') {
+// Gunnery alternates: devil fire, then the buoy cable, then devil fire... (kind forces one, for the GM)
+export function defenceKind(w, role) {
+  if (role !== 'gunnery') return DEFENCE[role];
+  const d = w.defence; d.turns = d.turns || {};
+  return (d.turns.gunnery || 0) % 2 ? 'snake' : 'missile';
+}
+export function startDefence(w, role, reason = 'timer', kind = null) {
   const d = w.defence;
   if (d.active[role]) return false;
-  d.active[role] = { id: ++d.seq, kind: DEFENCE[role], seed: Math.floor(w.defRng() * 1e9), at: w.t, reason };
-  emit(w, 'defence', { role, kind: DEFENCE[role], reason });
+  const k = kind || defenceKind(w, role);
+  if (role === 'gunnery' && !kind) { d.turns = d.turns || {}; d.turns.gunnery = (d.turns.gunnery || 0) + 1; }
+  d.active[role] = { id: ++d.seq, kind: k, seed: Math.floor(w.defRng() * 1e9), at: w.t, reason };
+  emit(w, 'defence', { role, kind: k, reason });
   return true;
 }
 function defenceStep(w) {
@@ -1419,7 +1429,11 @@ export function defenceResult(w, role, id, res = {}) {
   const a = w.defence.active[role];
   if (!a || a.id !== id) return false;
   delete w.defence.active[role];
-  if (role === 'gunnery') {
+  if (role === 'gunnery' && a.kind === 'snake') {
+    // Gunnery splicing the cable: the same stakes as for Signals
+    if (res.ok) emit(w, 'defencedone', { role, ok: true, kind: 'snake' });
+    else { const had = !!w.buoy; w.broken.winch = false; breakThing(w, 'winch'); emit(w, 'defencedone', { role, ok: false, kind: 'snake', buoy: had }); }
+  } else if (role === 'gunnery') {
     const hits = (res.hits || []).filter(c => w.cams.some(k => k.id === c && !k.broken));
     for (const c of hits) breakThing(w, c);
     emit(w, 'defencedone', { role, ok: !hits.length, n: hits.length });
