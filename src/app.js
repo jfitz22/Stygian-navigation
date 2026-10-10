@@ -1,4 +1,6 @@
 import {art,sprite,artOn} from './art-assets.js';
+import { depthArt, drawDepth } from './depthart.js';
+depthArt();
 import {
   createWorld, newSeed, step, light, stoke, slotsAvailable, setPower, isUp, selectCam, deployBuoy, ping, lockContact, lockFromCamera,
   ghostAt, lockedBerg, alignment, pressKey, setFreq, setGain, setMusic, radioSignal, fireBeacon, readingDisplay,
@@ -538,6 +540,10 @@ function drawCamera() {
     const b = it.o, width = Math.min(520 * Z, b.length * 4200 * Z / d), hScale = Math.min(160 * Z, b.large ? width * 0.22 : width * 0.55);
     const x0 = sx - width / 2;
     if (world.reveal && world.reveal.bergId === b.id) drawReveal(ctx, sx, base, width, t - world.reveal.t);
+    // a disguised warship: the painted iron hull in its ice (the drawn ice and features until it has loaded)
+    const iron = b.look === 'warship' && artOn() && depthArt().warship;
+    if (iron) { ctx.save(); ctx.globalAlpha = 1 - fog * 0.9; drawDepth(ctx, 'warship', x0 + width / 2, base + hScale * 0.12, width * 1.1); ctx.restore(); }
+    else {
     ctx.beginPath(); ctx.moveTo(x0, base);
     for (const [u, h] of b.shape) ctx.lineTo(x0 + u * width, base - h * hScale);
     ctx.lineTo(x0 + width, base); ctx.closePath();
@@ -552,6 +558,7 @@ function drawCamera() {
     ctx.strokeStyle = `rgba(240,252,255,${0.7 * (1 - fog)})`; ctx.lineWidth = 1.2;
     ctx.beginPath(); b.shape.forEach(([u, h], k) => { const px = x0 + u * width, py = base - h * hScale; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke(); ctx.lineWidth = 1;
     drawFeature(ctx, b, x0, base, width, hScale, fog, t);
+    }
     ctx.fillStyle = `rgba(200,230,235,${0.08 * (1 - fog)})`; ctx.fillRect(x0, base, width, Math.max(1, hScale * 0.15));
     const top = base - hScale * 1.4 - (b.look === 'horn' || b.look === 'cairn' ? hScale * 1.4 : 0);
     ui.camHits.push({ id: b.id, x0: x0 - 4, x1: x0 + width + 4, y0: top - 6, y1: base + 6 });
